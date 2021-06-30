@@ -1,6 +1,6 @@
 {
   "name": "@all41-dev/iam.api",
-  "version": "1.3.8",
+  "version": "1.3.9",
   "description": "Api serving user management operations and OAuth service",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

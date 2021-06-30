@@ -34,7 +34,7 @@
   },
   "devDependencies": {
     "@all41-dev/iam.model": "^1.2.2",
-    "@all41-dev/server": "^1.8.0",
+    "@all41-dev/server": "^1.12.13",
     "@types/bcrypt": "^3.0.0",
     "@types/bluebird": "^3.5.33",
     "@types/cron": "^1.7.2",

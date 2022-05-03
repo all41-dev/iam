@@ -1,9 +1,9 @@
 import { DbScope } from "../db/db-scope";
 import { Scope } from "@all41-dev/iam.model";
-import { Entity } from "@all41-dev/server";
+import { EntityRequest } from "@all41-dev/server";
 import { FindOptions, DestroyOptions } from "sequelize/types";
 
-export class EntityScope extends Entity<DbScope, Scope> {
+export class EntityScope extends EntityRequest<DbScope, Scope> {
   public constructor() {
     super(DbScope);
   }
@@ -17,7 +17,7 @@ export class EntityScope extends Entity<DbScope, Scope> {
   }
   async clientToDb(clientObj: Scope): Promise<DbScope> {
     const obj = clientObj.uuid ?
-      (await DbScope.findOrBuild({ where: { Id: clientObj.uuid } }))[0] :
+      (await DbScope.findOrBuild({ where: { uuid: clientObj.uuid } }))[0] :
       new DbScope();
     obj.uuid = clientObj.uuid;
     obj.name = clientObj.name;

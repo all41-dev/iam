@@ -1,4 +1,4 @@
-import { Entity } from '@all41-dev/server';
+import { EntityRequest } from '@all41-dev/server';
 import { User } from '@all41-dev/iam.model';
 import { Response } from 'express';
 import { DestroyOptions, FindOptions, Op } from 'sequelize';
@@ -6,7 +6,7 @@ import { DbSetPasswordToken } from '../db/db-set-password-token';
 import { DbRessource } from '../db/db-ressource';
 import { EntitySetPasswordToken } from './entity-set-password-token';
 
-export class EntityUser extends Entity<DbRessource, User> {
+export class EntityUser extends EntityRequest<DbRessource, User> {
   public constructor() {
     super(DbRessource);
   }

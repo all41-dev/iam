@@ -150,8 +150,9 @@ export class UsersController extends ControllerBase {
     try {
       entity.del(req.params.id, 'uuid');
     } catch (e) {
+      const err = e as Error;
       res.statusCode = 400;
-      res.send({ message: e.message });
+      res.send({ message: err.message });
     }
   }
 

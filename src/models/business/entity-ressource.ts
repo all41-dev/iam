@@ -1,9 +1,9 @@
 import { Ressource } from "@all41-dev/iam.model";
-import { Entity } from "@all41-dev/server";
+import { EntityRequest } from "@all41-dev/server";
 import { FindOptions, DestroyOptions, Op } from "sequelize";
 import { DbRessource } from "../db/db-ressource";
 
-export class EntityRessource extends Entity<DbRessource, Ressource> {
+export class EntityRessource extends EntityRequest<DbRessource, Ressource> {
   public constructor() {
     super(DbRessource);
   }
@@ -21,7 +21,7 @@ export class EntityRessource extends Entity<DbRessource, Ressource> {
     if (!(clientObj instanceof Ressource)) clientObj = new Ressource(clientObj);
     
     const obj = clientObj.uuid ?
-      (await DbRessource.findOrBuild({ where: { Id: clientObj.uuid } }))[0] :
+      (await DbRessource.findOrBuild({ where: { uuid: clientObj.uuid } }))[0] :
       new DbRessource();
     obj.uuid = clientObj.uuid;
     obj.name = clientObj.name;

@@ -45,7 +45,7 @@ export class DbRessource extends Model<DbRessource> {
   salt?: string;
 
   @AllowNull
-  @ForeignKey((): typeof Model => DbRessource)
+  @ForeignKey((): typeof DbRessource => DbRessource)
   @Column(DataType.UUID)
   public parentUuid?: string;
 
@@ -59,10 +59,10 @@ export class DbRessource extends Model<DbRessource> {
   @Column(DataType.STRING(2000))
   public groupUuids?: string;
 
-  @HasMany((): typeof Model => DbSetPasswordToken)
+  @HasMany((): typeof DbSetPasswordToken => DbSetPasswordToken)
   public setPasswordTokens?: DbSetPasswordToken[];
 
-  @BelongsTo((): typeof Model => DbRessource)
+  @BelongsTo((): typeof DbRessource => DbRessource)
   public parent?: DbRessource;
 
   // @HasMany((): typeof Model => DbAccessToken, 'IdUser')

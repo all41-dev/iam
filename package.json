@@ -34,7 +34,8 @@
   },
   "devDependencies": {
     "@all41-dev/iam.model": "^1.2.2",
-    "@all41-dev/server": "^1.12.13",
+    "@all41-dev/server": "^2.0.0",
+    "@types/amqplib": "^0.8.2",
     "@types/bcrypt": "^3.0.0",
     "@types/bluebird": "^3.5.33",
     "@types/cron": "^1.7.2",
@@ -57,9 +58,8 @@
     "jsonwebtoken": "^8.5.1",
     "npm-run-all": "^4.1.5",
     "request-promise": "^4.2.6",
-    "sequelize": "6.1.1",
-    "sequelize-typescript": "^2.0.0-beta.0",
-    "typescript": "^4.0.5"
+    "sequelize": "6.17.0",
+    "typescript": "^4.6.2"
   },
   "config": {
     "commitizen": {

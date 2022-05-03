@@ -1,4 +1,4 @@
-import { Entity } from '@all41-dev/server';
+import { EntityRequest } from '@all41-dev/server';
 import { SetPasswordToken } from '@all41-dev/iam.model';
 import * as crypto from 'crypto';
 import { Request } from 'express';
@@ -8,7 +8,7 @@ import * as Sequelize from 'sequelize';
 import { DbSetPasswordToken } from '../db/db-set-password-token';
 import { DbRessource } from '../db/db-ressource';
 
-export class EntitySetPasswordToken extends Entity<DbSetPasswordToken, SetPasswordToken> {
+export class EntitySetPasswordToken extends EntityRequest<DbSetPasswordToken, SetPasswordToken> {
   public tokenDurationSec = 3600 * 24; // 1 day
 
   public constructor() {
@@ -44,7 +44,7 @@ export class EntitySetPasswordToken extends Entity<DbSetPasswordToken, SetPasswo
   // noinspection JSMethodCanBeStatic
   public async clientToDb(clientObj: SetPasswordToken): Promise<DbSetPasswordToken> {
     const obj = clientObj.uuid ?
-      (await DbSetPasswordToken.findOrBuild({ where: { Id: clientObj.uuid } }))[0] :
+      (await DbSetPasswordToken.findOrBuild({ where: { uuid: clientObj.uuid } }))[0] :
       new DbSetPasswordToken();
 
     if (clientObj.uuid !== null) {
@@ -98,7 +98,7 @@ export class EntitySetPasswordToken extends Entity<DbSetPasswordToken, SetPasswo
    * Wording of the email will change whether the token is for a new user or a lost password
    */
   public createSetPasswordToken = (userId: string, message: string): void => {
-    DbSetPasswordToken.findAll({ where: { expires: { [Sequelize.Op.lt]: new Date() } } })
+    DbSetPasswordToken.findAll({ where: { Expires: { [Sequelize.Op.lt]: new Date() } } })
       .then((spts: any) => {
         // delete expired tokens for all users
         for (const spt of spts) {
@@ -110,7 +110,7 @@ export class EntitySetPasswordToken extends Entity<DbSetPasswordToken, SetPasswo
         //    user.setPasswordTokens = [];
         // }
 
-        DbSetPasswordToken.findAll({ where: { idUser: userId } }).then((spt: DbSetPasswordToken[]) => {
+        DbSetPasswordToken.findAll({ where: { IdUser: userId } }).then((spt: DbSetPasswordToken[]) => {
           if (spt !== null && spt !== undefined && spt.length > 0) {
             token = spt[0];
           } else {

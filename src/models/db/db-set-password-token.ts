@@ -10,7 +10,7 @@ export class DbSetPasswordToken extends Model<DbSetPasswordToken> {
   @Column(DataType.UUID)
   public uuid?: string;
 
-  @ForeignKey((): typeof Model => DbRessource)
+  @ForeignKey((): typeof DbRessource => DbRessource)
   @AllowNull
   @Column(DataType.UUID)
   IdUser?: string;
@@ -27,6 +27,6 @@ export class DbSetPasswordToken extends Model<DbSetPasswordToken> {
   @Column(DataType.STRING(200))
   TokenHash!: string;
 
-  @BelongsTo((): typeof Model => DbRessource)
+  @BelongsTo((): typeof DbRessource => DbRessource)
   public User?: DbRessource;
 }

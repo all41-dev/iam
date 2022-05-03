@@ -19,7 +19,7 @@ export class HarpsOAuth2Server {
         const resp = DbAccessToken.findOne({
           include: [DbRessource],
           where: {
-            TokenValue: accessToken,
+            tokenValue: accessToken,
           },
         }).then((inst: DbAccessToken|null) => {
           if (!inst) {
@@ -90,7 +90,7 @@ export class HarpsOAuth2Server {
           //   { model: DbRessource, foreignKey: 'IdUser'},
           // ],
           where: {
-            TokenValue: token.accessToken,
+            tokenValue: token.accessToken,
           },
         }).then(async (inst: DbAccessToken|null) => {
           let t: DbAccessToken;

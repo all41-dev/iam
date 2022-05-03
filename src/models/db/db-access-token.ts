@@ -9,12 +9,12 @@ export class DbAccessToken extends Model<DbAccessToken> {
   @Column(DataType.UUID)
   public uuid?: string;
   
-  @ForeignKey((): typeof Model => DbRessource)
+  @ForeignKey((): typeof DbRessource => DbRessource)
   @AllowNull(false)
   @Column(DataType.UUID)
   idClient!: string;
 
-  @ForeignKey((): typeof Model => DbRessource)
+  @ForeignKey((): typeof DbRessource => DbRessource)
   @AllowNull(false)
   @Column(DataType.UUID)
   idUser!: string;
@@ -31,9 +31,9 @@ export class DbAccessToken extends Model<DbAccessToken> {
   @Column(DataType.DATE)
   expiresAt!: Date;
 
-  @BelongsTo((): typeof Model => DbRessource, 'idClient')
+  @BelongsTo((): typeof DbRessource => DbRessource, 'idClient')
   public client?: DbRessource;
 
-  @BelongsTo((): typeof Model => DbRessource, 'idUser')
+  @BelongsTo((): typeof DbRessource => DbRessource, 'idUser')
   public user?: DbRessource;
 }

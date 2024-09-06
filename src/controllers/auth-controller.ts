@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import passport, { Strategy } from 'passport';
+import passport from 'passport';
 import { AuthManager } from '../auth';
 import querystring from 'querystring';
 
@@ -28,7 +28,7 @@ export class AuthController {
       }, passport.authenticate(strategy, { session: false }));
 
       r.get(`/${strategy}/callback`, (req, res, next) => {
-        const failureRedirect = req.cookies.failureRedirect || AuthManager.getInstance().options.redirectAfterLogout;
+        const failureRedirect = req.cookies.failureRedirect || this._authManager.options.redirectAfterLogout;
         passport.authenticate(strategy, { session: false }, (err : any, user : any, info : any) => {
           if (err) {
             return res.status(401).json({ message: err.message });
@@ -49,7 +49,7 @@ export class AuthController {
     r.get('/logout', (req, res) => {
       res.clearCookie('auth');
       res.clearCookie('refresh');
-      res.redirect(AuthManager.getInstance().options.redirectAfterLogin || '/');
+      res.redirect(this._authManager.options.redirectAfterLogin || '/');
     });
 
     r.post('/refresh', (req, res) => {

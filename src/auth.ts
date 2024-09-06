@@ -28,6 +28,10 @@ export class AuthManager {
     this.authOptions = options;
   }
 
+  public get options() {
+    return this.authOptions;
+  }
+
   public static getInstance(options?: IAuthOptions) {
     if (!AuthManager.instance) {
       if (!options) {
@@ -36,10 +40,6 @@ export class AuthManager {
       AuthManager.instance = new AuthManager(options);
     }
     return AuthManager.instance;
-  }
-
-  public get options() {
-    return this.authOptions;
   }
 
   public init() {

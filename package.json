@@ -1,0 +1,48 @@
+{
+  "name": "iam.api",
+  "version": "2.0.0",
+  "description": "Library serving user identity and access management",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 0",
+    "lint": "eslint src/** --fix",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "preversion": "run-p test lint build",
+    "postversion": "git push && git push --tags && npm publish"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/all41-dev/iam.api.git"
+  },
+  "author": "eric@harps.ch",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/all41-dev/iam.api/issues"
+  },
+  "homepage": "https://github.com/all41-dev/iam.api#readme",
+  "devDependencies": {
+    "@all41-dev/server": "^4.0.0-beta.6",
+    "@types/cors": "^2.8.17",
+    "@types/node": "^22.5.4",
+    "@types/passport": "^1.0.16",
+    "@types/passport-jwt": "^4.0.1",
+    "@typescript-eslint/eslint-plugin": "^5.62.0",
+    "@typescript-eslint/parser": "^5.62.0",
+    "cz-conventional-changelog": "^3.3.0",
+    "eslint": "^8.57.0",
+    "npm-run-all": "^4.1.5",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.0.2"
+  },
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1"
+  }
+}

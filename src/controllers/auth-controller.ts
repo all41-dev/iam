@@ -58,12 +58,12 @@ export class AuthController {
     r.post('/refresh', this._authManager.refreshToken);
 
     r.get('/profile', this._authManager.authMiddleware, (req, res) => {
-        res.json({
-            username: (req.user as any).user.username,
-            email: (req.user as any).user.email,
-            firstName: (req.user as any).user.firstName,
-            lastName: (req.user as any).user.lastName,
-        });
+      res.json({
+        username: (req.user as any).user.username,
+        email: (req.user as any).user.email,
+        firstName: (req.user as any).user.firstName,
+        lastName: (req.user as any).user.lastName,
+      });
     });
 
     return r;

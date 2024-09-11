@@ -2,6 +2,9 @@ import { Router } from 'express';
 import passport from 'passport';
 import { AuthManager } from '../auth';
 import querystring from 'querystring';
+import cookieParser from 'cookie-parser';
+import express from 'express';
+import Cors from 'cors';
 
 export class AuthController {
 
@@ -43,7 +46,7 @@ export class AuthController {
           next();
         }
         )(req, res, next);
-      });
+      }, this._authManager.generateJWT(this._authManager.options.redirectAfterLogin));
     });
 
     r.get('/logout', (req, res) => {
@@ -52,12 +55,15 @@ export class AuthController {
       res.redirect(this._authManager.options.redirectAfterLogin || '/');
     });
 
-    r.post('/refresh', (req, res) => {
-      const refreshToken = req.cookies.refresh;
-      if (refreshToken) {
-        res.cookie('refresh', refreshToken, { maxAge: 0 });
-      }
-      res.status(200).send();
+    r.post('/refresh', this._authManager.refreshToken);
+
+    r.get('/profile', this._authManager.authMiddleware, (req, res) => {
+        res.json({
+            username: (req.user as any).user.username,
+            email: (req.user as any).user.email,
+            firstName: (req.user as any).user.firstName,
+            lastName: (req.user as any).user.lastName,
+        });
     });
 
     return r;

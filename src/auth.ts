@@ -6,6 +6,7 @@ import express from 'express';
 import { Strategy as JWTStrategy } from 'passport-jwt';
 import Cors from 'cors';
 import { AuthController } from './controllers/auth-controller';
+import cookieParser from 'cookie-parser';
 
 export interface IAuthOptions {
   trustProxy?: boolean;
@@ -18,6 +19,7 @@ export interface IAuthOptions {
   saveRefreshToken: (userId: string) => Promise<string>;
   generateAccessToken: (refreshToken: string) => Promise<{user: any, token: string} | undefined>;
   revokeRefreshToken: (refreshToken: string) => Promise<void>;
+  refreshToken?: (req: Request, res: Response) => Promise<{ user: any; token: string; } | undefined>;
 }
 
 export class AuthManager {
@@ -44,6 +46,7 @@ export class AuthManager {
 
   public init() {
     const router = Router();
+    router.use(cookieParser());
 
     router.use(express.json());
 
@@ -67,14 +70,16 @@ export class AuthManager {
 
     const strategyNames = Object.keys(this.authOptions.strategies);
 
+    this.refreshToken = this.authOptions.refreshToken || this.refreshToken;
+
     return new AuthController().create(strategyNames, router);
   }
 
-  public authMiddleware(req: Request, res: Response, next: any) {
+  public authMiddleware = (req: Request, res: Response, next: any) => {
     if (req.headers.authorization) {
-      const token = req.headers.authorization.split(' ')[1];
-      if (token.length === 2 && token[0] === 'Bearer') {
-        const apiKey = token[1];
+      const bearer = req.headers.authorization.split(' ');
+      if (bearer.length === 2 && bearer[0] === 'Bearer') {
+        const apiKey = bearer[1];
         if (apiKey === this.authOptions.masterApiKey) {
           return next();
         }
@@ -94,7 +99,7 @@ export class AuthManager {
     })(req, res, next);
   }
 
-  public async refreshToken(req: Request, res: Response) {
+  public refreshToken = async (req: Request, res: Response) => {
     let refreshToken = req.cookies.refresh;
     let refreshTokenCookie = true;
     if (!refreshToken) {

@@ -15,9 +15,10 @@ export class AuthController {
     const r = router || Router();
 
     strategies.forEach((strategy) => {
-      r.get(`/${strategy}`, (req, res, next) => {
+      r.get(`/${strategy}`, async (req, res, next) => {
         const redirectUri = req.query.redirectUrl;
         const failureRedirect = req.query.failureRedirect;
+        if (this._authManager.options.additionalParams) await this._authManager.options.additionalParams(req,res);
         if (redirectUri) {
           res.cookie('redirect', redirectUri, { maxAge: 5 * 60 * 1000 });
         }

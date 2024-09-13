@@ -16,10 +16,12 @@ export interface IAuthOptions {
   privateKey?: string;
   publicKey: string;
   masterApiKey: string;
-  saveRefreshToken: (userId: string) => Promise<string>;
+  saveRefreshToken: (userId: string, refreshExpiry?: number) => Promise<string>;
   generateAccessToken: (refreshToken: string) => Promise<{user: any, token: string} | undefined>;
   revokeRefreshToken: (refreshToken: string) => Promise<void>;
   refreshToken?: (req: Request, res: Response) => Promise<{ user: any; token: string; } | undefined>;
+  getRefreshExpiry?: (req: Request, res: Response) => number;
+  additionalParams?: (req: Request, res: Response) => Promise<void>;
 }
 
 export class AuthManager {
@@ -134,8 +136,9 @@ export class AuthManager {
       if (!req.user) {
         throw new Error('No user found in request');
       }
-      const accessToken = jwt.sign({ user: req.user }, this.options.privateKey, { algorithm: 'RS256', expiresIn: '1m', issuer: process.env.AUTH_ISSUER || 'all41', audience: process.env.AUTH_AUDIENCE || 'all41', subject: (req.user as any).uuid });
-      const refreshToken = await this.options.saveRefreshToken((req.user as { uuid: string }).uuid);
+      const refreshExpiry = this.options.getRefreshExpiry ? this.options.getRefreshExpiry(req, res) : 24 * 60 * 60 * 1000;
+      const accessToken = jwt.sign({ user: req.user }, this.options.privateKey, { algorithm: 'RS256', expiresIn: '5m', issuer: process.env.AUTH_ISSUER || 'all41', audience: process.env.AUTH_AUDIENCE || 'all41', subject: (req.user as any).uuid });
+      const refreshToken = await this.options.saveRefreshToken((req.user as { uuid: string }).uuid, refreshExpiry);
       let redirectAfter = redirectUri || '/';
       if (req.cookies['redirect']) {
         redirectAfter = req.cookies['redirect'];
@@ -144,7 +147,7 @@ export class AuthManager {
         redirectAfter += '?' + querystring.stringify({ accessToken, refreshToken });
       } else {
         res.cookie('auth', accessToken, { maxAge: 5 * 60 * 1000 });
-        res.cookie('refresh', refreshToken, { maxAge: 24 * 60 * 60 * 1000 });
+        res.cookie('refresh', refreshToken, { maxAge: refreshExpiry });
       }
       res.redirect(redirectAfter || '/');
     };

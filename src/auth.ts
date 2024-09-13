@@ -20,7 +20,7 @@ export interface IAuthOptions {
   generateAccessToken: (refreshToken: string) => Promise<{user: any, token: string} | undefined>;
   revokeRefreshToken: (refreshToken: string) => Promise<void>;
   refreshToken?: (req: Request, res: Response) => Promise<{ user: any; token: string; } | undefined>;
-  getRefreshExpiry?: (req: Request, res: Response) => number;
+  getRefreshExpiry?: (req: Request, res: Response) => Promise<number>;
   additionalParams?: (req: Request, res: Response) => Promise<void>;
 }
 
@@ -136,7 +136,7 @@ export class AuthManager {
       if (!req.user) {
         throw new Error('No user found in request');
       }
-      const refreshExpiry = this.options.getRefreshExpiry ? this.options.getRefreshExpiry(req, res) : 24 * 60 * 60 * 1000;
+      const refreshExpiry = this.options.getRefreshExpiry ? await this.options.getRefreshExpiry(req, res) : 24 * 60 * 60 * 1000;
       const accessToken = jwt.sign({ user: req.user }, this.options.privateKey, { algorithm: 'RS256', expiresIn: '5m', issuer: process.env.AUTH_ISSUER || 'all41', audience: process.env.AUTH_AUDIENCE || 'all41', subject: (req.user as any).uuid });
       const refreshToken = await this.options.saveRefreshToken((req.user as { uuid: string }).uuid, refreshExpiry);
       let redirectAfter = redirectUri || '/';

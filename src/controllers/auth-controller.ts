@@ -2,9 +2,6 @@ import { Router } from 'express';
 import passport from 'passport';
 import { AuthManager } from '../auth';
 import querystring from 'querystring';
-import cookieParser from 'cookie-parser';
-import express from 'express';
-import Cors from 'cors';
 
 export class AuthController {
 

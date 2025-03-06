@@ -25,7 +25,7 @@ export async function checkUser(
     } else if (!user.allowed) {
       return { user: false, error: 'denied' };
     } else {
-      const permissions = await checkUserPermissions(email);
+      const permissions = await checkUserPermissions(user.uuid);
       return {
         user: {
           ...user.toJSON(),

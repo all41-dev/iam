@@ -43,20 +43,19 @@ export async function checkPermissions(
 
 
 
-export async function checkUserPermissions(email: string): Promise<{
+export async function checkUserPermissions(user_uuid: string): Promise<{
   featurePermissions: { [uuid: string]: boolean };
   error?: string;
 }> {
-  const user = await UserTable.findOne({ where: { email: email } });
 
-  if (!user) {
+  if (!user_uuid) {
     return { featurePermissions: {}, error: "User not found" };
   }
 
   const groups = await UserGroupTable.findAll({
     include: {
       model: UserGroupMemberTable,
-      where: { user_uuid: user.uuid },
+      where: { user_uuid: user_uuid },
     },
   });
 

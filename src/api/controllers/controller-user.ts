@@ -1,24 +1,26 @@
-import { ControllerRepositoryReadWrite, Server } from "@all41-dev/server";
-import { RepositoryUser } from "../repositories/repository-user";
 import { Router, Request, Response } from "express";
+import { ControllerRepositoryReadWrite, Server } from "@all41-dev/server";
+import { UserRepository } from "../../repositories/user-repository";
 
-export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser> {
-  private repositoryUser: RepositoryUser;
+export class ControllerUser extends ControllerRepositoryReadWrite<UserRepository> {
+  private userRepository: UserRepository;
 
-  constructor() {
+  public constructor() {
     super();
-    this.repositoryUser = new RepositoryUser();
+
+    this.userRepository = new UserRepository();
   }
 
   public static create(): Router {
-    return new ControllerUser().create(RepositoryUser);
+    return new ControllerUser().create(UserRepository);
   }
+
 
   public async setUserGroup(req: Request, res: Response) {
     const userId = req.params.id;
     const groupId = req.body.groupUuid;
     try {
-      await this.repositoryUser.addGroup(userId, groupId);
+      await this.userRepository.addGroup(userId, groupId);
       res.status(200).json({});
     } catch (error) {
       Server.logger.error(error);
@@ -30,12 +32,12 @@ export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser
     const userId = req.params.id;
     const groupId = req.body.groupUuid;
     try {
-      await this.repositoryUser.removeGroup(userId, groupId); 
+      await this.userRepository.removeGroup(userId, groupId);
       res.status(200).json({});
     } catch (error) {
       Server.logger.error(error);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
-    
+
 }

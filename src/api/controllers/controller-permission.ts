@@ -1,5 +1,5 @@
 import { ControllerRepositoryReadWrite } from "@all41-dev/server";
-import { RepositoryPermission } from "../repositories/repository-permission";
+import { RepositoryPermission } from "../../repositories/permission-repository";
 import { Router } from "express";
 
 export class ControllerPermission extends ControllerRepositoryReadWrite<RepositoryPermission> {

@@ -3,9 +3,9 @@ import { IServerOptions } from "@all41-dev/server";
 import { IamDb } from "./db/IamDb";
 import path from "path";
 import { TestServer } from "./test-server";
-import { IamApi } from "./iam-api";
+import { IamApi } from "./api/iam-api";
 
-const dbOptions : IDbOptions<any> = {
+const dbOptions: IDbOptions<any> = {
   engine: 'mariadb',
   username: process.env.DB_USERNAME || 'root',
   hostname: process.env.DB_HOST,
@@ -21,7 +21,7 @@ const dbOptions : IDbOptions<any> = {
   }
 };
 
-const options : IServerOptions = {
+const options: IServerOptions = {
   dbs: [dbOptions],
   httpPort: process.env.PORT ? parseInt(process.env.PORT) : 7000,
   apis: {

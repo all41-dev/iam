@@ -12,7 +12,11 @@ create table scope
 create table user
 (
     uuid  char(36)     not null default uuid(),
+    username varchar(100) not null,
     email varchar(100) not null,
+    firstName varchar(50),
+    lastName varchar(50),
+    provider varchar(50) default 'local',
     constraint user_pk
         primary key (uuid)
 );
@@ -78,7 +82,7 @@ create table permission
 (
     uuid  char(36)     not null default uuid(),
     is_deny boolean not null,
-    feature_scope_uuid char(36) not null,
+    feature_scope_uuid char(36) null,
     group_uuid char(36) not null,
     feature_uuid char(36) not null,
     createdAt timestamp not null default current_timestamp,

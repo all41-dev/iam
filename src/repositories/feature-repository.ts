@@ -1,10 +1,10 @@
 import { RepositorySequelize } from "@all41-dev/server";
-import { Feature } from "../db/models/feature";
-import { FeatureComposition } from "../db/models/feature_composition";
+import { FeatureTable } from "../db/feature-table";
+import { FeatureCompositionTable } from "../db/feature-composition-table";
 
-export class RepositoryFeature extends RepositorySequelize<Feature> {
+export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
   constructor(options?: { dbName?: string }) {
-    super(Feature, options?.dbName);
+    super(FeatureTable, options?.dbName);
   }
 
   public async init() {
@@ -14,7 +14,7 @@ export class RepositoryFeature extends RepositorySequelize<Feature> {
   public async setParentChild(parentId: string, childId: string) {
     const parent = await this.getByKey(parentId);
     const child = await this.getByKey(childId);
-    await FeatureComposition.create({
+    await FeatureCompositionTable.create({
       parent_uuid: parent.uuid,
       child_uuid: child.uuid
     });
@@ -23,7 +23,7 @@ export class RepositoryFeature extends RepositorySequelize<Feature> {
   public async removeParentChild(parentId: string, childId: string) {
     const parent = await this.getByKey(parentId);
     const child = await this.getByKey(childId);
-    await FeatureComposition.destroy({
+    await FeatureCompositionTable.destroy({
       where: {
         parent_uuid: parent.uuid,
         child_uuid: child.uuid

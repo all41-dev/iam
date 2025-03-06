@@ -1,5 +1,5 @@
 import { ControllerRepositoryReadWrite, Server } from "@all41-dev/server";
-import { RepositoryUserGroup } from "../repositories/repository-user-group";
+import { RepositoryUserGroup } from "../../repositories/user-group-repository";
 import { Router, Request, Response } from "express";
 
 export class ControllerUserGroup extends ControllerRepositoryReadWrite<RepositoryUserGroup> {

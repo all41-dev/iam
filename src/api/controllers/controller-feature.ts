@@ -1,5 +1,5 @@
 import { ControllerRepositoryReadWrite, Server } from "@all41-dev/server";
-import { RepositoryFeature } from "../repositories/repository-feature";
+import { RepositoryFeature } from "../../repositories/feature-repository";
 import { Router, Request, Response } from "express";
 
 export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryFeature> {

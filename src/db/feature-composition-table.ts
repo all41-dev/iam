@@ -1,8 +1,8 @@
 import { AllowNull, BelongsTo, Column, DataType, Default, Model, PrimaryKey, Table } from "sequelize-typescript";
-import { Feature } from "./feature";
+import { FeatureTable } from "./feature-table";
 
 @Table({tableName: "feature_composition", timestamps: false})
-export class FeatureComposition extends Model {
+export class FeatureCompositionTable extends Model {
   
   @PrimaryKey
   @Default(DataType.UUIDV4)
@@ -13,16 +13,16 @@ export class FeatureComposition extends Model {
   @Column(DataType.UUID)
   declare child_uuid: string;
 
-  @AllowNull(false)
+  @AllowNull(true)
   @Column(DataType.UUID)
   declare parent_uuid: string;
 
-  @BelongsTo(() => Feature, 'child_uuid')
-  declare child?: Feature;
+  @BelongsTo(() => FeatureTable, 'child_uuid')
+  declare child?: FeatureTable;
 
-  @BelongsTo(() => Feature, 'parent_uuid')
-  declare parent?: Feature;
+  @BelongsTo(() => FeatureTable, 'parent_uuid')
+  declare parent?: FeatureTable;
 
-  public get pkName() { return 'uuid' as keyof FeatureComposition; }
+  public get pkName() { return 'uuid' as keyof FeatureCompositionTable; }
 
 }

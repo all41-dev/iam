@@ -24,8 +24,3 @@ export * from './models/user-group';
 export * from './models/scope';
 export * from './models/feature';
 export * from './models/permission';
-export * from './repositories/user-repository';
-export * from './repositories/user-group-repository';
-export * from './repositories/scope-repository';
-export * from './repositories/feature-repository';
-export * from './repositories/permission-repository';

@@ -1,5 +1,4 @@
 import { Api } from "@all41-dev/server";
-import { ControllerUser } from "./controllers/controller-user";
 import { ControllerUserGroup } from "./controllers/controller-user-group";
 import { ControllerScope } from "./controllers/controller-scope";
 import { ControllerFeature } from "./controllers/controller-feature";
@@ -14,7 +13,6 @@ export class IamApi extends Api<IamApi> {
   }
 
   public init(): Router {
-    this.router.use("/users", ControllerUser.create());
     this.router.use("/groups", ControllerUserGroup.create());
     this.router.use("/scopes", ControllerScope.create());
     this.router.use("/features", ControllerFeature.create());

@@ -1,18 +1,18 @@
 import { Router, Request, Response } from "express";
 import { ControllerRepositoryReadWrite, Server } from "@all41-dev/server";
-import { UserRepository } from "../../repositories/user-repository";
+import { AuthUserRepository } from "../../repositories/auth-user-repository";
 
-export class ControllerUser extends ControllerRepositoryReadWrite<UserRepository> {
-  private userRepository: UserRepository;
+export class ControllerAuthUser extends ControllerRepositoryReadWrite<AuthUserRepository> {
+  private userRepository: AuthUserRepository;
 
   public constructor() {
     super();
 
-    this.userRepository = new UserRepository();
+    this.userRepository = new AuthUserRepository();
   }
 
   public static create(): Router {
-    return new ControllerUser().create(UserRepository);
+    return new ControllerAuthUser().create(AuthUserRepository);
   }
 
 

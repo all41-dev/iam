@@ -5,7 +5,7 @@ import { UserGroupMemberTable } from "../db/user-group-member-table";
 
 
 
-export class UserRepository extends RepositorySequelize<AuthUserTable> {
+export class AuthUserRepository extends RepositorySequelize<AuthUserTable> {
   constructor(options?: { dbName: string }) {
     super(AuthUserTable, options?.dbName);
   }

@@ -17,7 +17,7 @@ export class PermissionTable extends Model {
 
   @AllowNull(true)
   @Column(DataType.UUID)
-  declare feature_scope_uuid: string;
+  declare feature_scope_uuid?: string;
 
   @AllowNull(false)
   @Column(DataType.UUID)

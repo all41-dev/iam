@@ -2,9 +2,9 @@ import { AllowNull, BelongsTo, Column, DataType, Default, HasMany, Model, Primar
 import { UserGroupTable } from "./user-group-table";
 import { FeatureTable } from "./feature-table";
 
-@Table({tableName: "scope", timestamps: false})
+@Table({ tableName: "scope", timestamps: false })
 export class ScopeTable extends Model {
-  
+
   @PrimaryKey
   @Default(DataType.UUIDV4)
   @Column(DataType.UUID)
@@ -16,13 +16,13 @@ export class ScopeTable extends Model {
 
   @AllowNull(true)
   @Column(DataType.UUID)
-  declare parent_uuid: string;
+  declare parent_uuid?: string;
 
   @BelongsTo(() => ScopeTable, 'parent_uuid')
-  declare parent: ScopeTable;
+  declare parent?: ScopeTable;
 
   @HasMany(() => ScopeTable, 'parent_uuid')
-  declare children: ScopeTable[];
+  declare children?: ScopeTable[];
 
   @HasMany(() => UserGroupTable, 'scope_uuid')
   declare user_groups: UserGroupTable[];

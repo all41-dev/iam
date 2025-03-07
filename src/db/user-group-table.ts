@@ -4,9 +4,9 @@ import { PermissionTable } from "./permission-table";
 import { UserTable } from "./users-table";
 import { UserGroupMemberTable } from "./user-group-member-table";
 
-@Table({tableName: "user_group"})
+@Table({ tableName: "user_group" })
 export class UserGroupTable extends Model {
- 
+
   @PrimaryKey
   @Default(DataType.UUIDV4)
   @Column(DataType.UUID)
@@ -25,7 +25,7 @@ export class UserGroupTable extends Model {
 
   @AllowNull(true)
   @Column(DataType.STRING(100))
-  declare scope_element_uuid: string;
+  declare scope_element_uuid?: string;
 
   @HasMany(() => PermissionTable, 'group_uuid')
   declare permissions: PermissionTable[];

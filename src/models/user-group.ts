@@ -1,9 +1,17 @@
 import { Base } from "@harps-ch/spider.models";
 import UUID from "pure-uuid";
+import { PermissionTable } from "../db/permission-table";
+import { UserTable } from "../db/users-table";
 
 export class UserGroup extends Base<UserGroup> {
-  public uuid!: UUID;
+  public uuid!: UUID | string;
   public name!: string;
-  public scope_uuid!: string;
-  public scope_element_uuid?: string;
+  public scopeUuid!: string;
+  public scopeElementUuid?: string;
+  public permissions!: PermissionTable[];
+  public users!: UserTable[];
+
+  constructor(initialValues: Partial<UserGroup>) {
+    super(initialValues);
+  }
 }

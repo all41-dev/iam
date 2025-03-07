@@ -1,4 +1,4 @@
-import { UserTable } from "../db/users-table";
+import { AuthUserTable } from "../db/auth-user-table";
 import { UserGroupMemberTable } from "../db/user-group-member-table";
 import { PermissionTable } from "../db/permission-table";
 import { FeatureTable } from "../db/feature-table";
@@ -8,7 +8,7 @@ export async function checkPermissions(
   feature_uuid: string
 ): Promise<{ isDeny: boolean; error?: string }> {
   try {
-    const user = await UserTable.findOne({ where: { email } });
+    const user = await AuthUserTable.findOne({ where: { email } });
     if (!user) {
       return { isDeny: true, error: "User not found" };
     }

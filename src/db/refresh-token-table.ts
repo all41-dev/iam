@@ -9,7 +9,7 @@ import {
   ForeignKey,
   BelongsTo,
 } from "sequelize-typescript";
-import { UserTable } from "./users-table";
+import { AuthUserTable } from "./auth-user-table";
 
 @Table({
   modelName: "refreshToken",
@@ -24,11 +24,11 @@ export class RefreshTokenTable extends Model {
 
   @AllowNull(false)
   @Column(DataType.STRING)
-  @ForeignKey(() => UserTable)
+  @ForeignKey(() => AuthUserTable)
   declare userUuid: string;
 
-  @BelongsTo(() => UserTable)
-  declare user: UserTable;
+  @BelongsTo(() => AuthUserTable)
+  declare user: AuthUserTable;
 
   @Column(DataType.STRING)
   declare token: string;

@@ -1,7 +1,7 @@
 import { RepositorySequelize } from "@all41-dev/server";
 import { UserGroupTable } from "../db/user-group-table";
 import { UserGroupMemberTable } from "../db/user-group-member-table";
-import { UserTable } from "../db/users-table";
+import { AuthUserTable } from "../db/auth-user-table";
 
 export class RepositoryUserGroup extends RepositorySequelize<UserGroupTable> {
   constructor(options?: { dbName?: string }) {
@@ -13,7 +13,7 @@ export class RepositoryUserGroup extends RepositorySequelize<UserGroupTable> {
   }
 
   public async addUser(userId: string, groupId: string) {
-    const user = await UserTable.findOne({ where: { id: userId } });
+    const user = await AuthUserTable.findOne({ where: { id: userId } });
     const group = await this.getByKey(groupId);
     if (!user) {
       throw new Error(`User with id ${userId} not found`);
@@ -25,7 +25,7 @@ export class RepositoryUserGroup extends RepositorySequelize<UserGroupTable> {
   }
 
   public async removeUser(userId: string, groupId: string) {
-    const user = await UserTable.findOne({ where: { id: userId } });
+    const user = await AuthUserTable.findOne({ where: { id: userId } });
     const group = await this.getByKey(groupId);
     if (!user) {
       throw new Error(`User with id ${userId} not found`);

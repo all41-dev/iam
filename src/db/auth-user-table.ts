@@ -8,8 +8,8 @@ import {
   AllowNull
 } from 'sequelize-typescript';
 
-@Table({tableName: 'user', timestamps: false})
-export class UserTable extends Model {
+@Table({ tableName: 'user', timestamps: false })
+export class AuthUserTable extends Model {
   @PrimaryKey
   @Default(DataType.UUIDV4)
   @Column(DataType.UUID)
@@ -33,11 +33,6 @@ export class UserTable extends Model {
   @Column(DataType.STRING(50))
   declare provider: string;
 
-  @Default(false)
-  @AllowNull(false)
-  @Column(DataType.BOOLEAN)
-  declare allowed: boolean;
-
-  public get pkName() { return 'uuid' as keyof UserTable; }
+  public get pkName() { return 'uuid' as keyof AuthUserTable; }
 
 }

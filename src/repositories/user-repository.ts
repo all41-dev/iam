@@ -1,36 +1,17 @@
 import { RepositorySequelize } from '@all41-dev/server';
-import { UserTable } from '../db/users-table';
+import { AuthUserTable } from '../db/auth-user-table';
 import { UserGroupTable } from "../db/user-group-table";
 import { UserGroupMemberTable } from "../db/user-group-member-table";
 
 
 
-export class UserRepository extends RepositorySequelize<UserTable> {
+export class UserRepository extends RepositorySequelize<AuthUserTable> {
   constructor(options?: { dbName: string }) {
-    super(UserTable, options?.dbName);
+    super(AuthUserTable, options?.dbName);
   }
 
   public async init() {
     return this;
-  }
-
-  //TODO: remove the allowUser and denyUser methods
-  public async allowUser(userId: string) {
-    const user = await this.getByKey(userId);
-    if (!user) {
-      throw new Error('User not found');
-    }
-    const result = await user.set('allowed', true).save();
-    return result;
-  }
-
-  public async denyUser(userId: string) {
-    const user = await this.getByKey(userId);
-    if (!user) {
-      throw new Error('User not found');
-    }
-    const result = await user.set('allowed', false).save();
-    return result;
   }
 
   public async addGroup(userId: string, groupId: string) {

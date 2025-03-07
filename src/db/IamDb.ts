@@ -5,7 +5,7 @@ import { PermissionTable } from "./permission-table";
 import { ScopeTable } from "./scope-table";
 import { UserGroupMemberTable } from "./user-group-member-table";
 import { UserGroupTable } from "./user-group-table";
-import { UserTable } from "./users-table";
+import { AuthUserTable } from "./auth-user-table";
 import { RefreshExpiryTable } from "./refresh-expiry-table";
 import { RefreshTokenTable } from "./refresh-token-table";
 
@@ -20,7 +20,7 @@ export class IamDb extends Db<IamDb> {
       ScopeTable,
       UserGroupMemberTable,
       UserGroupTable,
-      UserTable,
+      AuthUserTable,
       RefreshExpiryTable,
       RefreshTokenTable
     ]);

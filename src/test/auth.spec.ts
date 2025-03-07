@@ -1,10 +1,8 @@
 import { expect } from 'chai';
-import sinon, { SinonSandbox, SinonStub } from 'sinon';
-import { handleUserProfile } from '../utils/auth-process';
+import sinon, { SinonSandbox } from 'sinon';
 import * as CheckUserModule from '../utils/check-user';
-import { UserTable } from '../db/users-table';
+import { AuthUserTable } from '../db/auth-user-table';
 import * as CheckPermissionsModule from '../utils/check-permissions';
-
 
 describe('Auth Process', () => {
   let sandbox: SinonSandbox;
@@ -17,65 +15,6 @@ describe('Auth Process', () => {
     sandbox.restore();
   });
 
-  describe('handleUserProfile', () => {
-    it('should handle user profile and return user data', async () => {
-      const profile = {
-        emails: [{ value: 'test@example.com' }],
-        displayName: 'Test User',
-        name: { givenName: 'Test', familyName: 'User' },
-      };
-      const provider = 'google';
-
-      const checkUserStub: SinonStub = sandbox
-        .stub(CheckUserModule, 'checkUser')
-        .callsFake(() =>
-          Promise.resolve({
-            user: {
-              email: 'test@example.com',
-              displayName: 'Test User',
-              firstName: 'Test',
-              lastName: 'User',
-              provider: 'google'
-            },
-          })
-        );
-
-      const result = await handleUserProfile(profile, provider);
-
-      expect(checkUserStub.calledOnce).to.be.true;
-      expect(result).to.deep.equal({
-        user: {
-          email: 'test@example.com',
-          displayName: 'Test User',
-          firstName: 'Test',
-          lastName: 'User',
-          provider: 'google'
-        },
-        error: undefined
-      });
-    });
-
-    it('should handle user profile and return error if checkUser fails', async () => {
-      const profile = {
-        emails: [{ value: 'test@example.com' }],
-        displayName: 'Test User',
-        name: { givenName: 'Test', familyName: 'User' },
-      };
-      const provider = 'google';
-
-      const checkUserStub: SinonStub = sandbox
-        .stub(CheckUserModule, 'checkUser')
-        .callsFake(() => Promise.reject(new Error('Failed to check user')));
-
-      try {
-        await handleUserProfile(profile, provider);
-      } catch (e: any) {
-        expect(checkUserStub.calledOnce).to.be.true;
-        expect(e.message).to.equal('Failed to check user');
-      }
-    });
-  });
-
   describe('checkUser', () => {
     it('should return user data if user exists and is allowed', async () => {
       const email = 'test@example.com';
@@ -83,47 +22,49 @@ describe('Auth Process', () => {
       const firstName = 'Test';
       const lastName = 'User';
       const provider = 'google';
-
-      const user: Partial<UserTable> = {
-        email,
-        provider,
-        allowed: true,
-        toJSON: () => ({ email, provider })
+      const profile = {
+        emails: [{ value: email }],
+        displayName,
+        name: { givenName: firstName, familyName: lastName }
       };
 
-      const userTableStub = sandbox.stub(UserTable, 'findOne').resolves(user as UserTable);
+      const user = {
+        email,
+        provider,
+        dataValues: { email, provider },
+        uuid: 'uuid-test'
+      };
+
+      const userTableStub = sandbox.stub(AuthUserTable, 'findOne').resolves(user as AuthUserTable);
       const checkUserPermissionsStub = sandbox
         .stub(CheckPermissionsModule, 'checkUserPermissions')
         .resolves({ featurePermissions: { read: true, write: true } });
 
-      const result = await CheckUserModule.checkUser(email, displayName, firstName, lastName, provider);
+      const result = await CheckUserModule.checkUser(profile, provider);
 
       expect(userTableStub.calledOnce).to.be.true;
       expect(checkUserPermissionsStub.calledOnce).to.be.true;
       expect(result).to.deep.equal({
         user: {
-          email,
-          provider,
-          permissions: { read: true, write: true },
-        },
+          ...user.dataValues,
+          permissions: { read: true, write: true }
+        }
       });
     });
 
     it('should create a new user if user does not exist', async () => {
       const email = 'newuser@example.com';
       const displayName = 'New User';
-      const firstName = 'New';
-      const lastName = 'User';
       const provider = 'google';
+      const profile = {
+        emails: [{ value: email }],
+        displayName,
+      };
 
-      const userTableFindStub = sandbox.stub(UserTable, 'findOne').callsFake(() =>
-        Promise.resolve(null)
-      );
-      const userTableCreateStub = sandbox.stub(UserTable, 'create').callsFake(() =>
-        Promise.resolve({} as UserTable)
-      );
+      const userTableFindStub = sandbox.stub(AuthUserTable, 'findOne').resolves(null);
+      const userTableCreateStub = sandbox.stub(AuthUserTable, 'create').resolves({} as AuthUserTable);
 
-      const result = await CheckUserModule.checkUser(email, displayName, firstName, lastName, provider);
+      const result = await CheckUserModule.checkUser(profile, provider);
 
       expect(userTableFindStub.calledOnce).to.be.true;
       expect(userTableCreateStub.calledOnce).to.be.true;
@@ -136,69 +77,52 @@ describe('Auth Process', () => {
       const firstName = 'Test';
       const lastName = 'User';
       const provider = 'google';
+      const profile = {
+        emails: [{ value: email }],
+        displayName,
+        name: { givenName: firstName, familyName: lastName }
+      };
 
       const user = {
         email,
-        provider: 'facebook',
-        allowed: true
-      } as UserTable;
+        provider: 'facebook', // mismatched provider
+        dataValues: { email, provider: 'facebook' },
+        uuid: 'uuid-test'
+      };
 
-      const userTableStub = sandbox.stub(UserTable, 'findOne').callsFake(() =>
-        Promise.resolve(user)
-      );
+      const userTableStub = sandbox.stub(AuthUserTable, 'findOne').resolves(user as AuthUserTable);
 
-      const result = await CheckUserModule.checkUser(email, displayName, firstName, lastName, provider);
-
+      const result = await CheckUserModule.checkUser(profile, provider);
       expect(userTableStub.calledOnce).to.be.true;
       expect(result).to.deep.equal({ user: false, error: 'provider' });
     });
 
-    it('should return error if user is not allowed', async () => {
+    it('should throw an error if checkUserPermissions fails', async () => {
       const email = 'test@example.com';
       const displayName = 'Test User';
       const firstName = 'Test';
       const lastName = 'User';
       const provider = 'google';
+      const profile = {
+        emails: [{ value: email }],
+        displayName,
+        name: { givenName: firstName, familyName: lastName }
+      };
 
       const user = {
         email,
         provider,
-        allowed: false
-      } as UserTable;
-
-      const userTableStub = sandbox.stub(UserTable, 'findOne').callsFake(() =>
-        Promise.resolve(user)
-      );
-
-      const result = await CheckUserModule.checkUser(email, displayName, firstName, lastName, provider);
-
-      expect(userTableStub.calledOnce).to.be.true;
-      expect(result).to.deep.equal({ user: false, error: 'denied' });
-    });
-
-    it('should return error if checkUserPermissions fails', async () => {
-      const email = 'test@example.com';
-      const displayName = 'Test User';
-      const firstName = 'Test';
-      const lastName = 'User';
-      const provider = 'google';
-
-      const user: Partial<UserTable> = {
-        email,
-        provider,
-        allowed: true,
-        toJSON: () => ({ email, provider })
+        dataValues: { email, provider },
+        uuid: 'uuid-test'
       };
 
-      const userTableStub = sandbox.stub(UserTable, 'findOne').callsFake(() =>
-        Promise.resolve(user as UserTable)
-      );
+      const userTableStub = sandbox.stub(AuthUserTable, 'findOne').resolves(user as AuthUserTable);
       const checkUserPermissionsStub = sandbox
         .stub(CheckPermissionsModule, 'checkUserPermissions')
         .rejects(new Error('Permissions check failed'));
 
       try {
-        await CheckUserModule.checkUser(email, displayName, firstName, lastName, provider);
+        await CheckUserModule.checkUser(profile, provider);
       } catch (e: any) {
         expect(userTableStub.calledOnce).to.be.true;
         expect(checkUserPermissionsStub.calledOnce).to.be.true;
@@ -206,22 +130,21 @@ describe('Auth Process', () => {
       }
     });
 
-    it('should return error if user creation throws an error', async () => {
+    it('should throw an error if user creation throws an error', async () => {
       const email = 'newerror@example.com';
       const displayName = 'Error User';
-      const firstName = 'Error';
-      const lastName = 'User';
       const provider = 'google';
+      const profile = {
+        emails: [{ value: email }],
+        displayName,
+        name: { givenName: 'Error', familyName: 'User' }
+      };
 
-      sandbox.stub(UserTable, 'findOne').callsFake(() =>
-        Promise.resolve(null)
-      );
-      const userTableCreateStub = sandbox.stub(UserTable, 'create').callsFake(() =>
-        Promise.reject(new Error('Creation failed'))
-      );
+      sandbox.stub(AuthUserTable, 'findOne').resolves(null);
+      const userTableCreateStub = sandbox.stub(AuthUserTable, 'create').rejects(new Error('Creation failed'));
 
       try {
-        await CheckUserModule.checkUser(email, displayName, firstName, lastName, provider);
+        await CheckUserModule.checkUser(profile, provider);
       } catch (e: any) {
         expect(userTableCreateStub.calledOnce).to.be.true;
         expect(e.message).to.equal('Creation failed');

@@ -1,13 +1,13 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { Request, Response } from 'express';
-import { UserTable } from '../db/users-table';
+import { AuthUserTable } from '../db/auth-user-table';
 import { RefreshTokenTable } from '../db/refresh-token-table';
 import { RefreshExpiryTable } from '../db/refresh-expiry-table';
 import { SaveRefreshTokenParams, GenerateAccessTokenParams } from '../interfaces';
 
 export const saveRefreshToken = async ({ userId, refreshExpiry, privateKey, authIssuer, authAudience }: SaveRefreshTokenParams) => {
-  const user = await UserTable.findByPk(userId);
+  const user = await AuthUserTable.findByPk(userId);
   if (!user) throw new Error("User not found");
 
   const token = jwt.sign(
@@ -40,8 +40,8 @@ export const generateAccessToken = async ({ refreshToken, privateKey, publicKey,
 
   if (!token) return null;
 
-  const user = await UserTable.findByPk(token.userUuid);
-  if (!user || !user.allowed) return null;
+  const user = await AuthUserTable.findByPk(token.userUuid);
+  if (!user) return null;
 
   const newToken = jwt.sign(
     { user: user.dataValues },

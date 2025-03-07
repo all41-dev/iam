@@ -9,7 +9,7 @@ create table scope
         foreign key (parent_uuid) references scope (uuid)
 );
 
-create table user
+create table auth_user
 (
     uuid  char(36)     not null default uuid(),
     username varchar(100) not null,

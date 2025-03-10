@@ -7,12 +7,7 @@ export class ControllerScope extends ControllerRepositoryReadWrite<RepositorySco
   private repositoryScope: RepositoryScope;
 
   constructor() {
-    if (!ScopeTable.sequelize) {
-      throw new Error("Sequelize not configured");
-    }
-    const sequelizeRepository = (ScopeTable.sequelize as any).getRepository(ScopeTable);
-
-    const repositoryScope = new RepositoryScope(sequelizeRepository);
+    const repositoryScope = new RepositoryScope(ScopeTable);
 
     super();
 

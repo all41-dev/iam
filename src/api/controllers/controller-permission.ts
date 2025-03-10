@@ -8,12 +8,7 @@ export class ControllerPermission extends ControllerRepositoryReadWrite<Reposito
   private repositoryPermission: RepositoryPermission;
 
   constructor() {
-    if (!PermissionTable.sequelize) {
-      throw new Error("Sequelize not configured");
-    }
-    const sequelizeRepository = (PermissionTable.sequelize as any).getRepository(PermissionTable);
-
-    const repositoryPermission = new RepositoryPermission(sequelizeRepository);
+    const repositoryPermission = new RepositoryPermission(PermissionTable);
 
     super();
 

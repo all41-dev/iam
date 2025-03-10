@@ -7,12 +7,7 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
   private repositoryFeature: RepositoryFeature;
 
   constructor() {
-    if (!FeatureTable.sequelize) {
-      throw new Error("Sequelize not configured");
-    }
-    const sequelizeRepository = (FeatureTable.sequelize as any).getRepository(FeatureTable);
-
-    const repositoryFeature = new RepositoryFeature(sequelizeRepository);
+    const repositoryFeature = new RepositoryFeature(FeatureTable);
 
     super();
 

@@ -7,12 +7,7 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
   private repositoryAuthUser: RepositoryAuthUser;
 
   constructor() {
-    if (!AuthUserTable.sequelize) {
-      throw new Error("Sequelize not configured");
-    }
-    const sequelizeRepository = (AuthUserTable.sequelize as any).getRepository(AuthUserTable);
-
-    const repositoryAuthUser = new RepositoryAuthUser(sequelizeRepository);
+    const repositoryAuthUser = new RepositoryAuthUser(AuthUserTable);
 
     super();
 

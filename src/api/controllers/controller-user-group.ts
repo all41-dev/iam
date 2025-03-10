@@ -7,12 +7,7 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
   private repositoryUserGroup: RepositoryUserGroup;
 
   constructor() {
-    if (!UserGroupTable.sequelize) {
-      throw new Error("Sequelize not configured");
-    }
-    const sequelizeRepository = (UserGroupTable.sequelize as any).getRepository(UserGroupTable);
-
-    const repositoryUserGroup = new RepositoryUserGroup(sequelizeRepository);
+    const repositoryUserGroup = new RepositoryUserGroup(UserGroupTable);
 
     super();
 

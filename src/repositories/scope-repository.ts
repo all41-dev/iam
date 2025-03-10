@@ -1,9 +1,10 @@
-import { RepositorySequelize } from "@all41-dev/server";
+import { RepositorySequelize } from "@all41-dev/server.types";
 import { ScopeTable } from "../db/scope-table";
+import { Repository as SequelizeNativeRepository } from "sequelize-typescript";
 
 export class RepositoryScope extends RepositorySequelize<ScopeTable> {
-  constructor(options?: { dbName?: string }) {
-    super(ScopeTable, options?.dbName);
+  constructor(repository: SequelizeNativeRepository<ScopeTable>) {
+    super(ScopeTable, repository);
   }
 
   public async init() {

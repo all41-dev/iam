@@ -1,13 +1,14 @@
-import { RepositorySequelize } from '@all41-dev/server';
+import { RepositorySequelize } from '@all41-dev/server.types';
 import { AuthUserTable } from '../db/auth-user-table';
 import { UserGroupTable } from "../db/user-group-table";
 import { UserGroupMemberTable } from "../db/user-group-member-table";
+import { Repository as SequelizeNativeRepository } from "sequelize-typescript";
 
 
 
-export class AuthUserRepository extends RepositorySequelize<AuthUserTable> {
-  constructor(options?: { dbName: string }) {
-    super(AuthUserTable, options?.dbName);
+export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
+  constructor(repository: SequelizeNativeRepository<AuthUserTable>) {
+    super(AuthUserTable, repository);
   }
 
   public async init() {

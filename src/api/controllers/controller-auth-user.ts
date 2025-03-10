@@ -1,18 +1,27 @@
 import { Router, Request, Response } from "express";
-import { ControllerRepositoryReadWrite, Server } from "@all41-dev/server";
-import { AuthUserRepository } from "../../repositories/auth-user-repository";
+import { ControllerRepositoryReadWrite } from "@all41-dev/server.types";
+import { RepositoryAuthUser } from "../../repositories/auth-user-repository";
+import { AuthUserTable } from "../../db/auth-user-table";
 
-export class ControllerAuthUser extends ControllerRepositoryReadWrite<AuthUserRepository> {
-  private userRepository: AuthUserRepository;
+export class ControllerAuthUser extends ControllerRepositoryReadWrite<RepositoryAuthUser> {
+  private repositoryAuthUser: RepositoryAuthUser;
 
-  public constructor() {
+  constructor() {
+    if (!AuthUserTable.sequelize) {
+      throw new Error("Sequelize not configured");
+    }
+    const sequelizeRepository = (AuthUserTable.sequelize as any).getRepository(AuthUserTable);
+
+    const repositoryAuthUser = new RepositoryAuthUser(sequelizeRepository);
+
     super();
 
-    this.userRepository = new AuthUserRepository();
+    this.repositoryAuthUser = repositoryAuthUser;
   }
 
   public static create(): Router {
-    return new ControllerAuthUser().create(AuthUserRepository);
+    const controller = new ControllerAuthUser();
+    return controller.create(controller.repositoryAuthUser);
   }
 
 
@@ -20,10 +29,9 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<AuthUserRe
     const userId = req.params.id;
     const groupId = req.body.groupUuid;
     try {
-      await this.userRepository.addGroup(userId, groupId);
+      await this.repositoryAuthUser.addGroup(userId, groupId);
       res.status(200).json({});
     } catch (error) {
-      Server.logger.error(error);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -32,10 +40,9 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<AuthUserRe
     const userId = req.params.id;
     const groupId = req.body.groupUuid;
     try {
-      await this.userRepository.removeGroup(userId, groupId);
+      await this.repositoryAuthUser.removeGroup(userId, groupId);
       res.status(200).json({});
     } catch (error) {
-      Server.logger.error(error);
       res.status(500).json({ error: 'Internal server error' });
     }
   }

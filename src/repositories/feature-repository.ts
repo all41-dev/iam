@@ -1,10 +1,12 @@
-import { RepositorySequelize } from "@all41-dev/server";
+import { RepositorySequelize } from "@all41-dev/server.types";
 import { FeatureTable } from "../db/feature-table";
 import { FeatureCompositionTable } from "../db/feature-composition-table";
+import { Repository as SequelizeNativeRepository } from "sequelize-typescript";
+
 
 export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
-  constructor(options?: { dbName?: string }) {
-    super(FeatureTable, options?.dbName);
+  constructor(repository: SequelizeNativeRepository<FeatureTable>) {
+    super(FeatureTable, repository);
   }
 
   public async init() {

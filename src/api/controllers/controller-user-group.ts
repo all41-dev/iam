@@ -12,6 +12,14 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
     super();
 
     this.repositoryUserGroup = repositoryUserGroup;
+
+    this.addUser = this.addUser.bind(this);
+    this.removeUser = this.removeUser.bind(this);
+
+    this.defineRoutes(
+      { verb: 'patch', path: '/add-user', handlers: this.addUser },
+      { verb: 'patch', path: '/remove-user', handlers: this.removeUser },
+    );
   }
 
   public static create(): Router {

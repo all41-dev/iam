@@ -14,8 +14,10 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
     this.repositoryFeature = repositoryFeature;
 
     this.setParentChild = this.setParentChild.bind(this);
+    this.removeParentChild = this.removeParentChild.bind(this);
 
     this.defineRoutes({ verb: 'post', path: '/set-parent-child', handlers: this.setParentChild });
+    this.defineRoutes({ verb: 'post', path: '/remove-parent-child', handlers: this.removeParentChild });
   }
 
   public static create(): Router {

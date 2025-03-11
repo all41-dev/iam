@@ -28,7 +28,7 @@ export async function checkPermission(
       return { isDeny: true, error: "No permissions found" };
     }
 
-    if (permissions.some((permission) => permission.is_deny)) {
+    if (permissions.every((permission) => permission.is_deny)) {
       return { isDeny: true, error: "Permission denied" };
     }
 
@@ -79,7 +79,7 @@ export async function checkUserPermissions(auth_user_uuid: string): Promise<{
 
   const featurePermissions: { [uuid: string]: boolean } = {};
   for (const [featureUuid, decisions] of Object.entries(permissionsMap)) {
-    featurePermissions[featureUuid] = decisions.includes(true) ? false : true;
+    featurePermissions[featureUuid] = decisions.includes(false) ? false : true;
   }
 
   return { featurePermissions };

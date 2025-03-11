@@ -12,13 +12,13 @@ export class UserGroupMemberTable extends Model {
 
   @AllowNull(false)
   @Column(DataType.UUID)
-  declare user_uuid: string;
+  declare auth_user_uuid: string;
 
   @AllowNull(false)
   @Column(DataType.UUID)
   declare group_uuid: string;
 
-  @BelongsTo(() => AuthUserTable, 'user_uuid')
+  @BelongsTo(() => AuthUserTable, 'auth_user_uuid')
   declare user: AuthUserTable;
 
   @BelongsTo(() => UserGroupTable, 'group_uuid')

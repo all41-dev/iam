@@ -17,8 +17,8 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
     this.unsetUserGroup = this.unsetUserGroup.bind(this);
 
     this.defineRoutes(
-      { verb: 'patch', path: '/set-group', handlers: this.setUserGroup },
-      { verb: 'patch', path: '/unset-group', handlers: this.unsetUserGroup },
+      { verb: 'patch', path: '/set-group/:id', handlers: this.setUserGroup },
+      { verb: 'patch', path: '/unset-group/:id', handlers: this.unsetUserGroup },
     );
   }
 

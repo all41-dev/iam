@@ -22,7 +22,7 @@ export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
       throw new Error(`Group with id ${groupId} not found`);
     }
     await UserGroupMemberTable.create({
-      user_uuid: user.uuid,
+      auth_user_uuid: user.uuid,
       group_uuid: group.uuid
     });
   }
@@ -35,7 +35,7 @@ export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
     }
     await UserGroupMemberTable.destroy({
       where: {
-        user_uuid: user.uuid,
+        auth_user_uuid: user.uuid,
         group_uuid: group.uuid
       }
     });

@@ -14,6 +14,7 @@ export class IamApi extends Api<IamApi> {
 
   public init(): Router {
     this.router.use("/groups", ControllerUserGroup.create());
+    this.router.use("/auth-users", ControllerUserGroup.create());
     this.router.use("/scopes", ControllerScope.create());
     this.router.use("/features", ControllerFeature.create());
     this.router.use("/permissions", ControllerPermission.create());

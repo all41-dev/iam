@@ -17,7 +17,7 @@ create table auth_user
     firstName varchar(50),
     lastName varchar(50),
     provider varchar(50) default 'local',
-    constraint user_pk
+    constraint auth_user_pk
         primary key (uuid)
 );
 
@@ -38,16 +38,16 @@ create table user_group
 create table user_group_member
 (
     uuid char(36)     not null default uuid(),
-    user_uuid char(36) not null,
+    auth_user_uuid char(36) not null,
     group_uuid char(36) not null,
     constraint user_group_member_user_uuid_fk
-        foreign key (user_uuid) references user (uuid),
+        foreign key (auth_user_uuid) references auth_user (uuid),
     constraint user_group_member_group_uuid_fk
         foreign key (group_uuid) references user_group (uuid),
     constraint user_group_member_pk
         primary key (uuid),
     constraint unique_group_member
-        unique (user_uuid, group_uuid)
+        unique (auth_user_uuid, group_uuid)
 );
 
 create table feature

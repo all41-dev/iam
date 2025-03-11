@@ -14,7 +14,7 @@ export async function checkPermissions(
     }
 
     const groupMemberships = await UserGroupMemberTable.findAll({
-      where: { user_uuid: user.uuid },
+      where: { auth_user_uuid: user.uuid },
     });
 
     if (groupMemberships.length === 0) {
@@ -42,15 +42,15 @@ export async function checkPermissions(
 
 
 
-export async function checkUserPermissions(user_uuid: string): Promise<{
+export async function checkUserPermissions(auth_user_uuid: string): Promise<{
   featurePermissions: { [uuid: string]: boolean };
   error?: string;
 }> {
-  if (!user_uuid) {
+  if (!auth_user_uuid) {
     return { featurePermissions: {}, error: "User not found" };
   }
 
-  const groupMemberships = await UserGroupMemberTable.findAll({ where: { user_uuid } });
+  const groupMemberships = await UserGroupMemberTable.findAll({ where: { auth_user_uuid } });
 
   const permissionsMap: { [featureUuid: string]: boolean[] } = {};
 

@@ -8,7 +8,7 @@ import {
   AllowNull
 } from 'sequelize-typescript';
 
-@Table({ tableName: 'auth-user', timestamps: false })
+@Table({ tableName: 'auth_user', timestamps: false })
 export class AuthUserTable extends Model {
   @PrimaryKey
   @Default(DataType.UUIDV4)

@@ -17,8 +17,8 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
     this.removeUser = this.removeUser.bind(this);
 
     this.defineRoutes(
-      { verb: 'patch', path: '/add-user', handlers: this.addUser },
-      { verb: 'patch', path: '/remove-user', handlers: this.removeUser },
+      { verb: 'patch', path: '/add-user/:id', handlers: this.addUser },
+      { verb: 'patch', path: '/remove-user/:id', handlers: this.removeUser },
     );
   }
 
@@ -32,7 +32,7 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
     const groupId = req.body.groupUuid;
     try {
       await this.repositoryUserGroup.addUser(userId, groupId);
-      res.status(200).json({});
+      res.status(200).json({ userId, groupId });
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }

@@ -30,7 +30,7 @@ export class UserGroupTable extends Model {
   @HasMany(() => PermissionTable, 'group_uuid')
   declare permissions: PermissionTable[];
 
-  @BelongsToMany(() => AuthUserTable, () => UserGroupMemberTable, 'group_uuid', 'user_uuid')
+  @BelongsToMany(() => AuthUserTable, () => UserGroupMemberTable, 'group_uuid', 'auth_user_uuid')
   declare users: AuthUserTable[];
 
   public get pkName() { return 'uuid' as keyof UserGroupTable; }

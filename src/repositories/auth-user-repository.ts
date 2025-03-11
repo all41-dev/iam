@@ -3,7 +3,8 @@ import { AuthUserTable } from '../db/auth-user-table';
 import { UserGroupTable } from "../db/user-group-table";
 import { UserGroupMemberTable } from "../db/user-group-member-table";
 import { Repository as SequelizeNativeRepository } from "sequelize-typescript";
-
+import { v4 as uuidv4 } from 'uuid';
+import { checkPermission, checkUserPermissions } from '../utils/check-permissions';
 
 
 export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
@@ -15,30 +16,57 @@ export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
     return this;
   }
 
-  public async addGroup(userUuid: string, groupUuid: string) {
+  public async addGroups(userUuid: string, groupUuids: string[]) {
     const user = await this.getByKey(userUuid);
-    const group = await UserGroupTable.findOne({ where: { uuid: groupUuid } });
-    if (!group) {
-      throw new Error(`Group with id ${groupUuid} not found`);
+    if (!user) {
+      throw new Error(`User with id ${userUuid} not found`);
     }
-    await UserGroupMemberTable.create({
-      auth_user_uuid: user.uuid,
-      group_uuid: group.uuid
+    const groups = await UserGroupTable.findAll({
+      where: { uuid: groupUuids },
     });
+    if (groups.length !== groupUuids.length) {
+      throw new Error(`Some users not found`);
+    }
+    const userGroupMembers = groups.map(group => ({
+      uuid: uuidv4(),
+      auth_user_uuid: user.uuid,
+      group_uuid: group.uuid,
+    }));
+    await UserGroupMemberTable.bulkCreate(userGroupMembers);
   }
 
-  public async removeGroup(userUuid: string, groupUuid: string) {
+  public async removeGroups(userUuid: string, groupUuids: string[]) {
     const user = await this.getByKey(userUuid);
-    const group = await UserGroupTable.findOne({ where: { uuid: groupUuid } });
-    if (!group) {
-      throw new Error(`Group with id ${groupUuid} not found`);
+    if (!user) {
+      throw new Error(`User with id ${userUuid} not found`);
     }
+    const groups = await UserGroupTable.findAll({
+      where: { uuid: groupUuids },
+    });
+    if (groups.length !== groupUuids.length) {
+      throw new Error(`Some groups not found`);
+    }
+    const groupUuidsToRemove = groups.map(group => group.uuid);
     await UserGroupMemberTable.destroy({
       where: {
         auth_user_uuid: user.uuid,
-        group_uuid: group.uuid
+        group_uuid: groupUuidsToRemove,
       }
     });
   }
 
+  public async checkPermission(email: string, featureUuid: string) {
+    if (!email || !featureUuid) {
+      throw new Error("Email and featureUuid are required");
+    }
+    const user = await AuthUserTable.findOne({ where: { email } });
+    if (!user) {
+      throw new Error(`User with email ${email} not found`);
+    }
+    return await checkPermission(user.uuid, featureUuid);
+  }
+
+  public async checkUserPermissions(userUuid: string) {
+    return await checkUserPermissions(userUuid)
+  }
 }

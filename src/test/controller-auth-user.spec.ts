@@ -30,79 +30,80 @@ describe('ControllerAuthUser', () => {
     sinon.restore();
   });
 
-  describe('setUserGroup', () => {
-    it('should add a user to a group and return status 200', async () => {
+  describe('setUserGroups', () => {
+    it('should add groups to a user and return status 200', async () => {
       const userUuid = '12345';
-      const groupUuid = '67890';
+      const groupUuids = ['67890', '54321'];
 
-      repositoryAuthUserMock.addGroup.resolves();
+      repositoryAuthUserMock.addGroups.resolves();
 
       mockRequest = {
-        params: { id: userUuid },
-        body: { groupUuid },
+        params: { userUuid },
+        body: { groupUuids },
       };
 
-      await controllerAuthUser.setUserGroup(mockRequest as Request, mockResponse as Response);
+      await controllerAuthUser.setUserGroups(mockRequest as Request, mockResponse as Response);
 
-      expect(repositoryAuthUserMock.addGroup.calledOnceWith(userUuid, groupUuid)).to.be.true;
+      expect(repositoryAuthUserMock.addGroups.calledOnceWith(userUuid, groupUuids)).to.be.true;
       expect(statusStub.calledOnceWith(200)).to.be.true;
       expect(jsonStub.calledOnceWith({})).to.be.true;
     });
 
     it('should handle errors and return status 500', async () => {
       const userUuid = '12345';
-      const groupUuid = '67890';
+      const groupUuids = ['67890', '54321'];
 
-      repositoryAuthUserMock.addGroup.rejects(new Error('Database error'));
+      repositoryAuthUserMock.addGroups.rejects(new Error('Database error'));
 
       mockRequest = {
-        params: { id: userUuid },
-        body: { groupUuid },
+        params: { userUuid },
+        body: { groupUuids },
       };
 
-      await controllerAuthUser.setUserGroup(mockRequest as Request, mockResponse as Response);
+      await controllerAuthUser.setUserGroups(mockRequest as Request, mockResponse as Response);
 
-      expect(repositoryAuthUserMock.addGroup.calledOnceWith(userUuid, groupUuid)).to.be.true;
+      expect(repositoryAuthUserMock.addGroups.calledOnceWith(userUuid, groupUuids)).to.be.true;
       expect(statusStub.calledOnceWith(500)).to.be.true;
       expect(jsonStub.calledOnceWith({ error: 'Internal server error' })).to.be.true;
     });
   });
 
-  describe('unsetUserGroup', () => {
-    it('should remove a user from a group and return status 200', async () => {
+  describe('unsetUserGroups', () => {
+    it('should remove groups from a user and return status 200', async () => {
       const userUuid = '12345';
-      const groupUuid = '67890';
+      const groupUuids = ['67890', '54321'];
 
-      repositoryAuthUserMock.removeGroup.resolves();
+      repositoryAuthUserMock.removeGroups.resolves();
 
       mockRequest = {
-        params: { id: userUuid },
-        body: { groupUuid },
+        params: { userUuid },
+        body: { groupUuids },
       };
 
-      await controllerAuthUser.unsetUserGroup(mockRequest as Request, mockResponse as Response);
+      await controllerAuthUser.unsetUserGroups(mockRequest as Request, mockResponse as Response);
 
-      expect(repositoryAuthUserMock.removeGroup.calledOnceWith(userUuid, groupUuid)).to.be.true;
+      expect(repositoryAuthUserMock.removeGroups.calledOnceWith(userUuid, groupUuids)).to.be.true;
       expect(statusStub.calledOnceWith(200)).to.be.true;
       expect(jsonStub.calledOnceWith({})).to.be.true;
     });
 
     it('should handle errors and return status 500', async () => {
       const userUuid = '12345';
-      const groupUuid = '67890';
+      const groupUuids = ['67890', '54321'];
 
-      repositoryAuthUserMock.removeGroup.rejects(new Error('Database error'));
+      repositoryAuthUserMock.removeGroups.rejects(new Error('Database error'));
 
       mockRequest = {
-        params: { id: userUuid },
-        body: { groupUuid },
+        params: { userUuid },
+        body: { groupUuids },
       };
 
-      await controllerAuthUser.unsetUserGroup(mockRequest as Request, mockResponse as Response);
+      await controllerAuthUser.unsetUserGroups(mockRequest as Request, mockResponse as Response);
 
-      expect(repositoryAuthUserMock.removeGroup.calledOnceWith(userUuid, groupUuid)).to.be.true;
+      expect(repositoryAuthUserMock.removeGroups.calledOnceWith(userUuid, groupUuids)).to.be.true;
       expect(statusStub.calledOnceWith(500)).to.be.true;
       expect(jsonStub.calledOnceWith({ error: 'Internal server error' })).to.be.true;
     });
   });
+
 });

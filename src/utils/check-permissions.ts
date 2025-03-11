@@ -1,20 +1,18 @@
-import { AuthUserTable } from "../db/auth-user-table";
 import { UserGroupMemberTable } from "../db/user-group-member-table";
 import { PermissionTable } from "../db/permission-table";
 import { FeatureTable } from "../db/feature-table";
 
-export async function checkPermissions(
-  email: string,
+export async function checkPermission(
+  auth_user_uuid: string,
   feature_uuid: string
 ): Promise<{ isDeny: boolean; error?: string }> {
   try {
-    const user = await AuthUserTable.findOne({ where: { email } });
-    if (!user) {
+    if (!auth_user_uuid) {
       return { isDeny: true, error: "User not found" };
     }
 
     const groupMemberships = await UserGroupMemberTable.findAll({
-      where: { auth_user_uuid: user.uuid },
+      where: { auth_user_uuid: auth_user_uuid },
     });
 
     if (groupMemberships.length === 0) {

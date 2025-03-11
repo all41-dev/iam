@@ -13,12 +13,16 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
 
     this.repositoryAuthUser = repositoryAuthUser;
 
-    this.setUserGroup = this.setUserGroup.bind(this);
-    this.unsetUserGroup = this.unsetUserGroup.bind(this);
+    this.setUserGroups = this.setUserGroups.bind(this);
+    this.unsetUserGroups = this.unsetUserGroups.bind(this);
+    this.checkPermission = this.checkPermission.bind(this);
+    this.checkUserPermissions = this.checkUserPermissions.bind(this)
 
     this.defineRoutes(
-      { verb: 'patch', path: '/set-group/:id', handlers: this.setUserGroup },
-      { verb: 'patch', path: '/unset-group/:id', handlers: this.unsetUserGroup },
+      { verb: 'post', path: '/:userUuid/set-group', handlers: this.setUserGroups },
+      { verb: 'post', path: '/:userUuid/unset-group', handlers: this.unsetUserGroups },
+      { verb: 'get', path: '/:userEmail/:featureUuid/check-permission', handlers: this.checkPermission },
+      { verb: 'get', path: '/:userUuid/check-permissions', handlers: this.checkUserPermissions },
     );
   }
 
@@ -28,26 +32,46 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
   }
 
 
-  public async setUserGroup(req: Request, res: Response) {
-    const userUuid = req.params.id;
-    const groupUuid = req.body.groupUuid;
+  public async setUserGroups(req: Request, res: Response) {
+    const userUuid = req.params.userUuid;
+    const groupUuids = req.body.groupUuids;
     try {
-      await this.repositoryAuthUser.addGroup(userUuid, groupUuid);
+      await this.repositoryAuthUser.addGroups(userUuid, groupUuids);
       res.status(200).json({});
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
-  public async unsetUserGroup(req: Request, res: Response) {
-    const userUuid = req.params.id;
-    const groupUuid = req.body.groupUuid;
+  public async unsetUserGroups(req: Request, res: Response) {
+    const userUuid = req.params.userUuid;
+    const groupUuids = req.body.groupUuids;
     try {
-      await this.repositoryAuthUser.removeGroup(userUuid, groupUuid);
+      await this.repositoryAuthUser.removeGroups(userUuid, groupUuids);
       res.status(200).json({});
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
+  public async checkPermission(req: Request, res: Response) {
+    const email = req.params.userEmail as string;
+    const featureUuid = req.params.featureUuid as string;
+    try {
+      const response = await this.repositoryAuthUser.checkPermission(email, featureUuid);
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  public async checkUserPermissions(req: Request, res: Response) {
+    const userUuid = req.params.userUuid;
+    try {
+      const response = await this.repositoryAuthUser.checkUserPermissions(userUuid);
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
 }

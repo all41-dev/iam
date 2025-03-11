@@ -13,12 +13,12 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
 
     this.repositoryUserGroup = repositoryUserGroup;
 
-    this.addUser = this.addUser.bind(this);
-    this.removeUser = this.removeUser.bind(this);
+    this.addUsers = this.addUsers.bind(this);
+    this.removeUsers = this.removeUsers.bind(this);
 
     this.defineRoutes(
-      { verb: 'patch', path: '/add-user/:id', handlers: this.addUser },
-      { verb: 'patch', path: '/remove-user/:id', handlers: this.removeUser },
+      { verb: 'post', path: '/:groupUuid/add-users', handlers: this.addUsers },
+      { verb: 'post', path: '/:groupUuid/remove-users', handlers: this.removeUsers },
     );
   }
 
@@ -27,23 +27,23 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
     return controller.create(controller.repositoryUserGroup);
   }
 
-  public async addUser(req: Request, res: Response) {
-    const userUuid = req.params.id;
-    const groupUuid = req.body.groupUuid;
+  public async addUsers(req: Request, res: Response) {
+    const groupUuid = req.params.groupUuid;
+    const userUuids = req.body.userUuids;
     try {
-      await this.repositoryUserGroup.addUser(userUuid, groupUuid);
-      res.status(200).json({ userUuid, groupUuid });
+      await this.repositoryUserGroup.addUsers(userUuids, groupUuid);
+      res.status(200).json(`Users: ${userUuids} added to group ${groupUuid}`);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
-  public async removeUser(req: Request, res: Response) {
-    const userUuid = req.params.id;
-    const groupUuid = req.body.groupUuid;
+  public async removeUsers(req: Request, res: Response) {
+    const groupUuid = req.params.groupUuid;
+    const userUuids = req.body.userUuids;
     try {
-      await this.repositoryUserGroup.removeUser(userUuid, groupUuid);
-      res.status(200).json({});
+      await this.repositoryUserGroup.removeUsers(userUuids, groupUuid);
+      res.status(200).json(`Users: ${userUuids} removed from group ${groupUuid}`);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }

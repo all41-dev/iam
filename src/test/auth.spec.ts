@@ -85,8 +85,8 @@ describe('Auth Process', () => {
 
       const user = {
         email,
-        provider: 'facebook', // mismatched provider
-        dataValues: { email, provider: 'facebook' },
+        provider: 'microsoft',
+        dataValues: { email, provider: 'microsoft' },
         uuid: 'uuid-test'
       };
 

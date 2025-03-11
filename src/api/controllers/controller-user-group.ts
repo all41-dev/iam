@@ -28,21 +28,21 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
   }
 
   public async addUser(req: Request, res: Response) {
-    const userId = req.params.id;
-    const groupId = req.body.groupUuid;
+    const userUuid = req.params.id;
+    const groupUuid = req.body.groupUuid;
     try {
-      await this.repositoryUserGroup.addUser(userId, groupId);
-      res.status(200).json({ userId, groupId });
+      await this.repositoryUserGroup.addUser(userUuid, groupUuid);
+      res.status(200).json({ userUuid, groupUuid });
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   public async removeUser(req: Request, res: Response) {
-    const userId = req.params.id;
-    const groupId = req.body.groupUuid;
+    const userUuid = req.params.id;
+    const groupUuid = req.body.groupUuid;
     try {
-      await this.repositoryUserGroup.removeUser(userId, groupId);
+      await this.repositoryUserGroup.removeUser(userUuid, groupUuid);
       res.status(200).json({});
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });

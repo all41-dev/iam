@@ -15,11 +15,11 @@ export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
     return this;
   }
 
-  public async addGroup(userId: string, groupId: string) {
-    const user = await this.getByKey(userId);
-    const group = await UserGroupTable.findOne({ where: { uuid: groupId } });
+  public async addGroup(userUuid: string, groupUuid: string) {
+    const user = await this.getByKey(userUuid);
+    const group = await UserGroupTable.findOne({ where: { uuid: groupUuid } });
     if (!group) {
-      throw new Error(`Group with id ${groupId} not found`);
+      throw new Error(`Group with id ${groupUuid} not found`);
     }
     await UserGroupMemberTable.create({
       auth_user_uuid: user.uuid,
@@ -27,11 +27,11 @@ export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
     });
   }
 
-  public async removeGroup(userId: string, groupId: string) {
-    const user = await this.getByKey(userId);
-    const group = await UserGroupTable.findOne({ where: { uuid: groupId } });
+  public async removeGroup(userUuid: string, groupUuid: string) {
+    const user = await this.getByKey(userUuid);
+    const group = await UserGroupTable.findOne({ where: { uuid: groupUuid } });
     if (!group) {
-      throw new Error(`Group with id ${groupId} not found`);
+      throw new Error(`Group with id ${groupUuid} not found`);
     }
     await UserGroupMemberTable.destroy({
       where: {

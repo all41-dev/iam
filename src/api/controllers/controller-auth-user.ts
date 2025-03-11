@@ -29,10 +29,10 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
 
 
   public async setUserGroup(req: Request, res: Response) {
-    const userId = req.params.id;
-    const groupId = req.body.groupUuid;
+    const userUuid = req.params.id;
+    const groupUuid = req.body.groupUuid;
     try {
-      await this.repositoryAuthUser.addGroup(userId, groupId);
+      await this.repositoryAuthUser.addGroup(userUuid, groupUuid);
       res.status(200).json({});
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
@@ -40,10 +40,10 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
   }
 
   public async unsetUserGroup(req: Request, res: Response) {
-    const userId = req.params.id;
-    const groupId = req.body.groupUuid;
+    const userUuid = req.params.id;
+    const groupUuid = req.body.groupUuid;
     try {
-      await this.repositoryAuthUser.removeGroup(userId, groupId);
+      await this.repositoryAuthUser.removeGroup(userUuid, groupUuid);
       res.status(200).json({});
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });

@@ -21,7 +21,7 @@ describe('Auth Process', () => {
       const displayName = 'Test User';
       const firstName = 'Test';
       const lastName = 'User';
-      const provider = 'google';
+      const provider = 'github';
       const profile = {
         emails: [{ value: email }],
         displayName,
@@ -55,7 +55,7 @@ describe('Auth Process', () => {
     it('should create a new user if user does not exist', async () => {
       const email = 'newuser@example.com';
       const displayName = 'New User';
-      const provider = 'google';
+      const provider = 'github';
       const profile = {
         emails: [{ value: email }],
         displayName,
@@ -76,7 +76,7 @@ describe('Auth Process', () => {
       const displayName = 'Test User';
       const firstName = 'Test';
       const lastName = 'User';
-      const provider = 'google';
+      const provider = 'github';
       const profile = {
         emails: [{ value: email }],
         displayName,
@@ -102,7 +102,7 @@ describe('Auth Process', () => {
       const displayName = 'Test User';
       const firstName = 'Test';
       const lastName = 'User';
-      const provider = 'google';
+      const provider = 'github';
       const profile = {
         emails: [{ value: email }],
         displayName,
@@ -133,7 +133,7 @@ describe('Auth Process', () => {
     it('should throw an error if user creation throws an error', async () => {
       const email = 'newerror@example.com';
       const displayName = 'Error User';
-      const provider = 'google';
+      const provider = 'github';
       const profile = {
         emails: [{ value: email }],
         displayName,

@@ -1,8 +1,8 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
 import { Request, Response } from 'express';
-import { ControllerAuthUser } from '../api/controllers/controller-auth-user';
-import { RepositoryAuthUser } from '../repositories/auth-user-repository';
+import { ControllerAuthUser } from '../../api/controllers/controller-auth-user';
+import { RepositoryAuthUser } from '../../repositories/auth-user-repository';
 
 describe('ControllerAuthUser', () => {
   let controllerAuthUser: ControllerAuthUser;

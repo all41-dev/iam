@@ -57,7 +57,6 @@ export async function checkUserPermissions(auth_user_uuid: string): Promise<{
   const groupMemberships = await UserGroupMemberTable.findAll({ where: { auth_user_uuid } });
 
   const permissionsMap: { [featureUuid: string]: boolean[] } = {};
-  const groupUUIDs = groupMemberships.map(membership => membership.dataValues.group_uuid);
 
   for (const membership of groupMemberships) {
     const group_uuid = membership.dataValues.group_uuid;
@@ -84,7 +83,9 @@ export async function checkUserPermissions(auth_user_uuid: string): Promise<{
     }
   }
 
+  const groupUUIDs = groupMemberships.map(membership => membership.dataValues.group_uuid);
   const permissions: { [uuid: string]: boolean } = {};
+
   for (const [featureUuid, decisions] of Object.entries(permissionsMap)) {
     const ancestorDeny = await checkAncestorPermissions(featureUuid, groupUUIDs);
     permissions[featureUuid] = ancestorDeny || decisions.includes(true);

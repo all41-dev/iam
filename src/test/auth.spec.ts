@@ -97,6 +97,33 @@ describe('Auth Process', () => {
       expect(result).to.deep.equal({ user: false, error: 'provider' });
     });
 
+    it('should return error if permission does not exist', async () => {
+      const email = 'test@example.com';
+      const provider = 'github';
+      const profile = {
+        emails: [{ value: email }],
+        displayName: 'Test User',
+      };
+
+      const user = {
+        email,
+        provider,
+        dataValues: { email, provider },
+        uuid: 'uuid-test',
+      };
+
+      const userTableStub = sandbox.stub(AuthUserTable, 'findOne').resolves(user as AuthUserTable);
+      const checkUserPermissionsStub = sandbox
+        .stub(CheckPermissionsModule, 'checkUserPermissions')
+        .resolves({ permissions: undefined });
+
+      const result = await CheckUserModule.checkUser(profile, provider);
+
+      expect(userTableStub.calledOnceWith({ where: { email } })).to.be.true;
+      expect(checkUserPermissionsStub.calledOnceWith('uuid-test')).to.be.true;
+      expect(result).to.deep.equal({ user: false, error: 'permission' });
+    });
+
     it('should throw an error if checkUserPermissions fails', async () => {
       const email = 'test@example.com';
       const displayName = 'Test User';

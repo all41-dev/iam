@@ -24,14 +24,14 @@ export async function checkUser(
     } else if (provider !== user.provider) {
       return { user: false, error: 'provider' };
     } else {
-      const permissions = await checkUserPermissions(user.uuid);
+      const permissions = (await checkUserPermissions(user.uuid)).permissions;
       if (!permissions) {
         return { user: false, error: 'permission' };
       }
       return {
         user: {
           ...user.dataValues,
-          permissions: permissions,
+          permissions,
         },
       };
     }

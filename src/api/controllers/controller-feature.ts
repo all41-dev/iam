@@ -15,9 +15,15 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
 
     this.setParentChild = this.setParentChild.bind(this);
     this.removeParentChild = this.removeParentChild.bind(this);
+    this.checkFeatureChildren = this.checkFeatureChildren.bind(this);
+    this.getFeatureTree = this.getFeatureTree.bind(this)
 
-    this.defineRoutes({ verb: 'post', path: '/set-parent-child', handlers: this.setParentChild });
-    this.defineRoutes({ verb: 'post', path: '/remove-parent-child', handlers: this.removeParentChild });
+    this.defineRoutes(
+      { verb: 'post', path: '/set-parent-child', handlers: this.setParentChild },
+      { verb: 'post', path: '/remove-parent-child', handlers: this.removeParentChild },
+      { verb: 'get', path: '/get-children/:featureUuid', handlers: this.checkFeatureChildren },
+      { verb: 'get', path: '/get-tree/:featureUuid', handlers: this.getFeatureTree }
+    );
   }
 
   public static create(): Router {
@@ -29,7 +35,7 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
     const parentId = req.body.parentUuid;
     const childId = req.body.childUuid;
     try {
-      await this.setParentChild(parentId, childId);
+      await this.repositoryFeature.setParentChild(parentId, childId);
       res.status(200).json({});
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
@@ -40,8 +46,28 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
     const parentId = req.body.parentUuid;
     const childId = req.body.childUuid;
     try {
-      await this.removeParentChild(parentId, childId);
+      await this.repositoryFeature.removeParentChild(parentId, childId);
       res.status(200).json({});
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  public async checkFeatureChildren(req: Request, res: Response) {
+    const featureUuid = req.params.featureUuid;
+    try {
+      const response = await this.repositoryFeature.checkFeatureChildren(featureUuid);
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  public async getFeatureTree(req: Request, res: Response) {
+    const featureUuid = req.params.featureUuid || null;
+    try {
+      const tree = await this.repositoryFeature.getFeatureTree(featureUuid);
+      res.status(200).json(tree);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }

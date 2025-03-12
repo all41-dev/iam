@@ -38,7 +38,7 @@ describe('Auth Process', () => {
       const userTableStub = sandbox.stub(AuthUserTable, 'findOne').resolves(user as AuthUserTable);
       const checkUserPermissionsStub = sandbox
         .stub(CheckPermissionsModule, 'checkUserPermissions')
-        .resolves({ featurePermissions: { read: true, write: true } });
+        .resolves({ permissions: { read: true, write: true } });
 
       const result = await CheckUserModule.checkUser(profile, provider);
 

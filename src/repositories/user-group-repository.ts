@@ -4,6 +4,7 @@ import { UserGroupMemberTable } from "../db/user-group-member-table";
 import { AuthUserTable } from "../db/auth-user-table";
 import { Repository as SequelizeNativeRepository } from "sequelize-typescript";
 import { v4 as uuidv4 } from 'uuid';
+import { PermissionTable } from "../db/permission-table";
 
 export class RepositoryUserGroup extends RepositorySequelize<UserGroupTable> {
   constructor(repository: SequelizeNativeRepository<UserGroupTable>) {
@@ -52,5 +53,31 @@ export class RepositoryUserGroup extends RepositorySequelize<UserGroupTable> {
         group_uuid: group.uuid,
       },
     });
+  }
+
+  public async getUsers(groupUuid: string): Promise<AuthUserTable[]> {
+    const group = await this.getByKey(groupUuid);
+    if (!group) {
+      throw new Error(`Group with id ${groupUuid} not found`);
+    }
+    const userGroupMembers = await UserGroupMemberTable.findAll({
+      where: { group_uuid: group.uuid },
+    });
+    const userUuids = userGroupMembers.map(member => member.auth_user_uuid);
+    const users = await AuthUserTable.findAll({
+      where: { uuid: userUuids },
+    });
+    return users;
+  }
+
+  public async getPermissions(groupUuid: string): Promise<PermissionTable[]> {
+    const group = await this.getByKey(groupUuid);
+    if (!group) {
+      throw new Error(`Group with id ${groupUuid} not found`);
+    }
+    const permissions = await PermissionTable.findAll({
+      where: { group_uuid: group.uuid },
+    });
+    return permissions;
   }
 }

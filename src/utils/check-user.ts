@@ -25,10 +25,13 @@ export async function checkUser(
       return { user: false, error: 'provider' };
     } else {
       const permissions = await checkUserPermissions(user.uuid);
+      if (!permissions) {
+        return { user: false, error: 'permission' };
+      }
       return {
         user: {
           ...user.dataValues,
-          permissions: permissions.featurePermissions,
+          permissions: permissions,
         },
       };
     }

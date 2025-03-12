@@ -1,6 +1,7 @@
 import { UserGroupMemberTable } from "../db/user-group-member-table";
 import { PermissionTable } from "../db/permission-table";
 import { FeatureTable } from "../db/feature-table";
+import { checkAncestorPermissions } from "./check-ancestor-permission";
 
 export async function checkPermission(
   auth_user_uuid: string,
@@ -28,7 +29,12 @@ export async function checkPermission(
       return { isDeny: true, error: "No permissions found" };
     }
 
-    if (permissions.every((permission) => permission.is_deny)) {
+    const ancestorDeny = await checkAncestorPermissions(feature_uuid, groupUUIDs);
+    if (ancestorDeny) {
+      return { isDeny: true, error: "Permission denied by ancestor" };
+    }
+
+    if (permissions.some((permission) => permission.is_deny)) {
       return { isDeny: true, error: "Permission denied" };
     }
 
@@ -41,16 +47,17 @@ export async function checkPermission(
 
 
 export async function checkUserPermissions(auth_user_uuid: string): Promise<{
-  featurePermissions: { [uuid: string]: boolean };
+  permissions: { [uuid: string]: boolean } | undefined
   error?: string;
 }> {
   if (!auth_user_uuid) {
-    return { featurePermissions: {}, error: "User not found" };
+    return { permissions: undefined, error: "User not found" };
   }
 
   const groupMemberships = await UserGroupMemberTable.findAll({ where: { auth_user_uuid } });
 
   const permissionsMap: { [featureUuid: string]: boolean[] } = {};
+  const groupUUIDs = groupMemberships.map(membership => membership.dataValues.group_uuid);
 
   for (const membership of groupMemberships) {
     const group_uuid = membership.dataValues.group_uuid;
@@ -77,10 +84,11 @@ export async function checkUserPermissions(auth_user_uuid: string): Promise<{
     }
   }
 
-  const featurePermissions: { [uuid: string]: boolean } = {};
+  const permissions: { [uuid: string]: boolean } = {};
   for (const [featureUuid, decisions] of Object.entries(permissionsMap)) {
-    featurePermissions[featureUuid] = decisions.includes(false) ? false : true;
+    const ancestorDeny = await checkAncestorPermissions(featureUuid, groupUUIDs);
+    permissions[featureUuid] = ancestorDeny || decisions.includes(true);
   }
 
-  return { featurePermissions };
+  return { permissions };
 }

@@ -15,10 +15,15 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
 
     this.addUsers = this.addUsers.bind(this);
     this.removeUsers = this.removeUsers.bind(this);
+    this.getUsers = this.getUsers.bind(this);
+    this.getPermissions = this.getPermissions.bind(this);
+
 
     this.defineRoutes(
       { verb: 'post', path: '/:groupUuid/add-users', handlers: this.addUsers },
       { verb: 'post', path: '/:groupUuid/remove-users', handlers: this.removeUsers },
+      { verb: 'get', path: '/:groupUuid/users', handlers: this.getUsers },
+      { verb: 'get', path: '/:groupUuid/permissions', handlers: this.getPermissions },
     );
   }
 
@@ -44,6 +49,26 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
     try {
       await this.repositoryUserGroup.removeUsers(userUuids, groupUuid);
       res.status(200).json(`Users: ${userUuids} removed from group ${groupUuid}`);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  public async getUsers(req: Request, res: Response) {
+    const groupUuid = req.params.groupUuid;
+    try {
+      const response = await this.repositoryUserGroup.getUsers(groupUuid);
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  public async getPermissions(req: Request, res: Response) {
+    const groupUuid = req.params.groupUuid
+    try {
+      const response = await this.repositoryUserGroup.getPermissions(groupUuid);
+      res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }

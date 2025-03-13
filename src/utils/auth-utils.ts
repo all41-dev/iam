@@ -50,41 +50,25 @@ class AuthUtils {
   }
 
   async checkPermission(auth_user_uuid: string, feature_uuid: string): Promise<{ isDeny: boolean; error?: string }> {
-    try {
-      if (!auth_user_uuid) {
-        return { isDeny: true, error: "User not found" };
-      }
-
-      const groupMemberships = await UserGroupMemberTable.findAll({
-        where: { auth_user_uuid },
-      });
-
-      if (groupMemberships.length === 0) {
-        return { isDeny: true, error: "User not in any group" };
-      }
-
-      const groupUUIDs = groupMemberships.map((membership) => membership.group_uuid);
-      const permissions = await PermissionTable.findAll({
-        where: { group_uuid: groupUUIDs, feature_uuid },
-      });
-
-      if (permissions.length === 0) {
-        return { isDeny: true, error: "No permissions found" };
-      }
-
-      const ancestorDeny = await this.checkAncestorPermissions(feature_uuid, groupUUIDs);
-      if (ancestorDeny) {
-        return { isDeny: true, error: "Permission denied by ancestor" };
-      }
-
-      if (permissions.some((permission) => permission.is_deny)) {
-        return { isDeny: true, error: "Permission denied" };
-      }
-
-      return { isDeny: false };
-    } catch (error) {
-      throw new Error("Failed to check permissions");
+    if (!auth_user_uuid) {
+      return { isDeny: true, error: "User not found" };
     }
+    const groupMemberships = await UserGroupMemberTable.findAll({
+      where: { auth_user_uuid },
+    });
+    if (groupMemberships.length === 0) return { isDeny: true, error: "User not in any group" };
+
+    const groupUUIDs = groupMemberships.map((membership) => membership.group_uuid);
+    const permissions = await PermissionTable.findAll({
+      where: { group_uuid: groupUUIDs, feature_uuid },
+    });
+
+    if (permissions.length === 0) return { isDeny: true, error: "No permissions found" };
+    const ancestorDeny = await this.checkAncestorPermissions(feature_uuid, groupUUIDs);
+    if (ancestorDeny) return { isDeny: true, error: "Permission denied by ancestor" };
+    if (permissions.some((permission) => permission.is_deny)) return { isDeny: true, error: "Permission denied" };
+
+    return { isDeny: false };
   }
 
   async checkUserPermissions(auth_user_uuid: string): Promise<{ permissions: { [uuid: string]: boolean } | undefined; error?: string; }> {

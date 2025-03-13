@@ -33,3 +33,6 @@ out/
 
 # Compiled output
 dist/
+
+# Code coverage output
+.nyc_output

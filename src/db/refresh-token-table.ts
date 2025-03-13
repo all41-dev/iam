@@ -11,11 +11,7 @@ import {
 } from "sequelize-typescript";
 import { AuthUserTable } from "./auth-user-table";
 
-@Table({
-  modelName: "refreshToken",
-  tableName: "refreshToken",
-  timestamps: true,
-})
+@Table({ tableName: "refresh_token", timestamps: true, })
 export class RefreshTokenTable extends Model {
   @PrimaryKey
   @Default(DataType.UUIDV4)

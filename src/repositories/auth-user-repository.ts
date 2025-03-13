@@ -4,7 +4,7 @@ import { UserGroupTable } from "../db/user-group-table";
 import { UserGroupMemberTable } from "../db/user-group-member-table";
 import { Repository as SequelizeNativeRepository } from "sequelize-typescript";
 import { v4 as uuidv4 } from 'uuid';
-import { checkPermission, checkUserPermissions } from '../utils/check-permissions';
+import AuthUtils from '../utils/auth-utils';
 
 
 export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
@@ -63,10 +63,10 @@ export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
     if (!user) {
       throw new Error(`User with email ${email} not found`);
     }
-    return await checkPermission(user.uuid, featureUuid);
+    return await AuthUtils.checkPermission(user.uuid, featureUuid);
   }
 
   public async checkUserPermissions(userUuid: string) {
-    return await checkUserPermissions(userUuid)
+    return await AuthUtils.checkUserPermissions(userUuid)
   }
 }

@@ -1,6 +1,5 @@
 export * from './auth-manager';
 export * from './interfaces';
-export * from './utils/token-options';
 export * from './utils/check-permissions';
 export * from './utils/check-user';
 export * from './db/auth-user-table';

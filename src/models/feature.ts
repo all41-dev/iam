@@ -7,7 +7,7 @@ import { FeatureTable } from "../db/feature-table";
 export class Feature extends Base<Feature> {
   public uuid!: UUID | string;
   public name!: string;
-  public scopeUuid!: string;
+  public scope_uuid!: string;
   public permissions?: PermissionTable[];
   public scope?: ScopeTable;
   public children?: FeatureTable[];

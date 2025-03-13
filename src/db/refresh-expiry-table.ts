@@ -17,9 +17,9 @@ export class RefreshExpiryTable extends Model {
 
   @AllowNull(false)
   @Column(DataType.INTEGER)
-  declare expiryTime: number;
+  declare expiry_time: number;
 
   @AllowNull(false)
   @Column(DataType.STRING)
-  declare customerUuid: string;
+  declare customer_uuid: string;
 }

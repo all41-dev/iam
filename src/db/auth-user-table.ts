@@ -24,10 +24,10 @@ export class AuthUserTable extends Model {
   declare email: string;
 
   @Column(DataType.STRING(50))
-  declare firstName: string;
+  declare first_name: string;
 
   @Column(DataType.STRING(50))
-  declare lastName: string;
+  declare last_name: string;
 
   @Default('local')
   @Column(DataType.STRING(50))

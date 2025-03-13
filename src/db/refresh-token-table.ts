@@ -25,7 +25,7 @@ export class RefreshTokenTable extends Model {
   @AllowNull(false)
   @Column(DataType.STRING)
   @ForeignKey(() => AuthUserTable)
-  declare authUserUuid: string;
+  declare auth_user_uuid: string;
 
   @BelongsTo(() => AuthUserTable)
   declare user: AuthUserTable;

@@ -179,8 +179,8 @@ export class AuthManager {
     return token;
   }
 
-  public saveRefreshToken = async (authUserUuid: string, refreshExpiry?: number) => {
-    const authUser = await AuthUserTable.findByPk(authUserUuid)
+  public saveRefreshToken = async (auth_user_uuid: string, refreshExpiry?: number) => {
+    const authUser = await AuthUserTable.findByPk(auth_user_uuid)
     if (!authUser) throw new Error("User not found");
     const token = jwt.sign(
       { id: authUser.uuid },
@@ -194,7 +194,7 @@ export class AuthManager {
     bcrypt.hash(token, 10, async (err, hash) => {
       if (err) throw err;
       await RefreshTokenTable.create({
-        authUserUuid: authUser.uuid,
+        auth_user_uuid: authUser.uuid,
         token: hash,
         expires: new Date(Date.now() + (refreshExpiry || 24 * 60 * 60 * 1000))
       });
@@ -203,12 +203,12 @@ export class AuthManager {
   };
 
   public generateAccessToken = async (refreshToken: string) => {
-    const authUserUuid = (jwt.verify(refreshToken, this.options.publicKey, { algorithms: ['RS256'] }) as { id: string }).id;
-    const token = await RefreshTokenTable.findAll({ where: { authUserUuid } })
+    const auth_user_uuid = (jwt.verify(refreshToken, this.options.publicKey, { algorithms: ['RS256'] }) as { id: string }).id;
+    const token = await RefreshTokenTable.findAll({ where: { auth_user_uuid } })
       .then((tokens) => tokens.find((t) => bcrypt.compareSync(refreshToken, t.token)));
 
     if (!token) return null;
-    const user = await AuthUserTable.findByPk(token.authUserUuid);
+    const user = await AuthUserTable.findByPk(token.auth_user_uuid);
     if (!user) return null;
 
     const newToken = jwt.sign(
@@ -227,9 +227,9 @@ export class AuthManager {
 
   public revokeRefreshToken = async (refreshToken: string) => {
     const decodedToken = jwt.verify(refreshToken, this.options.publicKey, { algorithms: ['RS256'] }) as { id: string };
-    const authUserUuid = decodedToken.id;
+    const auth_user_uuid = decodedToken.id;
 
-    const token = await RefreshTokenTable.findAll({ where: { authUserUuid } })
+    const token = await RefreshTokenTable.findAll({ where: { auth_user_uuid } })
       .then((tokens) => tokens.find((t) => bcrypt.compareSync(refreshToken, t.token)));
     await RefreshTokenTable.destroy({ where: { uuid: token?.uuid } });
   };
@@ -238,17 +238,17 @@ export class AuthManager {
    * @deprecated 
   */
   public getRefreshExpiry = async (req: Request) => {
-    const customerUuid = req.cookies.customerUuid;
-    if (!customerUuid) return 24 * 60 * 60 * 1000;
-    const expiry = await RefreshExpiryTable.findOne({ where: { customerUuid } });
+    const customer_uuid = req.cookies.customer_uuid;
+    if (!customer_uuid) return 24 * 60 * 60 * 1000;
+    const expiry = await RefreshExpiryTable.findOne({ where: { customer_uuid } });
     if (!expiry) return 24 * 60 * 60 * 1000;
-    return expiry.expiryTime;
+    return expiry.expiry_time;
   };
   /**
      * @deprecated 
     */
   public additionalParams = async (req: Request, res: Response) => {
-    const customerUuid = req.query.customerUuid;
-    if (customerUuid) res.cookie('customerUuid', customerUuid, { maxAge: 5 * 60 * 1000 });
+    const customer_uuid = req.query.customer_uuid;
+    if (customer_uuid) res.cookie('customer_uuid', customer_uuid, { maxAge: 5 * 60 * 1000 });
   };
 }

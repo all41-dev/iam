@@ -14,8 +14,8 @@ create table auth_user
     uuid  char(36)     not null default uuid(),
     username varchar(100) not null,
     email varchar(100) not null,
-    firstName varchar(50),
-    lastName varchar(50),
+    first_name varchar(50),
+    last_name varchar(50),
     provider varchar(50) default 'local',
     constraint auth_user_pk
         primary key (uuid)

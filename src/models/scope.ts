@@ -7,7 +7,7 @@ import { ScopeTable } from "../db/scope-table";
 export class Scope extends Base<Scope> {
   public uuid!: UUID | string;
   public name!: string;
-  public parentUuid?: string;
+  public parent_uuid?: string;
   public parent?: ScopeTable;
   children?: ScopeTable[];
   userGroups!: UserGroupTable[];

@@ -15,13 +15,13 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
 
     this.setParentChild = this.setParentChild.bind(this);
     this.removeParentChild = this.removeParentChild.bind(this);
-    this.checkFeatureChildren = this.checkFeatureChildren.bind(this);
+    this.getChildren = this.getChildren.bind(this);
     this.getFeatureTree = this.getFeatureTree.bind(this)
 
     this.defineRoutes(
       { verb: 'post', path: '/set-parent-child', handlers: this.setParentChild },
       { verb: 'post', path: '/remove-parent-child', handlers: this.removeParentChild },
-      { verb: 'get', path: '/get-children/:featureUuid', handlers: this.checkFeatureChildren },
+      { verb: 'get', path: '/get-children/:featureUuid', handlers: this.getChildren },
       { verb: 'get', path: '/get-tree/:featureUuid', handlers: this.getFeatureTree }
     );
   }
@@ -53,10 +53,10 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
     }
   }
 
-  public async checkFeatureChildren(req: Request, res: Response) {
+  public async getChildren(req: Request, res: Response) {
     const featureUuid = req.params.featureUuid;
     try {
-      const response = await this.repositoryFeature.checkFeatureChildren(featureUuid);
+      const response = await this.repositoryFeature.getChildren(featureUuid);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });

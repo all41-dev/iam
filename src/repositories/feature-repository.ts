@@ -2,7 +2,6 @@ import { RepositorySequelize } from "@all41-dev/server.types";
 import { FeatureTable } from "../db/feature-table";
 import { FeatureCompositionTable } from "../db/feature-composition-table";
 import { Repository as SequelizeNativeRepository } from "sequelize-typescript";
-import { checkFeatureChildren } from "../utils/check-feature-children";
 import { Op, Sequelize } from "sequelize";
 
 
@@ -35,8 +34,24 @@ export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
     });
   }
 
-  public async checkFeatureChildren(featureUuid: string) {
-    return await checkFeatureChildren(featureUuid)
+  public async getChildren(featureUuid: string) {
+    const childrenSet = new Set<string>();
+
+    async function recursiveGetChildren(uuid: string): Promise<void> {
+      const compositions = await FeatureCompositionTable.findAll({
+        where: { parent_uuid: uuid },
+      });
+
+      for (const { child_uuid } of compositions) {
+        if (!childrenSet.has(child_uuid)) {
+          childrenSet.add(child_uuid);
+          await recursiveGetChildren(child_uuid);
+        }
+      }
+    }
+
+    await recursiveGetChildren(featureUuid);
+    return Array.from(childrenSet);
   }
 
   public async getFeatureTree(featureUuid: string | null): Promise<any> {

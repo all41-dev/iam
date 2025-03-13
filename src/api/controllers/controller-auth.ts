@@ -18,22 +18,18 @@ export class AuthController {
       r.get(`/${strategy}`, async (req, res, next) => {
         const redirectUri = req.query.redirectUrl;
         const failureRedirect = req.query.failureRedirect;
-        if (this._authManager.options.additionalParams) await this._authManager.options.additionalParams(req, res);
-        if (redirectUri) {
-          res.cookie('redirect', redirectUri, { maxAge: 5 * 60 * 1000 });
-        }
-        if (failureRedirect) {
-          res.cookie('failureRedirect', failureRedirect, { maxAge: 5 * 60 * 1000 });
-        }
+        // TODO check if it's mendatory
+        if (this._authManager.additionalParams) await this._authManager.additionalParams(req, res);
+        if (redirectUri) res.cookie('redirect', redirectUri, { maxAge: 5 * 60 * 1000 });
+        if (failureRedirect) res.cookie('failureRedirect', failureRedirect, { maxAge: 5 * 60 * 1000 });
+
         next();
       }, passport.authenticate(strategy, { session: false }));
 
       r.get(`/${strategy}/callback`, (req, res, next) => {
         const failureRedirect = req.cookies.failureRedirect || this._authManager.options.redirectAfterLogout;
         passport.authenticate(strategy, { session: false }, (err: any, user: any, info: any) => {
-          if (err) {
-            return res.status(401).json({ message: err.message });
-          }
+          if (err) return res.status(401).json({ message: err.message });
           if (!user) {
             const query = querystring.stringify({ message: info.message });
             res.clearCookie('failureRedirect');

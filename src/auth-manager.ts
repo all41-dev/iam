@@ -8,6 +8,10 @@ import Cors from "cors";
 import { AuthController } from "./api/controllers/controller-auth";
 import cookieParser from "cookie-parser";
 import { IAuthOptions } from "./interfaces";
+import bcrypt from 'bcrypt';
+import { AuthUserTable } from './db/auth-user-table';
+import { RefreshTokenTable } from './db/refresh-token-table';
+import { RefreshExpiryTable } from './db/refresh-expiry-table';
 
 export class AuthManager {
   private static instance: AuthManager;
@@ -65,6 +69,7 @@ export class AuthManager {
 
     const strategyNames = Object.keys(this.authOptions.strategies);
 
+    //TODO: look at the usage
     this.refreshToken = this.authOptions.refreshToken || this.refreshToken;
 
     return new AuthController().create(strategyNames, router);
@@ -110,7 +115,7 @@ export class AuthManager {
       refreshTokenCookie = false;
     }
 
-    const token = await this.options.generateAccessToken(refreshToken);
+    const token = await this.generateAccessToken(refreshToken);
     if (!token) {
       if (!refreshTokenCookie) res.sendStatus(401);
       return;
@@ -135,8 +140,8 @@ export class AuthManager {
       if (!req.user) {
         throw new Error("No user found in request");
       }
-      const refreshExpiry = this.options.getRefreshExpiry
-        ? await this.options.getRefreshExpiry(req, res)
+      const refreshExpiry = this.getRefreshExpiry
+        ? await this.getRefreshExpiry(req)
         : 24 * 60 * 60 * 1000;
       const accessToken = jwt.sign(
         { user: req.user },
@@ -149,7 +154,7 @@ export class AuthManager {
           subject: (req.user as any).uuid,
         }
       );
-      const refreshToken = await this.options.saveRefreshToken(
+      const refreshToken = await this.saveRefreshToken(
         (req.user as { uuid: string }).uuid,
         refreshExpiry
       );
@@ -170,9 +175,80 @@ export class AuthManager {
 
   public cookieExtractor(req: Request) {
     let token = null;
-    if (req && req.cookies) {
-      token = req.cookies["auth"];
-    }
+    if (req && req.cookies) token = req.cookies["auth"];
     return token;
   }
+
+  public saveRefreshToken = async (userId: string, refreshExpiry?: number) => {
+    const authUser = await AuthUserTable.findByPk(userId)
+    if (!authUser) throw new Error("User not found");
+    const token = jwt.sign(
+      { id: authUser.uuid },
+      this.options.privateKey,
+      {
+        algorithm: 'RS256',
+        expiresIn: refreshExpiry ? refreshExpiry / 1000 : '1d',
+        issuer: process.env.AUTH_ISSUER,
+        audience: process.env.AUTH_AUDIENCE, subject: authUser.uuid
+      });
+    bcrypt.hash(token, 10, async (err, hash) => {
+      if (err) throw err;
+      await RefreshTokenTable.create({
+        userUuid: authUser.uuid,
+        token: hash,
+        expires: new Date(Date.now() + (refreshExpiry || 24 * 60 * 60 * 1000))
+      });
+    });
+    return token;
+  };
+
+  public generateAccessToken = async (refreshToken: string) => {
+    const userUuid = (jwt.verify(refreshToken, this.options.publicKey, { algorithms: ['RS256'] }) as { id: string }).id;
+    const token = await RefreshTokenTable.findAll({ where: { userUuid } })
+      .then((tokens) => tokens.find((t) => bcrypt.compareSync(refreshToken, t.token)));
+
+    if (!token) return null;
+    const user = await AuthUserTable.findByPk(token.userUuid);
+    if (!user) return null;
+
+    const newToken = jwt.sign(
+      { user: user.dataValues },
+      this.options.privateKey,
+      {
+        algorithm: 'RS256',
+        expiresIn: '1m',
+        issuer: this.options.authIssuer,
+        audience: this.options.authAudience,
+        subject: user.uuid,
+      }
+    );
+    return { user: user.dataValues, token: newToken };
+  };
+
+  public revokeRefreshToken = async (refreshToken: string) => {
+    const decodedToken = jwt.verify(refreshToken, this.options.publicKey, { algorithms: ['RS256'] }) as { id: string };
+    const userUuid = decodedToken.id;
+
+    const token = await RefreshTokenTable.findAll({ where: { userUuid } })
+      .then((tokens) => tokens.find((t) => bcrypt.compareSync(refreshToken, t.token)));
+    await RefreshTokenTable.destroy({ where: { uuid: token?.uuid } });
+  };
+
+  /**TODO: check if there is no issue with the RefreshExpiryTable in IAM API with customer uuid
+   * @deprecated 
+  */
+  public getRefreshExpiry = async (req: Request) => {
+    const customerUuid = req.cookies.customerUuid;
+    if (!customerUuid) return 24 * 60 * 60 * 1000;
+    const expiry = await RefreshExpiryTable.findOne({ where: { customerUuid } });
+    if (!expiry) return 24 * 60 * 60 * 1000;
+    return expiry.expiryTime;
+  };
+  /**
+     * @deprecated 
+    */
+  public additionalParams = async (req: Request, res: Response) => {
+    const customerUuid = req.query.customerUuid;
+    if (customerUuid) res.cookie('customerUuid', customerUuid, { maxAge: 5 * 60 * 1000 });
+  };
 }

@@ -34,55 +34,33 @@ export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
     });
   }
 
-  public async getChildren(featureUuid: string) {
+  public async getChildrens(featureUuid: string): Promise<string[]> {
     const childrenSet = new Set<string>();
 
-    async function recursiveGetChildren(uuid: string): Promise<void> {
+    const recursiveGetChildren = async (uuid: string): Promise<void> => {
+      if (childrenSet.has(uuid)) return;
+      childrenSet.add(uuid);
       const compositions = await FeatureCompositionTable.findAll({
         where: { parent_uuid: uuid },
       });
 
       for (const { child_uuid } of compositions) {
-        if (!childrenSet.has(child_uuid)) {
-          childrenSet.add(child_uuid);
-          await recursiveGetChildren(child_uuid);
-        }
+        await recursiveGetChildren(child_uuid);
       }
-    }
+    };
 
     await recursiveGetChildren(featureUuid);
+    childrenSet.delete(featureUuid);
+
     return Array.from(childrenSet);
   }
 
-  public async getFeatureTree(featureUuid: string | null): Promise<any> {
-    const buildTree = async (parentUuid: string): Promise<any> => {
-      const parentFeature = await this.getByKey(parentUuid);
 
-      if (!parentFeature) {
-        throw new Error(`Feature with UUID ${parentUuid} not found`);
-      }
+  public async getFeatureMatrix(featureUuid: string): Promise<any> {
+    return await this.buildMatrix(featureUuid, new Set());
+  }
 
-      const children = await FeatureCompositionTable.findAll({
-        where: { parent_uuid: parentUuid },
-      });
-
-      const childFeatures = await Promise.all(
-        children.map(async (child) => {
-          return await buildTree(child.child_uuid);
-        })
-      );
-
-      return {
-        uuid: parentFeature.uuid,
-        name: parentFeature.name,
-        children: childFeatures,
-      };
-    };
-
-    if (featureUuid) {
-      return await buildTree(featureUuid);
-    }
-
+  public async getRootMatrix(): Promise<any> {
     const rootFeatures = await FeatureTable.findAll({
       where: {
         uuid: {
@@ -93,12 +71,54 @@ export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
       },
     });
 
-    const trees = await Promise.all(
+    const matrices = await Promise.all(
       rootFeatures.map(async (rootFeature) => {
-        return await buildTree(rootFeature.uuid);
+        return await this.buildMatrix(rootFeature.uuid, new Set());
       })
     );
 
-    return trees;
+    return matrices;
+  }
+
+  public async buildMatrix(
+    featureUuid: string,
+    visited: Set<string>
+  ): Promise<any> {
+    if (visited.has(featureUuid)) {
+      return { uuid: featureUuid, cyclic: true };
+    }
+
+    visited.add(featureUuid);
+
+    const feature = await this.getByKey(featureUuid);
+
+    if (!feature) throw new Error(`Feature with UUID ${featureUuid} not found`);
+
+    const parents = await FeatureCompositionTable.findAll({
+      where: { child_uuid: featureUuid },
+    });
+
+    const parentFeatures = await Promise.all(
+      parents.map(async (parent) => {
+        return await this.buildMatrix(parent.parent_uuid, visited);
+      })
+    );
+
+    const children = await FeatureCompositionTable.findAll({
+      where: { parent_uuid: featureUuid },
+    });
+
+    const childFeatures = await Promise.all(
+      children.map(async (child) => {
+        return await this.buildMatrix(child.child_uuid, visited);
+      })
+    );
+
+    return {
+      uuid: feature.uuid,
+      name: feature.name,
+      parents: parentFeatures,
+      children: childFeatures,
+    };
   }
 }

@@ -116,29 +116,42 @@ class AuthUtils {
     return { permissions };
   }
 
-  async checkAncestorPermissions(featureUuid: string, groupUUIDs: string[]): Promise<boolean> {
-    const composition = await FeatureCompositionTable.findOne({
+  public async checkAncestorPermissions(
+    featureUuid: string,
+    groupUUIDs: string[],
+    visited: Set<string> = new Set()
+  ): Promise<boolean> {
+    if (visited.has(featureUuid)) return false;
+
+    visited.add(featureUuid);
+
+    const compositions = await FeatureCompositionTable.findAll({
       where: { child_uuid: featureUuid },
     });
 
-    if (!composition) return false;
-    const parentUuid = composition.parent_uuid;
+    if (compositions.length === 0) return false;
 
-    const currentPermissions = await PermissionTable.findAll({
-      where: {
-        feature_uuid: parentUuid,
-        group_uuid: groupUUIDs,
-      },
-    });
+    for (const composition of compositions) {
+      const parentUuid = composition.parent_uuid;
 
-    for (const permission of currentPermissions) {
-      if (permission.is_deny) {
-        return true;
+      const currentPermissions = await PermissionTable.findAll({
+        where: {
+          feature_uuid: parentUuid,
+          group_uuid: groupUUIDs,
+        },
+      });
+
+      for (const permission of currentPermissions) {
+        if (permission.is_deny) return true;
       }
+
+      const result = await this.checkAncestorPermissions(parentUuid, groupUUIDs, visited);
+      if (result) return true;
     }
 
-    return await this.checkAncestorPermissions(parentUuid, groupUUIDs);
+    return false;
   }
+
 }
 
 export default AuthUtils.getInstance();

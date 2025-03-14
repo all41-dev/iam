@@ -15,14 +15,16 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
 
     this.setParentChild = this.setParentChild.bind(this);
     this.removeParentChild = this.removeParentChild.bind(this);
-    this.getChildren = this.getChildren.bind(this);
-    this.getFeatureTree = this.getFeatureTree.bind(this)
+    this.getChildrens = this.getChildrens.bind(this);
+    this.getFeatureMatrix = this.getFeatureMatrix.bind(this)
+    this.getRootMatrix = this.getRootMatrix.bind(this)
 
     this.defineRoutes(
       { verb: 'post', path: '/set-parent-child', handlers: this.setParentChild },
       { verb: 'post', path: '/remove-parent-child', handlers: this.removeParentChild },
-      { verb: 'get', path: '/get-children/:featureUuid', handlers: this.getChildren },
-      { verb: 'get', path: '/get-tree/:featureUuid', handlers: this.getFeatureTree }
+      { verb: 'get', path: '/get-children/:featureUuid', handlers: this.getChildrens },
+      { verb: 'get', path: '/get-matrix/:featureUuid', handlers: this.getFeatureMatrix },
+      { verb: 'get', path: '/get-root-matrix', handlers: this.getRootMatrix }
     );
   }
 
@@ -53,20 +55,29 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
     }
   }
 
-  public async getChildren(req: Request, res: Response) {
+  public async getChildrens(req: Request, res: Response) {
     const featureUuid = req.params.featureUuid;
     try {
-      const response = await this.repositoryFeature.getChildren(featureUuid);
+      const response = await this.repositoryFeature.getChildrens(featureUuid);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
-  public async getFeatureTree(req: Request, res: Response) {
-    const featureUuid = req.params.featureUuid || null;
+  public async getFeatureMatrix(req: Request, res: Response) {
+    const featureUuid = req.params.featureUuid;
     try {
-      const tree = await this.repositoryFeature.getFeatureTree(featureUuid);
+      const tree = await this.repositoryFeature.getFeatureMatrix(featureUuid);
+      res.status(200).json(tree);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  public async getRootMatrix(req: Request, res: Response) {
+    try {
+      const tree = await this.repositoryFeature.getRootMatrix();
       res.status(200).json(tree);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });

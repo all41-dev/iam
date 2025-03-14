@@ -56,6 +56,7 @@ create table feature
     name  varchar(100) not null,
     scope_uuid char(36) not null,
     createdAt timestamp not null default current_timestamp,
+    code char(36)   not null,
     updatedAt timestamp not null default current_timestamp,
     constraint feature_scope_uuid_fk
         foreign key (scope_uuid) references scope (uuid),

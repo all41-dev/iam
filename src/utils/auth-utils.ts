@@ -5,7 +5,7 @@ import { FeatureTable } from "../db/feature-table";
 import { UserGroupTable } from "../db/user-group-table";
 import { FeatureCompositionTable } from "../db/feature-composition-table";
 
-class AuthUtils {
+export class AuthUtils {
   private static instance: AuthUtils;
 
   static getInstance() {
@@ -178,6 +178,68 @@ class AuthUtils {
     return false;
   }
 
-}
+  async checkAccess(userEmail: string, featureCode: string, elementUuid: string): Promise<"grant" | "deny"> {
+    const user = await AuthUserTable.findOne({ where: { email: userEmail } })
+    if (!user) return "deny";
 
-export default AuthUtils.getInstance();
+    const feature = await FeatureTable.findOne({ where: { code: featureCode } });
+    if (!feature) return "deny";
+
+    const userGroups = await UserGroupMemberTable.findAll({ where: { auth_user_uuid: user.uuid } });
+    if (!userGroups.length) return "deny";
+
+    const groupUUIDs = userGroups.map((group) => group.group_uuid);
+
+    const directPermissions = await PermissionTable.findAll({
+      where: {
+        feature_uuid: feature.uuid,
+        group_uuid: groupUUIDs,
+      },
+    });
+
+    for (const permission of directPermissions) {
+      if (permission.is_deny) {
+        if (!permission.feature_scope_uuid || permission.feature_scope_uuid === elementUuid) {
+          return "deny";
+        }
+      }
+    }
+
+    const parentDeny = await this.checkParentFeaturePermissions(feature.uuid, groupUUIDs, elementUuid);
+    if (parentDeny) return "deny";
+
+    return "grant";
+  }
+
+  async checkParentFeaturePermissions(featureUuid: string, groupUUIDs: string[], elementUuid: string, visited: Set<string> = new Set()): Promise<boolean> {
+    if (visited.has(featureUuid)) return false;
+
+    visited.add(featureUuid);
+
+    const compositions = await FeatureCompositionTable.findAll({ where: { child_uuid: featureUuid } });
+    if (!compositions.length) return false;
+
+    for (const composition of compositions) {
+      const parentUuid = composition.parent_uuid;
+
+      const parentPermissions = await PermissionTable.findAll({
+        where: {
+          feature_uuid: parentUuid,
+          group_uuid: groupUUIDs,
+        },
+      });
+
+      for (const permission of parentPermissions) {
+        if (permission.is_deny) {
+          if (!permission.feature_scope_uuid || permission.feature_scope_uuid === elementUuid) {
+            return true;
+          }
+        }
+      }
+
+      const ancestorDeny = await this.checkParentFeaturePermissions(parentUuid, groupUUIDs, elementUuid, visited);
+      if (ancestorDeny) return true;
+    }
+    return false;
+  }
+}

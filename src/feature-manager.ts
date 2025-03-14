@@ -1,0 +1,59 @@
+import { ScopeTable } from "./db/scope-table";
+import { FeatureCompositionTable } from "./db/feature-composition-table";
+import { FeatureTable } from "./db/feature-table";
+
+export class FeatureManager {
+  private static instance: FeatureManager;
+
+  public static getInstance(): FeatureManager {
+    if (!FeatureManager.instance) {
+      FeatureManager.instance = new FeatureManager();
+    }
+    return FeatureManager.instance;
+  }
+
+  public async getAllChildScopes(scopeUuid: string, visited: Set<string> = new Set()): Promise<string[]> {
+    if (visited.has(scopeUuid)) return [];
+    visited.add(scopeUuid);
+
+    const childScopes = await ScopeTable.findAll({
+      where: { parent_uuid: scopeUuid },
+    });
+
+    const childScopeUuids = childScopes.map((scope) => scope.uuid);
+    const allChildUuids = await Promise.all(
+      childScopeUuids.map((childUuid) => this.getAllChildScopes(childUuid, visited))
+    );
+
+    return [scopeUuid, ...childScopeUuids, ...allChildUuids.flat()];
+  }
+
+  public async buildMatrix(featureUuid: string, visited: Set<string>, validScopes?: Set<string>): Promise<any> {
+    if (visited.has(featureUuid)) return { uuid: featureUuid, cyclic: true };
+    visited.add(featureUuid);
+
+    const feature = await FeatureTable.findByPk(featureUuid);
+    if (!feature) throw new Error(`Feature with UUID ${featureUuid} not found`);
+
+    const parents = await FeatureCompositionTable.findAll({
+      where: { child_uuid: featureUuid },
+    });
+    const parentFeatures = await Promise.all(
+      parents
+        .filter((parent) => !validScopes || validScopes.has(parent.parent_uuid))
+        .map(async (parent) => {
+          return await this.buildMatrix(parent.parent_uuid, visited, validScopes);
+        })
+    );
+    const children = await FeatureCompositionTable.findAll({
+      where: { parent_uuid: featureUuid },
+    });
+    const childFeatures = await Promise.all(
+      children.map(async (child) => {
+        return await this.buildMatrix(child.child_uuid, visited, validScopes);
+      })
+    );
+
+    return { uuid: feature.uuid, name: feature.name, parents: parentFeatures, children: childFeatures };
+  }
+}

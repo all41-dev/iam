@@ -18,13 +18,15 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
     this.getChildrens = this.getChildrens.bind(this);
     this.getFeatureMatrix = this.getFeatureMatrix.bind(this)
     this.getRootMatrix = this.getRootMatrix.bind(this)
+    this.getScopeFeatureMatrix = this.getScopeFeatureMatrix.bind(this)
 
     this.defineRoutes(
       { verb: 'post', path: '/set-parent-child', handlers: this.setParentChild },
       { verb: 'post', path: '/remove-parent-child', handlers: this.removeParentChild },
-      { verb: 'get', path: '/get-children/:featureUuid', handlers: this.getChildrens },
-      { verb: 'get', path: '/get-matrix/:featureUuid', handlers: this.getFeatureMatrix },
-      { verb: 'get', path: '/get-root-matrix', handlers: this.getRootMatrix }
+      { verb: 'get', path: '/childrens/:featureUuid', handlers: this.getChildrens },
+      { verb: 'get', path: '/matrix/:featureUuid', handlers: this.getFeatureMatrix },
+      { verb: 'get', path: '/root-matrix', handlers: this.getRootMatrix },
+      { verb: 'get', path: '/:scopeUuid/feature-matrix', handlers: this.getScopeFeatureMatrix }
     );
   }
 
@@ -78,6 +80,16 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
   public async getRootMatrix(req: Request, res: Response) {
     try {
       const tree = await this.repositoryFeature.getRootMatrix();
+      res.status(200).json(tree);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  public async getScopeFeatureMatrix(req: Request, res: Response) {
+    const scopeUuid = req.params.scopeUuid;
+    try {
+      const tree = await this.repositoryFeature.getScopeFeatureMatrix(scopeUuid);
       res.status(200).json(tree);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });

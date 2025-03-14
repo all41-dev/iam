@@ -2,6 +2,7 @@ import { AuthUserTable } from "../db/auth-user-table";
 import { UserGroupMemberTable } from "../db/user-group-member-table";
 import { PermissionTable } from "../db/permission-table";
 import { FeatureTable } from "../db/feature-table";
+import { UserGroupTable } from "../db/user-group-table";
 import { FeatureCompositionTable } from "../db/feature-composition-table";
 
 class AuthUtils {
@@ -49,25 +50,50 @@ class AuthUtils {
     });
   }
 
-  async checkPermission(auth_user_uuid: string, feature_uuid: string): Promise<{ isDeny: boolean; error?: string }> {
+  async checkPermission(auth_user_uuid: string, feature_uuid: string): Promise<{ isDeny: boolean; feature_scope_uuid?: string; scope_element_uuid?: string; error?: string }> {
     if (!auth_user_uuid) {
       return { isDeny: true, error: "User not found" };
     }
     const groupMemberships = await UserGroupMemberTable.findAll({
       where: { auth_user_uuid },
     });
-    if (groupMemberships.length === 0) return { isDeny: true, error: "User not in any group" };
+
+    if (groupMemberships.length === 0) {
+      return { isDeny: true, error: "User not in any group" };
+    }
 
     const groupUUIDs = groupMemberships.map((membership) => membership.group_uuid);
     const permissions = await PermissionTable.findAll({
       where: { group_uuid: groupUUIDs, feature_uuid },
     });
 
-    if (permissions.length === 0) return { isDeny: true, error: "No permissions found" };
-    const ancestorDeny = await this.checkAncestorPermissions(feature_uuid, groupUUIDs);
-    if (ancestorDeny) return { isDeny: true, error: "Permission denied by ancestor" };
-    if (permissions.some((permission) => permission.is_deny)) return { isDeny: true, error: "Permission denied" };
+    if (permissions.length === 0) {
+      return { isDeny: true, error: "No permissions found" };
+    }
 
+    const ancestorDeny = await this.checkAncestorPermissions(feature_uuid, groupUUIDs);
+    if (ancestorDeny) {
+      return { isDeny: true, error: "Permission denied by ancestor" };
+    }
+
+    for (const permission of permissions) {
+      if (permission.is_deny) {
+        const result: { isDeny: boolean; feature_scope_uuid?: string; scope_element_uuid?: string; error?: string } = { isDeny: true, error: "Permission denied" };
+
+        if (permission.feature_scope_uuid) {
+          result.feature_scope_uuid = permission.feature_scope_uuid;
+        }
+        const group = await UserGroupTable.findOne({
+          where: { uuid: permission.group_uuid },
+        });
+
+        if (group?.scope_element_uuid) {
+          result.scope_element_uuid = group.scope_element_uuid;
+        }
+
+        return result;
+      }
+    }
     return { isDeny: false };
   }
 

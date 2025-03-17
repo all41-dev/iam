@@ -95,3 +95,14 @@ create table permission
     constraint permission_pk
         primary key (uuid)
 );
+
+CREATE TABLE refreshToken (
+    uuid VARCHAR(36) PRIMARY KEY DEFAULT uuid() NOT NULL,
+    userUuid VARCHAR(36) NOT NULL,
+    token TEXT NOT NULL,
+    expires TIMESTAMP NOT NULL,
+    createdAt TIMESTAMP NOT NULL DEFAULT current_timestamp(),
+    updatedAt TIMESTAMP NOT NULL DEFAULT current_timestamp(),
+
+    CONSTRAINT fk_refreshToken_authUserUuid FOREIGN KEY (auth_user_uuid) REFERENCES auth_user (uuid)
+)

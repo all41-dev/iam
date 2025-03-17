@@ -4,13 +4,24 @@ import { PermissionTable } from "../db/permission-table";
 import { FeatureTable } from "../db/feature-table";
 import { UserGroupTable } from "../db/user-group-table";
 import { FeatureCompositionTable } from "../db/feature-composition-table";
+import { IUtilsOptions } from "../interfaces";
 
 export class AuthUtils {
   private static instance: AuthUtils;
 
-  static getInstance() {
+  private utilsOptions: IUtilsOptions;
+
+  private constructor(options?: IUtilsOptions) {
+    this.utilsOptions = options ?? {};
+  }
+
+  public get options() {
+    return this.utilsOptions;
+  }
+
+  public static getInstance(options?: IUtilsOptions) {
     if (!AuthUtils.instance) {
-      AuthUtils.instance = new AuthUtils();
+      AuthUtils.instance = new AuthUtils(options);
     }
     return AuthUtils.instance;
   }
@@ -28,8 +39,8 @@ export class AuthUtils {
         await AuthUserTable.create({
           email,
           username: displayName,
-          firstName,
-          lastName,
+          first_name: firstName,
+          last_name: lastName,
           provider,
         });
         return { user: false, error: 'denied' };
@@ -48,53 +59,6 @@ export class AuthUtils {
         };
       }
     });
-  }
-
-  async checkPermission(auth_user_uuid: string, feature_uuid: string): Promise<{ isDeny: boolean; feature_scope_uuid?: string; scope_element_uuid?: string; error?: string }> {
-    if (!auth_user_uuid) {
-      return { isDeny: true, error: "User not found" };
-    }
-    const groupMemberships = await UserGroupMemberTable.findAll({
-      where: { auth_user_uuid },
-    });
-
-    if (groupMemberships.length === 0) {
-      return { isDeny: true, error: "User not in any group" };
-    }
-
-    const groupUUIDs = groupMemberships.map((membership) => membership.group_uuid);
-    const permissions = await PermissionTable.findAll({
-      where: { group_uuid: groupUUIDs, feature_uuid },
-    });
-
-    if (permissions.length === 0) {
-      return { isDeny: true, error: "No permissions found" };
-    }
-
-    const ancestorDeny = await this.checkAncestorPermissions(feature_uuid, groupUUIDs);
-    if (ancestorDeny) {
-      return { isDeny: true, error: "Permission denied by ancestor" };
-    }
-
-    for (const permission of permissions) {
-      if (permission.is_deny) {
-        const result: { isDeny: boolean; feature_scope_uuid?: string; scope_element_uuid?: string; error?: string } = { isDeny: true, error: "Permission denied" };
-
-        if (permission.feature_scope_uuid) {
-          result.feature_scope_uuid = permission.feature_scope_uuid;
-        }
-        const group = await UserGroupTable.findOne({
-          where: { uuid: permission.group_uuid },
-        });
-
-        if (group?.scope_element_uuid) {
-          result.scope_element_uuid = group.scope_element_uuid;
-        }
-
-        return result;
-      }
-    }
-    return { isDeny: false };
   }
 
   async checkUserPermissions(auth_user_uuid: string): Promise<{ permissions: { [uuid: string]: boolean } | undefined; error?: string; }> {
@@ -185,10 +149,10 @@ export class AuthUtils {
     const feature = await FeatureTable.findOne({ where: { code: featureCode } });
     if (!feature) return "deny";
 
-    const userGroups = await UserGroupMemberTable.findAll({ where: { auth_user_uuid: user.uuid } });
-    if (!userGroups.length) return "deny";
+    const userGroupMemberships = await UserGroupMemberTable.findAll({ where: { auth_user_uuid: user.uuid } });
+    if (!userGroupMemberships.length) return "deny";
 
-    const groupUUIDs = userGroups.map((group) => group.group_uuid);
+    const groupUUIDs = userGroupMemberships.map((group) => group.group_uuid);
 
     const directPermissions = await PermissionTable.findAll({
       where: {
@@ -197,12 +161,32 @@ export class AuthUtils {
       },
     });
 
+    if (!directPermissions.length) return "deny";
+
     for (const permission of directPermissions) {
       if (permission.is_deny) {
         if (!permission.feature_scope_uuid || permission.feature_scope_uuid === elementUuid) {
           return "deny";
         }
       }
+    }
+
+    const userGroups = await UserGroupTable.findAll({
+      where: {
+        uuid: groupUUIDs,
+      },
+    });
+
+    if (this.utilsOptions.scopeHierarchy) {
+      const hierarchy = await this.utilsOptions.scopeHierarchy(elementUuid);
+
+      const featureHierarchyUUIDs = Object.values(hierarchy).flatMap((entry: any) => entry.uuid);
+
+      const hasAccess = userGroups.some((group) =>
+        group.scope_element_uuid && featureHierarchyUUIDs.includes(group.scope_element_uuid)
+      );
+
+      if (!hasAccess) return "deny";
     }
 
     const parentDeny = await this.checkParentFeaturePermissions(feature.uuid, groupUUIDs, elementUuid);

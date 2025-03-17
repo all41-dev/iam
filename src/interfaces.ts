@@ -16,3 +16,9 @@ export interface IAuthOptions {
     res: Response
   ) => Promise<{ user: any; token: string } | undefined>;
 }
+
+export interface IUtilsOptions {
+  scopeHierarchy?: (
+    uuid: string
+  ) => Promise<{ [key: string]: string }>;
+}

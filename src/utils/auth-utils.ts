@@ -161,8 +161,6 @@ export class AuthUtils {
       },
     });
 
-    if (!directPermissions.length) return "deny";
-
     for (const permission of directPermissions) {
       if (permission.is_deny) {
         if (!permission.feature_scope_uuid || permission.feature_scope_uuid === elementUuid) {
@@ -189,19 +187,25 @@ export class AuthUtils {
       if (!hasAccess) return "deny";
     }
 
-    const parentDeny = await this.checkParentFeaturePermissions(feature.uuid, groupUUIDs, elementUuid);
-    if (parentDeny) return "deny";
+    const parentPermission = await this.checkParentFeaturePermissions(feature.uuid, groupUUIDs, elementUuid);
+    if (parentPermission === "deny") return "deny";
+    if (parentPermission === "grant") return "grant";
+    if (parentPermission === null) {
+      if (!directPermissions.length) return "deny";
+    }
 
     return "grant";
   }
 
-  async checkParentFeaturePermissions(featureUuid: string, groupUUIDs: string[], elementUuid: string, visited: Set<string> = new Set()): Promise<boolean> {
-    if (visited.has(featureUuid)) return false;
+  async checkParentFeaturePermissions(featureUuid: string, groupUUIDs: string[], elementUuid: string, visited: Set<string> = new Set()): Promise<"grant" | "deny" | null> {
+    if (visited.has(featureUuid)) return null;
 
     visited.add(featureUuid);
 
     const compositions = await FeatureCompositionTable.findAll({ where: { child_uuid: featureUuid } });
-    if (!compositions.length) return false;
+    if (!compositions.length) return null;
+
+    let foundGrant = false;
 
     for (const composition of compositions) {
       const parentUuid = composition.parent_uuid;
@@ -216,14 +220,22 @@ export class AuthUtils {
       for (const permission of parentPermissions) {
         if (permission.is_deny) {
           if (!permission.feature_scope_uuid || permission.feature_scope_uuid === elementUuid) {
-            return true;
+            return "deny";
+          }
+        }
+
+        if (!permission.is_deny) {
+          if (!permission.feature_scope_uuid || permission.feature_scope_uuid === elementUuid) {
+            foundGrant = true;
           }
         }
       }
 
-      const ancestorDeny = await this.checkParentFeaturePermissions(parentUuid, groupUUIDs, elementUuid, visited);
-      if (ancestorDeny) return true;
+      const ancestorPermission = await this.checkParentFeaturePermissions(parentUuid, groupUUIDs, elementUuid, visited);
+      if (ancestorPermission === "deny") return "deny";
+      if (ancestorPermission === "grant") foundGrant = true;
     }
-    return false;
+
+    return foundGrant ? "grant" : null;
   }
 }

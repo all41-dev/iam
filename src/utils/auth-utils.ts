@@ -6,7 +6,6 @@ import { UserGroupTable } from "../db/user-group-table";
 import { FeatureCompositionTable } from "../db/feature-composition-table";
 import { IUtilsOptions } from "../interfaces";
 import { ScopeTable } from "../db/scope-table";
-import { Server } from "@all41-dev/server";
 /* import { ScopeTable } from "../db/scope-table";
 import { FeatureManager } from "../feature-manager"; */
 
@@ -232,7 +231,7 @@ export class AuthUtils {
         },
       });
 
-      const feature = await FeatureTable.findOne({ where: { uuid: parentUuid } });
+      const feature = await FeatureTable.findOne({ where: { uuid: featureUuid } });
       if (!feature) return null;
 
       const scope = await ScopeTable.findOne({ where: { uuid: feature.scope_uuid } });

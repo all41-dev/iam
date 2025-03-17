@@ -6,6 +6,7 @@ import { UserGroupTable } from "../db/user-group-table";
 import { FeatureCompositionTable } from "../db/feature-composition-table";
 import { IUtilsOptions } from "../interfaces";
 import { ScopeTable } from "../db/scope-table";
+import { Server } from "@all41-dev/server";
 /* import { ScopeTable } from "../db/scope-table";
 import { FeatureManager } from "../feature-manager"; */
 
@@ -177,20 +178,20 @@ export class AuthUtils {
       }
     }
 
-    /*    const userGroups = await UserGroupTable.findAll({
-         where: {
-           uuid: groupUUIDs,
-         },
-       });
-   
-       if (this.utilsOptions.scopeHierarchy) {
-         const hierarchy = await this.utilsOptions.scopeHierarchy(elementUuid, scope.code);
-         const hierarchyUUIDs = Object.values(hierarchy);
-   
-         if (!userGroups.some(group => hierarchyUUIDs.includes(group.scope_element_uuid))) {
-           return "deny";
-         }
-       } */
+    const userGroups = await UserGroupTable.findAll({
+      where: {
+        uuid: groupUUIDs,
+      },
+    });
+
+    if (this.utilsOptions.scopeHierarchy) {
+      const hierarchy = await this.utilsOptions.scopeHierarchy(elementUuid, scope.code);
+      const hierarchyUUIDs = Object.values(hierarchy);
+
+      if (!userGroups.some(group => hierarchyUUIDs.includes(group.scope_element_uuid))) {
+        return "deny";
+      }
+    }
 
 
     const parentPermission = await this.checkParentFeaturePermissions(feature.uuid, groupUUIDs, elementUuid);
@@ -213,7 +214,6 @@ export class AuthUtils {
      */
 
     const compositions = await FeatureCompositionTable.findAll({ where: { child_uuid: featureUuid } });
-    if (!compositions.length) return null;
 
     let foundGrant = false;
 
@@ -232,7 +232,7 @@ export class AuthUtils {
         },
       });
 
-      const feature = await FeatureTable.findOne({ where: { code: parentUuid } });
+      const feature = await FeatureTable.findOne({ where: { uuid: parentUuid } });
       if (!feature) return null;
 
       const scope = await ScopeTable.findOne({ where: { uuid: feature.scope_uuid } });

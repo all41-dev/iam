@@ -164,8 +164,11 @@ export class AuthUtils {
     });
 
     for (const permission of directPermissions) {
+      const scopeHierarchy = this.utilsOptions.scopeHierarchy ? await this.utilsOptions.scopeHierarchy(elementUuid) : {};
+      const hierarchyUUIDs = Object.values(scopeHierarchy);
+
       if (permission.is_deny) {
-        if (!permission.feature_scope_uuid || permission.feature_scope_uuid === elementUuid) {
+        if (!permission.feature_scope_uuid || permission.feature_scope_uuid === elementUuid || hierarchyUUIDs.includes(permission.feature_scope_uuid)) {
           return "deny";
         }
       }
@@ -179,15 +182,13 @@ export class AuthUtils {
 
     if (this.utilsOptions.scopeHierarchy) {
       const hierarchy = await this.utilsOptions.scopeHierarchy(elementUuid);
+      const hierarchyUUIDs = Object.values(hierarchy);
 
-      const featureHierarchyUUIDs = Object.values(hierarchy).flatMap((entry: any) => entry.uuid);
-
-      const hasAccess = userGroups.some((group) =>
-        group.scope_element_uuid && featureHierarchyUUIDs.includes(group.scope_element_uuid)
-      );
-
-      if (!hasAccess) return "deny";
+      if (!userGroups.some(group => hierarchyUUIDs.includes(group.scope_element_uuid))) {
+        return "deny";
+      }
     }
+
 
     const parentPermission = await this.checkParentFeaturePermissions(feature.uuid, groupUUIDs, elementUuid);
     if (parentPermission === "deny") return "deny";
@@ -229,8 +230,11 @@ export class AuthUtils {
       });
 
       for (const permission of parentPermissions) {
+        const scopeHierarchy = this.utilsOptions.scopeHierarchy ? await this.utilsOptions.scopeHierarchy(elementUuid) : {};
+        const hierarchyUUIDs = Object.values(scopeHierarchy);
+
         if (permission.is_deny) {
-          if (!permission.feature_scope_uuid || permission.feature_scope_uuid === elementUuid) {
+          if (!permission.feature_scope_uuid || permission.feature_scope_uuid === elementUuid || hierarchyUUIDs.includes(permission.feature_scope_uuid)) {
             return "deny";
           }
         }

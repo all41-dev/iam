@@ -23,9 +23,9 @@ export class UserGroupTable extends Model {
   @Column(DataType.UUID)
   declare scope_uuid: string;
 
-  @AllowNull(true)
+  @AllowNull(false)
   @Column(DataType.STRING(100))
-  declare scope_element_uuid?: string;
+  declare scope_element_uuid: string;
 
   @HasMany(() => PermissionTable, 'group_uuid')
   declare permissions: PermissionTable[];

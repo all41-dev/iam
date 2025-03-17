@@ -20,6 +20,10 @@ export class FeatureTable extends Model {
   @Column(DataType.UUID)
   declare scope_uuid: string;
 
+  @AllowNull(false)
+  @Column(DataType.STRING(36))
+  declare code: string;
+
   @HasMany(() => PermissionTable, 'feature_uuid')
   declare permissions?: PermissionTable[];
 

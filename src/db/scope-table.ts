@@ -14,6 +14,10 @@ export class ScopeTable extends Model {
   @Column(DataType.STRING(100))
   declare name: string;
 
+  @AllowNull(false)
+  @Column(DataType.STRING(36))
+  declare code: string;
+
   @AllowNull(true)
   @Column(DataType.UUID)
   declare parent_uuid?: string;

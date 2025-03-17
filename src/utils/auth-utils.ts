@@ -5,6 +5,7 @@ import { FeatureTable } from "../db/feature-table";
 import { UserGroupTable } from "../db/user-group-table";
 import { FeatureCompositionTable } from "../db/feature-composition-table";
 import { IUtilsOptions } from "../interfaces";
+import { ScopeTable } from "../db/scope-table";
 /* import { ScopeTable } from "../db/scope-table";
 import { FeatureManager } from "../feature-manager"; */
 
@@ -162,9 +163,11 @@ export class AuthUtils {
         group_uuid: groupUUIDs,
       },
     });
+    const scope = await ScopeTable.findOne({ where: { uuid: feature.scope_uuid } });
+    if (!scope) return "deny";
 
     for (const permission of directPermissions) {
-      const scopeHierarchy = this.utilsOptions.scopeHierarchy ? await this.utilsOptions.scopeHierarchy(elementUuid) : {};
+      const scopeHierarchy = this.utilsOptions.scopeHierarchy ? await this.utilsOptions.scopeHierarchy(elementUuid, scope.code) : {};
       const hierarchyUUIDs = Object.values(scopeHierarchy);
 
       if (permission.is_deny) {
@@ -181,7 +184,7 @@ export class AuthUtils {
     });
 
     if (this.utilsOptions.scopeHierarchy) {
-      const hierarchy = await this.utilsOptions.scopeHierarchy(elementUuid);
+      const hierarchy = await this.utilsOptions.scopeHierarchy(elementUuid, scope.code);
       const hierarchyUUIDs = Object.values(hierarchy);
 
       if (!userGroups.some(group => hierarchyUUIDs.includes(group.scope_element_uuid))) {
@@ -229,8 +232,14 @@ export class AuthUtils {
         },
       });
 
+      const feature = await FeatureTable.findOne({ where: { code: parentUuid } });
+      if (!feature) return null;
+
+      const scope = await ScopeTable.findOne({ where: { uuid: feature.scope_uuid } });
+      if (!scope) return null;
+
       for (const permission of parentPermissions) {
-        const scopeHierarchy = this.utilsOptions.scopeHierarchy ? await this.utilsOptions.scopeHierarchy(elementUuid) : {};
+        const scopeHierarchy = this.utilsOptions.scopeHierarchy ? await this.utilsOptions.scopeHierarchy(elementUuid, scope.code) : {};
         const hierarchyUUIDs = Object.values(scopeHierarchy);
 
         if (permission.is_deny) {

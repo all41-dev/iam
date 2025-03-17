@@ -2,6 +2,7 @@ create table scope
 (
     uuid  char(36)     not null default uuid(),
     name  varchar(100) not null,
+    code char(36)   not null,
     parent_uuid char(36) null,
     constraint scope_pk
         primary key (uuid),

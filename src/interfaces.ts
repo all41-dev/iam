@@ -19,6 +19,7 @@ export interface IAuthOptions {
 
 export interface IUtilsOptions {
   scopeHierarchy?: (
-    uuid: string
+    uuid: string,
+    code: string
   ) => Promise<{ [key: string]: string }>;
 }

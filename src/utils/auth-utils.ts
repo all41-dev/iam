@@ -177,20 +177,20 @@ export class AuthUtils {
       }
     }
 
-    const userGroups = await UserGroupTable.findAll({
-      where: {
-        uuid: groupUUIDs,
-      },
-    });
-
-    if (this.utilsOptions.scopeHierarchy) {
-      const hierarchy = await this.utilsOptions.scopeHierarchy(elementUuid, scope.code);
-      const hierarchyUUIDs = Object.values(hierarchy);
-
-      if (!userGroups.some(group => hierarchyUUIDs.includes(group.scope_element_uuid))) {
-        return "deny";
-      }
-    }
+    /*    const userGroups = await UserGroupTable.findAll({
+         where: {
+           uuid: groupUUIDs,
+         },
+       });
+   
+       if (this.utilsOptions.scopeHierarchy) {
+         const hierarchy = await this.utilsOptions.scopeHierarchy(elementUuid, scope.code);
+         const hierarchyUUIDs = Object.values(hierarchy);
+   
+         if (!userGroups.some(group => hierarchyUUIDs.includes(group.scope_element_uuid))) {
+           return "deny";
+         }
+       } */
 
 
     const parentPermission = await this.checkParentFeaturePermissions(feature.uuid, groupUUIDs, elementUuid);

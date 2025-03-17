@@ -249,7 +249,7 @@ export class AuthUtils {
         }
 
         if (!permission.is_deny) {
-          if (!permission.feature_scope_uuid || permission.feature_scope_uuid === elementUuid) {
+          if (!permission.feature_scope_uuid || permission.feature_scope_uuid === elementUuid || hierarchyUUIDs.includes(permission.feature_scope_uuid)) {
             foundGrant = true;
           }
         }

@@ -56,4 +56,28 @@ export class FeatureManager {
 
     return { uuid: feature.uuid, name: feature.name, parents: parentFeatures, children: childFeatures };
   }
+
+  public async getHighestScope(scopes: any[]): Promise<string | null> {
+    const scopeMap = new Map<string, string | null>();
+
+    scopes.forEach((scope) => {
+      scopeMap.set(scope.uuid, scope.parent_uuid);
+    });
+
+    let highestScopeUuid: string | null = null;
+
+    for (const scope of scopes) {
+      let currentScope = scope;
+      while (currentScope && scopeMap.has(currentScope.uuid)) {
+        const parentUuid = scopeMap.get(currentScope.uuid);
+        if (!parentUuid) {
+          highestScopeUuid = currentScope.uuid;
+          break;
+        }
+        currentScope = scopes.find((s) => s.uuid === parentUuid);
+      }
+    }
+
+    return highestScopeUuid;
+  }
 }

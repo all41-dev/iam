@@ -5,10 +5,12 @@ import { FeatureTable } from "../db/feature-table";
 import { UserGroupTable } from "../db/user-group-table";
 import { FeatureCompositionTable } from "../db/feature-composition-table";
 import { IUtilsOptions } from "../interfaces";
+/* import { ScopeTable } from "../db/scope-table";
+import { FeatureManager } from "../feature-manager"; */
 
 export class AuthUtils {
   private static instance: AuthUtils;
-
+  /* private featureManager = FeatureManager.getInstance(); */
   private utilsOptions: IUtilsOptions;
 
   private constructor(options?: IUtilsOptions) {
@@ -191,7 +193,7 @@ export class AuthUtils {
     if (parentPermission === "deny") return "deny";
     if (parentPermission === "grant") return "grant";
     if (parentPermission === null) {
-      if (!directPermissions.length) return "deny";
+      if (directPermissions.length === 0) return "deny";
     }
 
     return "grant";
@@ -202,6 +204,10 @@ export class AuthUtils {
 
     visited.add(featureUuid);
 
+    /*     const allScopes = await ScopeTable.findAll({ where: { group_uuid: groupUUIDs } });
+        const highestScopeUuid = await this.featureManager.getHighestScope(allScopes);
+     */
+
     const compositions = await FeatureCompositionTable.findAll({ where: { child_uuid: featureUuid } });
     if (!compositions.length) return null;
 
@@ -209,6 +215,11 @@ export class AuthUtils {
 
     for (const composition of compositions) {
       const parentUuid = composition.parent_uuid;
+
+      /*       const parentFeatureScope = await FeatureTable.findOne({ where: { feature_uuid: parentUuid } });
+            if (parentFeatureScope && parentFeatureScope.scope_uuid === highestScopeUuid) {
+              continue;
+            } */
 
       const parentPermissions = await PermissionTable.findAll({
         where: {

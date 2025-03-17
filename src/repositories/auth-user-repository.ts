@@ -60,4 +60,8 @@ export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
   public async checkUserPermissions(userUuid: string) {
     return await this.authUtils.checkUserPermissions(userUuid)
   }
+
+  public async checkFeaturePermissions(userUuid: string, featureCode: string, elementUuid: string) {
+    return await this.authUtils.checkAccess(userUuid, featureCode, elementUuid)
+  }
 }

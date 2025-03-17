@@ -16,11 +16,13 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
     this.setUserGroups = this.setUserGroups.bind(this);
     this.unsetUserGroups = this.unsetUserGroups.bind(this);
     this.checkUserPermissions = this.checkUserPermissions.bind(this)
+    this.checkFeaturePermissions = this.checkFeaturePermissions.bind(this)
 
     this.defineRoutes(
       { verb: 'post', path: '/:userUuid/set-group', handlers: this.setUserGroups },
       { verb: 'post', path: '/:userUuid/unset-group', handlers: this.unsetUserGroups },
       { verb: 'get', path: '/:userUuid/check-permissions', handlers: this.checkUserPermissions },
+      { verb: 'get', path: '/:userUuid/check-feature-permissions/:featureCode/:elementUuid', handlers: this.checkFeaturePermissions },
     );
   }
 
@@ -56,6 +58,18 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
     const userUuid = req.params.userUuid;
     try {
       const response = await this.repositoryAuthUser.checkUserPermissions(userUuid);
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  public async checkFeaturePermissions(req: Request, res: Response) {
+    const userUuid = req.params.userUuid;
+    const featureCode = req.params.featureCode;
+    const elementUuid = req.params.elementUuid;
+    try {
+      const response = await this.repositoryAuthUser.checkFeaturePermissions(userUuid, featureCode, elementUuid);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });

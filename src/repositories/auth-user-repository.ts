@@ -57,18 +57,6 @@ export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
       }
     });
   }
-
-  public async checkPermission(email: string, featureUuid: string) {
-    if (!email || !featureUuid) {
-      throw new Error("Email and featureUuid are required");
-    }
-    const user = await AuthUserTable.findOne({ where: { email } });
-    if (!user) {
-      throw new Error(`User with email ${email} not found`);
-    }
-    return await this.authUtils.checkPermission(user.uuid, featureUuid);
-  }
-
   public async checkUserPermissions(userUuid: string) {
     return await this.authUtils.checkUserPermissions(userUuid)
   }

@@ -15,13 +15,11 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
 
     this.setUserGroups = this.setUserGroups.bind(this);
     this.unsetUserGroups = this.unsetUserGroups.bind(this);
-    this.checkPermission = this.checkPermission.bind(this);
     this.checkUserPermissions = this.checkUserPermissions.bind(this)
 
     this.defineRoutes(
       { verb: 'post', path: '/:userUuid/set-group', handlers: this.setUserGroups },
       { verb: 'post', path: '/:userUuid/unset-group', handlers: this.unsetUserGroups },
-      { verb: 'get', path: '/:userEmail/:featureUuid/check-permission', handlers: this.checkPermission },
       { verb: 'get', path: '/:userUuid/check-permissions', handlers: this.checkUserPermissions },
     );
   }
@@ -49,17 +47,6 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
     try {
       await this.repositoryAuthUser.removeGroups(userUuid, groupUuids);
       res.status(200).json({});
-    } catch (error) {
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  }
-
-  public async checkPermission(req: Request, res: Response) {
-    const email = req.params.userEmail as string;
-    const featureUuid = req.params.featureUuid as string;
-    try {
-      const response = await this.repositoryAuthUser.checkPermission(email, featureUuid);
-      res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }

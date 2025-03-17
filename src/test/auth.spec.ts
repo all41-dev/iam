@@ -3,7 +3,6 @@ import sinon, { SinonSandbox } from 'sinon';
 import { AuthUserTable } from '../db/auth-user-table';
 import { UserGroupMemberTable } from "../db/user-group-member-table";
 import { FeatureTable } from "../db/feature-table";
-import { Model } from "sequelize-typescript";
 import { AuthUtils } from '../utils/auth-utils';
 
 

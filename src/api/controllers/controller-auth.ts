@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import passport from 'passport';
-import { AuthManager } from '../../auth-manager';
+import { AuthManager } from '../../auth/auth-manager';
 import querystring from 'querystring';
 
 export class AuthController {

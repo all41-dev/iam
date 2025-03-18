@@ -1,6 +1,6 @@
-import { ScopeTable } from "./db/scope-table";
-import { FeatureCompositionTable } from "./db/feature-composition-table";
-import { FeatureTable } from "./db/feature-table";
+import { ScopeTable } from "../db/scope-table";
+import { FeatureCompositionTable } from "../db/feature-composition-table";
+import { FeatureTable } from "../db/feature-table";
 
 export class FeatureManager {
   private static instance: FeatureManager;

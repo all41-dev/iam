@@ -155,14 +155,15 @@ export class AuthUtils {
 
     const groupUUIDs = userGroupMemberships.map((group) => group.group_uuid);
 
+    const scope = await ScopeTable.findOne({ where: { uuid: feature.scope_uuid } });
+    if (!scope) return "deny";
+
     const directPermissions = await PermissionTable.findAll({
       where: {
         feature_uuid: feature.uuid,
         group_uuid: groupUUIDs,
       },
     });
-    const scope = await ScopeTable.findOne({ where: { uuid: feature.scope_uuid } });
-    if (!scope) return "deny";
 
     for (const permission of directPermissions) {
       const scopeHierarchy = this.utilsOptions.scopeHierarchy ? await this.utilsOptions.scopeHierarchy(elementUuid, scope.code) : {};
@@ -182,9 +183,7 @@ export class AuthUtils {
     });
 
     const hierarchy = this.utilsOptions.scopeHierarchy ? await this.utilsOptions.scopeHierarchy(elementUuid, scope.code) : {};
-
     const hierarchyUUIDs = Object.values(hierarchy);
-
     if (!userGroups.some(group => hierarchyUUIDs.includes(group.scope_element_uuid)) && this.utilsOptions.scopeHierarchy) {
       return "deny";
     }

@@ -5,13 +5,13 @@ import querystring from "querystring";
 import express from "express";
 import { Strategy as JWTStrategy } from "passport-jwt";
 import Cors from "cors";
-import { AuthController } from "./api/controllers/controller-auth";
+import { AuthController } from "../api/controllers/controller-auth";
 import cookieParser from "cookie-parser";
-import { IAuthOptions } from "./interfaces";
+import { IAuthOptions } from "../interfaces";
 import bcrypt from 'bcrypt';
-import { AuthUserTable } from './db/auth-user-table';
-import { RefreshTokenTable } from './db/refresh-token-table';
-import { RefreshExpiryTable } from './db/refresh-expiry-table';
+import { AuthUserTable } from '../db/auth-user-table';
+import { RefreshTokenTable } from '../db/refresh-token-table';
+import { RefreshExpiryTable } from '../db/refresh-expiry-table';
 
 export class AuthManager {
   private static instance: AuthManager;

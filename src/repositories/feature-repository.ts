@@ -3,7 +3,7 @@ import { FeatureTable } from "../db/feature-table";
 import { FeatureCompositionTable } from "../db/feature-composition-table";
 import { Repository as SequelizeNativeRepository } from "sequelize-typescript";
 import { Op, Sequelize } from "sequelize";
-import { FeatureManager } from "../feature-manager";
+import { FeatureManager } from "../auth/feature-manager";
 
 
 export class RepositoryFeature extends RepositorySequelize<FeatureTable> {

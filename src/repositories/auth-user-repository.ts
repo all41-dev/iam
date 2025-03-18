@@ -4,7 +4,7 @@ import { UserGroupTable } from "../db/user-group-table";
 import { UserGroupMemberTable } from "../db/user-group-member-table";
 import { Repository as SequelizeNativeRepository } from "sequelize-typescript";
 import { v4 as uuidv4 } from 'uuid';
-import { AuthUtils } from '../utils/auth-utils';
+import { AuthUtils } from '../auth/auth-utils';
 
 
 export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {

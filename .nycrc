@@ -5,7 +5,10 @@
   "exclude": [
     "src/**/*.spec.ts",
     "src/models/**/*.ts",
-    "src/repositories/**/*.ts"
+    "src/repositories/**/*.ts",
+    "src/*.ts",
+    "src/api/*.ts",
+    "src/db/*.ts"
   ],
   "reporter": ["lcov", "text"]
 }

@@ -3,10 +3,13 @@ import sinon, { SinonSandbox } from 'sinon';
 import { AuthUserTable } from '../db/auth-user-table';
 import { UserGroupMemberTable } from "../db/user-group-member-table";
 import { FeatureTable } from "../db/feature-table";
-import { AuthUtils } from '../utils/auth-utils';
+import { AuthUtils } from '../auth/auth-utils';
+import { ScopeTable } from '../db/scope-table';
+import { PermissionTable } from '../db/permission-table';
+import { UserGroupTable } from '../db/user-group-table';
 
 
-describe('Auth Process', () => {
+describe('Auth Process User', () => {
   let sandbox: SinonSandbox;
   let authUtils: AuthUtils
 
@@ -183,75 +186,133 @@ describe('Auth Process', () => {
     });
   });
 });
-describe("checkUserPermissions", () => {
-  let sandbox: sinon.SinonSandbox;
-  let findAllStub: sinon.SinonStub;
-  let featureFindAllStub: sinon.SinonStub;
-  let checkAncestorPermissionsStub: sinon.SinonStub;
-  let authUtils: AuthUtils
+
+describe('Auth Access Control', () => {
+  const userEmail = 'user@example.com';
+  const featureCode = 'someFeature';
+  const elementUuid = 'someElementUuid';
+
+  const userInstance = { uuid: 'userUuid', email: userEmail } as AuthUserTable;
+  const featureInstance = { uuid: 'featureUuid', scope_uuid: 'scopeUuid' } as FeatureTable;
+  const groupMemberships = [{ group_uuid: 'groupUuid' }] as UserGroupMemberTable[];
+  const scopeInstance = { code: 'scopeCode' } as ScopeTable;
+  const userGroups = [{ uuid: 'groupUuid', scope_element_uuid: elementUuid }] as UserGroupTable[];
+
+  let sandbox: SinonSandbox;
+  let authUtils: AuthUtils;
 
   beforeEach(() => {
+    authUtils = AuthUtils.getInstance();
     sandbox = sinon.createSandbox();
-    authUtils = AuthUtils.getInstance()
-    findAllStub = sandbox.stub(UserGroupMemberTable, "findAll");
-    featureFindAllStub = sandbox.stub(FeatureTable, "findAll");
-    checkAncestorPermissionsStub = sandbox.stub(authUtils, "checkAncestorPermissions");
   });
 
   afterEach(() => {
     sandbox.restore();
   });
 
-  it("should return error if auth_user_uuid is not provided", async () => {
+  it('should deny access if user does not exist', async () => {
+    sandbox.stub(AuthUserTable, 'findOne').resolves(null);
 
-    const result = await authUtils.checkUserPermissions("");
-
-    expect(result.permissions).to.be.undefined;
-    expect(result.error).to.equal("User not found");
+    const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+    expect(result).to.equal('deny');
   });
 
-  it("should return permissions map based on user's group memberships", async () => {
-    findAllStub.resolves([{ dataValues: { group_uuid: "group-uuid" } }]);
-    featureFindAllStub.resolves([
-      {
-        uuid: "feature-uuid",
-        permissions: [{ feature_uuid: "feature-uuid", is_deny: false }],
-      },
-    ]);
-    checkAncestorPermissionsStub.resolves(false);
+  it('should deny access if feature does not exist', async () => {
+    sandbox.stub(AuthUserTable, 'findOne').resolves(userInstance);
+    sandbox.stub(FeatureTable, 'findOne').resolves(null);
 
-    const result = await authUtils.checkUserPermissions("user-uuid");
-
-    expect(result.permissions).to.deep.equal({ "feature-uuid": false });
+    const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+    expect(result).to.equal('deny');
   });
 
-  it("should return permissions map with deny if ancestor denies permission", async () => {
-    findAllStub.resolves([{ dataValues: { group_uuid: "group-uuid" } }]);
-    featureFindAllStub.resolves([
-      {
-        uuid: "feature-uuid",
-        permissions: [{ feature_uuid: "feature-uuid", is_deny: false }],
-      },
-    ]);
-    checkAncestorPermissionsStub.resolves(true);
+  it('should deny access if user has no group memberships', async () => {
+    sandbox.stub(AuthUserTable, 'findOne').resolves(userInstance);
+    sandbox.stub(FeatureTable, 'findOne').resolves(featureInstance);
+    sandbox.stub(UserGroupMemberTable, 'findAll').resolves([]);
 
-    const result = await authUtils.checkUserPermissions("user-uuid");
-
-    expect(result.permissions).to.deep.equal({ "feature-uuid": true });
+    const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+    expect(result).to.equal('deny');
   });
 
-  it("should return permissions map with deny if any permission is deny", async () => {
-    findAllStub.resolves([{ dataValues: { group_uuid: "group-uuid" } }]);
-    featureFindAllStub.resolves([
-      {
-        uuid: "feature-uuid",
-        permissions: [{ feature_uuid: "feature-uuid", is_deny: true }],
-      },
-    ]);
-    checkAncestorPermissionsStub.resolves(false);
+  it('should deny access if scope does not exist', async () => {
+    sandbox.stub(AuthUserTable, 'findOne').resolves(userInstance);
+    sandbox.stub(FeatureTable, 'findOne').resolves(featureInstance);
+    sandbox.stub(UserGroupMemberTable, 'findAll').resolves(groupMemberships);
+    sandbox.stub(ScopeTable, 'findOne').resolves(null);
 
-    const result = await authUtils.checkUserPermissions("user-uuid");
+    const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+    expect(result).to.equal('deny');
+  });
 
-    expect(result.permissions).to.deep.equal({ "feature-uuid": true });
+  it('should deny access if direct permission is deny', async () => {
+    const directPermissions = [{ is_deny: true, feature_scope_uuid: elementUuid }] as PermissionTable[];
+
+    sandbox.stub(AuthUserTable, 'findOne').resolves(userInstance);
+    sandbox.stub(FeatureTable, 'findOne').resolves(featureInstance);
+    sandbox.stub(UserGroupMemberTable, 'findAll').resolves(groupMemberships);
+    sandbox.stub(ScopeTable, 'findOne').resolves(scopeInstance);
+    sandbox.stub(PermissionTable, 'findAll').resolves(directPermissions);
+    sandbox.stub(UserGroupTable, 'findAll').resolves(userGroups);
+
+    const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+    expect(result).to.equal('deny');
+  });
+
+  it('should grant access if direct permission is granted', async () => {
+    const directPermissions = [{ is_deny: false, feature_scope_uuid: elementUuid }] as PermissionTable[];
+
+    sandbox.stub(AuthUserTable, 'findOne').resolves(userInstance);
+    sandbox.stub(FeatureTable, 'findOne').resolves(featureInstance);
+    sandbox.stub(UserGroupMemberTable, 'findAll').resolves(groupMemberships);
+    sandbox.stub(ScopeTable, 'findOne').resolves(scopeInstance);
+    sandbox.stub(PermissionTable, 'findAll').resolves(directPermissions);
+    sandbox.stub(UserGroupTable, 'findAll').resolves(userGroups);
+
+    sandbox.stub(authUtils, 'checkParentFeaturePermissions').resolves(null);
+
+    const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+    expect(result).to.equal('grant');
+  });
+
+  it('should deny access if parent permission is deny', async () => {
+    sandbox.stub(AuthUserTable, 'findOne').resolves(userInstance);
+    sandbox.stub(FeatureTable, 'findOne').resolves(featureInstance);
+    sandbox.stub(UserGroupMemberTable, 'findAll').resolves(groupMemberships);
+    sandbox.stub(ScopeTable, 'findOne').resolves(scopeInstance);
+    sandbox.stub(PermissionTable, 'findAll').resolves([]);
+    sandbox.stub(UserGroupTable, 'findAll').resolves(userGroups);
+
+    sandbox.stub(authUtils, 'checkParentFeaturePermissions').resolves('deny');
+
+    const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+    expect(result).to.equal('deny');
+  });
+
+  it('should grant access if parent permission is grant', async () => {
+    sandbox.stub(AuthUserTable, 'findOne').resolves(userInstance);
+    sandbox.stub(FeatureTable, 'findOne').resolves(featureInstance);
+    sandbox.stub(UserGroupMemberTable, 'findAll').resolves(groupMemberships);
+    sandbox.stub(ScopeTable, 'findOne').resolves(scopeInstance);
+    sandbox.stub(PermissionTable, 'findAll').resolves([]);
+    sandbox.stub(UserGroupTable, 'findAll').resolves(userGroups);
+
+    sandbox.stub(authUtils, 'checkParentFeaturePermissions').resolves('grant');
+
+    const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+    expect(result).to.equal('grant');
+  });
+
+  it('should deny access if no direct permissions and parent permission is null', async () => {
+    sandbox.stub(AuthUserTable, 'findOne').resolves(userInstance);
+    sandbox.stub(FeatureTable, 'findOne').resolves(featureInstance);
+    sandbox.stub(UserGroupMemberTable, 'findAll').resolves(groupMemberships);
+    sandbox.stub(ScopeTable, 'findOne').resolves(scopeInstance);
+    sandbox.stub(PermissionTable, 'findAll').resolves([]);
+    sandbox.stub(UserGroupTable, 'findAll').resolves(userGroups);
+
+    sandbox.stub(authUtils, 'checkParentFeaturePermissions').resolves(null);
+
+    const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+    expect(result).to.equal('deny');
   });
 });

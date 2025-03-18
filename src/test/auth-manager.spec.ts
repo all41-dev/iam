@@ -1,10 +1,10 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
 import passport from 'passport';
-import bcrypt from 'bcrypt';
-import { AuthManager } from '../auth-manager';
+import { AuthManager } from '../auth/auth-manager';
+/* import bcrypt from 'bcrypt';
 import { AuthUserTable } from '../db/auth-user-table';
-import { RefreshTokenTable } from '../db/refresh-token-table';
+import { RefreshTokenTable } from '../db/refresh-token-table'; */
 import { IAuthOptions } from '../interfaces';
 
 describe('AuthManager Singleton Tests', () => {

@@ -6,12 +6,10 @@ import { UserGroupTable } from "../db/user-group-table";
 import { FeatureCompositionTable } from "../db/feature-composition-table";
 import { IUtilsOptions } from "../interfaces";
 import { ScopeTable } from "../db/scope-table";
-/* import { ScopeTable } from "../db/scope-table";
-import { FeatureManager } from "../feature-manager"; */
+
 
 export class AuthUtils {
   private static instance: AuthUtils;
-  /* private featureManager = FeatureManager.getInstance(); */
   private utilsOptions: IUtilsOptions;
 
   private constructor(options?: IUtilsOptions) {
@@ -183,17 +181,16 @@ export class AuthUtils {
       },
     });
 
-    if (this.utilsOptions.scopeHierarchy) {
-      const hierarchy = await this.utilsOptions.scopeHierarchy(elementUuid, scope.code);
-      const hierarchyUUIDs = Object.values(hierarchy);
+    const hierarchy = this.utilsOptions.scopeHierarchy ? await this.utilsOptions.scopeHierarchy(elementUuid, scope.code) : {};
 
-      if (!userGroups.some(group => hierarchyUUIDs.includes(group.scope_element_uuid))) {
-        return "deny";
-      }
+    const hierarchyUUIDs = Object.values(hierarchy);
+
+    if (!userGroups.some(group => hierarchyUUIDs.includes(group.scope_element_uuid)) && this.utilsOptions.scopeHierarchy) {
+      return "deny";
     }
 
 
-    const parentPermission = await this.checkParentFeaturePermissions(feature.uuid, groupUUIDs, elementUuid);
+    const parentPermission = await this.checkParentFeaturePermissions(feature.uuid, groupUUIDs, elementUuid, Object.values(hierarchy));
     if (parentPermission === "deny") return "deny";
     if (parentPermission === "grant") return "grant";
     if (parentPermission === null) {
@@ -203,14 +200,10 @@ export class AuthUtils {
     return "grant";
   }
 
-  async checkParentFeaturePermissions(featureUuid: string, groupUUIDs: string[], elementUuid: string, visited: Set<string> = new Set()): Promise<"grant" | "deny" | null> {
+  async checkParentFeaturePermissions(featureUuid: string, groupUUIDs: string[], elementUuid: string, hierarchyUUIDs: string[], visited: Set<string> = new Set()): Promise<"grant" | "deny" | null> {
     if (visited.has(featureUuid)) return null;
 
     visited.add(featureUuid);
-
-    /*     const allScopes = await ScopeTable.findAll({ where: { group_uuid: groupUUIDs } });
-        const highestScopeUuid = await this.featureManager.getHighestScope(allScopes);
-     */
 
     const compositions = await FeatureCompositionTable.findAll({ where: { child_uuid: featureUuid } });
 
@@ -218,11 +211,6 @@ export class AuthUtils {
 
     for (const composition of compositions) {
       const parentUuid = composition.parent_uuid;
-
-      /*       const parentFeatureScope = await FeatureTable.findOne({ where: { feature_uuid: parentUuid } });
-            if (parentFeatureScope && parentFeatureScope.scope_uuid === highestScopeUuid) {
-              continue;
-            } */
 
       const parentPermissions = await PermissionTable.findAll({
         where: {
@@ -238,9 +226,6 @@ export class AuthUtils {
       if (!scope) return null;
 
       for (const permission of parentPermissions) {
-        const scopeHierarchy = this.utilsOptions.scopeHierarchy ? await this.utilsOptions.scopeHierarchy(elementUuid, scope.code) : {};
-        const hierarchyUUIDs = Object.values(scopeHierarchy);
-
         if (permission.is_deny) {
           if (!permission.feature_scope_uuid || permission.feature_scope_uuid === elementUuid || hierarchyUUIDs.includes(permission.feature_scope_uuid)) {
             return "deny";
@@ -254,7 +239,7 @@ export class AuthUtils {
         }
       }
 
-      const ancestorPermission = await this.checkParentFeaturePermissions(parentUuid, groupUUIDs, elementUuid, visited);
+      const ancestorPermission = await this.checkParentFeaturePermissions(parentUuid, groupUUIDs, elementUuid, hierarchyUUIDs, visited);
       if (ancestorPermission === "deny") return "deny";
       if (ancestorPermission === "grant") foundGrant = true;
     }

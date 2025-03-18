@@ -21,18 +21,23 @@ export class FeatureManager {
     });
 
     const childScopeUuids = childScopes.map((scope) => scope.uuid);
-    const allChildUuids = await Promise.all(
-      childScopeUuids.map((childUuid) => this.getAllChildScopes(childUuid, visited))
-    );
+    const uniqueUuids = new Set<string>();
 
-    const uniqueUuids = new Set([...childScopeUuids, ...allChildUuids.flat()]);
+    for (const childUuid of childScopeUuids) {
+      if (!visited.has(childUuid)) {
+        const descendantUuids = await this.getAllChildScopes(childUuid, visited);
+        descendantUuids.forEach((uuid) => uniqueUuids.add(uuid));
+      }
+      uniqueUuids.add(childUuid);
+    }
+
+    uniqueUuids.delete(scopeUuid);
 
     return Array.from(uniqueUuids);
   }
 
-
   public async buildScopesTree(scope_uuid: string, visited: Set<string>): Promise<any> {
-    if (visited.has(scope_uuid)) return { uuid: scope_uuid, cyclic: true };
+    if (visited.has(scope_uuid)) return [{ uuid: scope_uuid, cyclic: true }];
     visited.add(scope_uuid);
 
     const scope = await ScopeTable.findByPk(scope_uuid);

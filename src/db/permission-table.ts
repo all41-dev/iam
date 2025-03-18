@@ -15,9 +15,9 @@ export class PermissionTable extends Model {
   @Column(DataType.BOOLEAN)
   declare is_deny: boolean;
 
-  @AllowNull(true)
+  @AllowNull(false)
   @Column(DataType.UUID)
-  declare feature_scope_uuid?: string;
+  declare feature_scope_uuid: string;
 
   @AllowNull(false)
   @Column(DataType.UUID)

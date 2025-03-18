@@ -27,7 +27,7 @@ create table user_group
     uuid  char(36)     not null default uuid(),
     name  varchar(100) not null,
     scope_uuid char(36) not null,
-    scope_element_uuid char(36) null,
+    scope_element_uuid char(36) not null,
     createdAt timestamp not null default current_timestamp,
     updatedAt timestamp not null default current_timestamp,
     constraint user_group_scope_uuid_fk
@@ -84,7 +84,7 @@ create table permission
 (
     uuid  char(36)     not null default uuid(),
     is_deny boolean not null,
-    feature_scope_uuid char(36) null,
+    feature_scope_uuid char(36) not null,
     group_uuid char(36) not null,
     feature_uuid char(36) not null,
     createdAt timestamp not null default current_timestamp,

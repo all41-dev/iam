@@ -6,8 +6,8 @@ export class AuthUser extends Base<AuthUser> {
   public uuid!: UUID | string;
   public username!: string;
   public email!: string;
-  public firstName?: string;
-  public lastName?: string;
+  public first_name?: string;
+  public last_name?: string;
   public provider!: string;
 
   public groups?: UserGroup[];

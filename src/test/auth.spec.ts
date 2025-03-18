@@ -45,7 +45,7 @@ describe('Auth Process User', () => {
       const userTableStub = sandbox.stub(AuthUserTable, 'findOne').resolves(user as AuthUserTable);
       const checkUserPermissionsStub = sandbox
         .stub(authUtils, 'checkUserPermissions')
-        .resolves({ permissions: { read: true, write: true } });
+        .resolves({ read: true, write: true });
 
       const result = await authUtils.checkUser(profile, provider);
 
@@ -122,12 +122,12 @@ describe('Auth Process User', () => {
       const userTableStub = sandbox.stub(AuthUserTable, 'findOne').resolves(user as AuthUserTable);
       const checkUserPermissionsStub = sandbox
         .stub(authUtils, 'checkUserPermissions')
-        .resolves({ permissions: undefined });
+        .resolves(undefined);
 
       const result = await authUtils.checkUser(profile, provider);
 
       expect(userTableStub.calledOnceWith({ where: { email } })).to.be.true;
-      expect(checkUserPermissionsStub.calledOnceWith('uuid-test')).to.be.true;
+      expect(checkUserPermissionsStub.calledOnceWith(email)).to.be.true;
       expect(result).to.deep.equal({ user: false, error: 'permission' });
     });
 
@@ -159,7 +159,7 @@ describe('Auth Process User', () => {
         await authUtils.checkUser(profile, provider);
       } catch (e: any) {
         expect(userTableStub.calledOnce).to.be.true;
-        expect(checkUserPermissionsStub.calledOnce).to.be.true;
+        expect(checkUserPermissionsStub.calledOnceWith(email)).to.be.true;
         expect(e.message).to.equal('Permissions check failed');
       }
     });

@@ -17,12 +17,14 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
     this.unsetUserGroups = this.unsetUserGroups.bind(this);
     this.checkUserPermissions = this.checkUserPermissions.bind(this)
     this.checkFeaturePermissions = this.checkFeaturePermissions.bind(this)
+    this.getPermissions = this.getPermissions.bind(this)
 
     this.defineRoutes(
       { verb: 'post', path: '/:userUuid/set-group', handlers: this.setUserGroups },
       { verb: 'post', path: '/:userUuid/unset-group', handlers: this.unsetUserGroups },
-      { verb: 'get', path: '/:userUuid/check-permissions', handlers: this.checkUserPermissions },
-      { verb: 'get', path: '/:userUuid/check-feature-permissions/:featureCode/:elementUuid', handlers: this.checkFeaturePermissions },
+      { verb: 'get', path: '/:email/check-permissions', handlers: this.checkUserPermissions },
+      { verb: 'get', path: '/:email/check-feature-permissions/:featureCode/:elementUuid', handlers: this.checkFeaturePermissions },
+      { verb: 'get', path: '/:email/permissions', handlers: this.getPermissions }
     );
   }
 
@@ -55,9 +57,9 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
   }
 
   public async checkUserPermissions(req: Request, res: Response) {
-    const userUuid = req.params.userUuid;
+    const email = req.params.email;
     try {
-      const response = await this.repositoryAuthUser.checkUserPermissions(userUuid);
+      const response = await this.repositoryAuthUser.checkUserPermissions(email);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
@@ -65,11 +67,21 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
   }
 
   public async checkFeaturePermissions(req: Request, res: Response) {
-    const userUuid = req.params.userUuid;
+    const email = req.params.email;
     const featureCode = req.params.featureCode;
     const elementUuid = req.params.elementUuid;
     try {
-      const response = await this.repositoryAuthUser.checkFeaturePermissions(userUuid, featureCode, elementUuid);
+      const response = await this.repositoryAuthUser.checkFeaturePermissions(email, featureCode, elementUuid);
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  public async getPermissions(req: Request, res: Response) {
+    const email = req.params.email;
+    try {
+      const response = await this.repositoryAuthUser.getPermissions(email);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });

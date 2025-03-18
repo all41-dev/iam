@@ -54,7 +54,13 @@ export class FeatureManager {
       })
     );
 
-    return { uuid: feature.uuid, name: feature.name, parents: parentFeatures, children: childFeatures };
+    return {
+      uuid: feature.uuid,
+      name: feature.name,
+      code: feature.code,
+      parents: parentFeatures,
+      children: childFeatures
+    };
   }
 
   public async getHighestScope(scopes: ScopeTable[]): Promise<string | null> {

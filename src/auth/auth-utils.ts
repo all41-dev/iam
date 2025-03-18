@@ -48,7 +48,7 @@ export class AuthUtils {
       } else if (provider !== user.provider) {
         return { user: false, error: 'provider' };
       } else {
-        const permissions = (await this.checkUserPermissions(user.uuid)).permissions;
+        const permissions = (await this.checkUserPermissions(user.email));
         if (!permissions) {
           return { user: false, error: 'permission' };
         }
@@ -62,9 +62,10 @@ export class AuthUtils {
     });
   }
 
-  async checkUserPermissions(auth_user_uuid: string): Promise<{ permissions: { [uuid: string]: boolean } | undefined; error?: string; }> {
+  async checkUserPermissions(email: string): Promise<{ [uuid: string]: boolean } | undefined> {
+    const auth_user_uuid = await AuthUserTable.findOne({ where: { email } }).then((user) => user?.uuid);
     if (!auth_user_uuid) {
-      return { permissions: undefined, error: "User not found" };
+      return undefined;
     }
 
     const groupMemberships = await UserGroupMemberTable.findAll({ where: { auth_user_uuid } });
@@ -104,7 +105,7 @@ export class AuthUtils {
       permissions[featureUuid] = ancestorDeny || decisions.includes(true);
     }
 
-    return { permissions };
+    return permissions;
   }
 
   public async checkAncestorPermissions(

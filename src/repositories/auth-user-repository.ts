@@ -5,6 +5,7 @@ import { UserGroupMemberTable } from "../db/user-group-member-table";
 import { Repository as SequelizeNativeRepository } from "sequelize-typescript";
 import { v4 as uuidv4 } from 'uuid';
 import { AuthUtils } from '../auth/auth-utils';
+import { PermissionTable } from '../db/permission-table';
 
 
 export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
@@ -57,11 +58,29 @@ export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
       }
     });
   }
-  public async checkUserPermissions(userUuid: string) {
-    return await this.authUtils.checkUserPermissions(userUuid)
+  public async checkUserPermissions(email: string) {
+    return await this.authUtils.checkUserPermissions(email);
   }
 
-  public async checkFeaturePermissions(userUuid: string, featureCode: string, elementUuid: string) {
-    return await this.authUtils.checkAccess(userUuid, featureCode, elementUuid)
+  public async checkFeaturePermissions(email: string, featureCode: string, elementUuid: string) {
+    return await this.authUtils.checkAccess(email, featureCode, elementUuid);
+  }
+
+  public async getPermissions(email: string): Promise<PermissionTable[]> {
+    const user = await AuthUserTable.findOne({ where: { email: email } });
+    if (!user) {
+      throw new Error(`
+        User with email: ${email} not found`);
+    }
+    const groups = await UserGroupMemberTable.findAll({ where: { auth_user_uuid: user.uuid } });
+    if (!groups.length) {
+      throw new Error(`
+        User with email: ${email} has no groups`);
+    }
+    const groupUUIDs = groups.map((group) => group.group_uuid);
+    const permissions = await PermissionTable.findAll({
+      where: { group_uuid: groupUUIDs },
+    });
+    return permissions;
   }
 }

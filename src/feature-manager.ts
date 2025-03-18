@@ -57,27 +57,36 @@ export class FeatureManager {
     return { uuid: feature.uuid, name: feature.name, parents: parentFeatures, children: childFeatures };
   }
 
-  public async getHighestScope(scopes: any[]): Promise<string | null> {
+  public async getHighestScope(scopes: ScopeTable[]): Promise<string | null> {
+    if (!scopes || scopes.length === 0) {
+      return null;
+    }
+
     const scopeMap = new Map<string, string | null>();
+    const visited = new Set<string>();
 
     scopes.forEach((scope) => {
-      scopeMap.set(scope.uuid, scope.parent_uuid);
+      scopeMap.set(scope.uuid, scope.parent_uuid ? scope.parent_uuid : null);
     });
 
     let highestScopeUuid: string | null = null;
 
     for (const scope of scopes) {
-      let currentScope = scope;
-      while (currentScope && scopeMap.has(currentScope.uuid)) {
-        const parentUuid = scopeMap.get(currentScope.uuid);
+      let currentUuid = scope.uuid;
+
+      while (currentUuid && !visited.has(currentUuid)) {
+        visited.add(currentUuid);
+        const parentUuid = scopeMap.get(currentUuid);
         if (!parentUuid) {
-          highestScopeUuid = currentScope.uuid;
+          highestScopeUuid = currentUuid;
           break;
         }
-        currentScope = scopes.find((s) => s.uuid === parentUuid);
+
+        currentUuid = parentUuid;
       }
     }
 
     return highestScopeUuid;
   }
 }
+

@@ -60,10 +60,10 @@ export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
 
 
   public async getFeatureMatrix(featureUuid: string): Promise<any> {
-    return await this.featureManager.buildMatrix(featureUuid, new Set());
+    return await this.featureManager.buildFeatureMatrix(featureUuid, new Set());
   }
 
-  public async getRootMatrix(): Promise<any> {
+  public async getRootFeatureMatrix(): Promise<any> {
     const rootFeatures = await FeatureTable.findAll({
       where: {
         uuid: {
@@ -76,7 +76,7 @@ export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
 
     const matrices = await Promise.all(
       rootFeatures.map(async (rootFeature) => {
-        return await this.featureManager.buildMatrix(rootFeature.uuid, new Set());
+        return await this.featureManager.buildFeatureMatrix(rootFeature.uuid, new Set());
       })
     );
 
@@ -84,7 +84,8 @@ export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
   }
 
   public async getScopeFeatureMatrix(scopeUuid: string): Promise<any[]> {
-    const allScopeUuids = new Set(await this.featureManager.getAllChildScopes(scopeUuid));
+    const allChildUuids = await this.featureManager.getAllChildScopes(scopeUuid);
+    const allScopeUuids = new Set([scopeUuid, ...allChildUuids]);
 
     const features = await FeatureTable.findAll({
       where: { scope_uuid: Array.from(allScopeUuids) },
@@ -93,7 +94,7 @@ export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
     const visited = new Set<string>();
     const featureMatrix = await Promise.all(
       features.map(async (feature) =>
-        this.featureManager.buildMatrix(feature.uuid, visited, allScopeUuids)
+        this.featureManager.buildFeatureMatrix(feature.uuid, visited, allScopeUuids)
       )
     );
 

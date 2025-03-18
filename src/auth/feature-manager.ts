@@ -25,10 +25,47 @@ export class FeatureManager {
       childScopeUuids.map((childUuid) => this.getAllChildScopes(childUuid, visited))
     );
 
-    return [scopeUuid, ...childScopeUuids, ...allChildUuids.flat()];
+    const uniqueUuids = new Set([...childScopeUuids, ...allChildUuids.flat()]);
+
+    return Array.from(uniqueUuids);
   }
 
-  public async buildMatrix(featureUuid: string, visited: Set<string>, validScopes?: Set<string>): Promise<any> {
+
+  public async buildScopesTree(scope_uuid: string, visited: Set<string>): Promise<any> {
+    if (visited.has(scope_uuid)) return { uuid: scope_uuid, cyclic: true };
+    visited.add(scope_uuid);
+
+    const scope = await ScopeTable.findByPk(scope_uuid);
+    if (!scope) throw new Error(`Scope with UUID ${scope_uuid} not found`);
+
+    let parentFeatures = [];
+    if (scope.parent_uuid) {
+      const parent = await ScopeTable.findOne({
+        where: { uuid: scope.parent_uuid }
+      });
+      if (parent) {
+        parentFeatures = await this.buildScopesTree(parent.uuid, visited);
+      }
+    }
+
+    const children = await ScopeTable.findAll({
+      where: { parent_uuid: scope_uuid },
+    });
+    const childFeatures = await Promise.all(
+      children.map(async (child) => {
+        return await this.buildScopesTree(child.uuid, visited);
+      })
+    );
+    return {
+      uuid: scope.uuid,
+      name: scope.name,
+      code: scope.code,
+      parents: parentFeatures,
+      children: childFeatures
+    };
+  }
+
+  public async buildFeatureMatrix(featureUuid: string, visited: Set<string>, validScopes?: Set<string>): Promise<any> {
     if (visited.has(featureUuid)) return { uuid: featureUuid, cyclic: true };
     visited.add(featureUuid);
 
@@ -42,7 +79,7 @@ export class FeatureManager {
       parents
         .filter((parent) => !validScopes || validScopes.has(parent.parent_uuid))
         .map(async (parent) => {
-          return await this.buildMatrix(parent.parent_uuid, visited, validScopes);
+          return await this.buildFeatureMatrix(parent.parent_uuid, visited, validScopes);
         })
     );
     const children = await FeatureCompositionTable.findAll({
@@ -50,7 +87,7 @@ export class FeatureManager {
     });
     const childFeatures = await Promise.all(
       children.map(async (child) => {
-        return await this.buildMatrix(child.child_uuid, visited, validScopes);
+        return await this.buildFeatureMatrix(child.child_uuid, visited, validScopes);
       })
     );
 

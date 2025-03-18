@@ -16,18 +16,22 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
     this.setParentChild = this.setParentChild.bind(this);
     this.removeParentChild = this.removeParentChild.bind(this);
     this.getChildrens = this.getChildrens.bind(this);
-    this.getFeatureMatrix = this.getFeatureMatrix.bind(this)
-    this.getRootMatrix = this.getRootMatrix.bind(this)
-    this.getScopeFeatureMatrix = this.getScopeFeatureMatrix.bind(this)
+    this.getFeatureMatrix = this.getFeatureMatrix.bind(this);
+    this.getRootFeatureMatrix = this.getRootFeatureMatrix.bind(this);
+    this.getScopeFeatureMatrix = this.getScopeFeatureMatrix.bind(this);
 
     this.defineRoutes(
       { verb: 'post', path: '/set-parent-child', handlers: this.setParentChild },
       { verb: 'post', path: '/remove-parent-child', handlers: this.removeParentChild },
       { verb: 'get', path: '/childrens/:featureUuid', handlers: this.getChildrens },
       { verb: 'get', path: '/matrix/:featureUuid', handlers: this.getFeatureMatrix },
-      { verb: 'get', path: '/root-matrix', handlers: this.getRootMatrix },
-      { verb: 'get', path: '/:scopeUuid/feature-matrix', handlers: this.getScopeFeatureMatrix }
+      { verb: 'get', path: '/:scopeUuid/feature-matrix', handlers: this.getScopeFeatureMatrix },
     );
+    this.defineRouteBeforeSignature(
+      { verb: 'get', path: '/:id' },
+      { verb: 'get', path: '/root-feature-matrix', handlers: this.getRootFeatureMatrix },
+    );
+
   }
 
   public static create(): Router {
@@ -77,9 +81,9 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
     }
   }
 
-  public async getRootMatrix(req: Request, res: Response) {
+  public async getRootFeatureMatrix(req: Request, res: Response) {
     try {
-      const tree = await this.repositoryFeature.getRootMatrix();
+      const tree = await this.repositoryFeature.getRootFeatureMatrix();
       res.status(200).json(tree);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });

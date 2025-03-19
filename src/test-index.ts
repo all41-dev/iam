@@ -4,6 +4,7 @@ import { IamDb } from "./db/IamDb";
 import path from "path";
 import { TestServer } from "./test-server";
 import { IamApi } from "./api/iam-api";
+import { Response } from "express";
 
 const dbOptions: IDbOptions<any> = {
   engine: 'mariadb',
@@ -27,7 +28,17 @@ const options: IServerOptions = {
   apis: {
     type: IamApi,
     baseRoute: '/api'
-  }
+  },
+  statics: [{
+    baseRoute: '/front/',
+    ressourcePath: `${__dirname}/../node_modules/@all41-dev/iam.front/www/front`,
+    getRoutes: [{
+      path: '/*',
+      handler: (_req: any, res: Response) => {
+        res.sendFile(path.resolve(`${__dirname}/../node_modules/@all41-dev/iam.front/www/front/index.html`), { dotfiles: "allow" });
+      },
+    }],
+  }],
 };
 
 const server = new TestServer(options);

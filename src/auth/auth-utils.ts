@@ -180,10 +180,10 @@ export class AuthUtils {
       }
     }
 
-    const noElementPermission = !directPermissions.some(permission =>
+    const noElementPermission = !(directPermissions.some(permission =>
       !permission.feature_scope_uuid ||
       permission.feature_scope_uuid === elementUuid ||
-      hierarchyUUIDs.includes(permission.feature_scope_uuid));
+      hierarchyUUIDs.includes(permission.feature_scope_uuid)));
 
     const userGroups = await UserGroupTable.findAll({
       where: {
@@ -244,10 +244,10 @@ export class AuthUtils {
           }
         }
       }
-      const noElementPermission = !parentPermissions.some(permission =>
+      const noElementPermission = !(parentPermissions.some(permission =>
         !permission.feature_scope_uuid ||
         permission.feature_scope_uuid === elementUuid ||
-        hierarchyUUIDs.includes(permission.feature_scope_uuid));
+        hierarchyUUIDs.includes(permission.feature_scope_uuid)));
 
       const ancestorPermission = await this.checkParentFeaturePermissions(parentUuid, groupUUIDs, elementUuid, hierarchyUUIDs, visited);
       if (ancestorPermission === "deny") return "deny";

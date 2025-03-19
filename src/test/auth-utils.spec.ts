@@ -7,9 +7,17 @@ import { AuthUtils } from '../auth/auth-utils';
 import { ScopeTable } from '../db/scope-table';
 import { PermissionTable } from '../db/permission-table';
 import { UserGroupTable } from '../db/user-group-table';
+import { FeatureCompositionTable } from '../db/feature-composition-table';
 
+describe('Auth Utils options', () => {
+  it('should return the options', () => {
+    const options = {};
+    const authUtils = AuthUtils.getInstance(options);
+    expect(authUtils.options).to.deep.equal(options);
+  });
+});
 
-describe('Auth Process User', () => {
+describe('Auth Check User', () => {
   let sandbox: SinonSandbox;
   let authUtils: AuthUtils
 
@@ -187,7 +195,158 @@ describe('Auth Process User', () => {
   });
 });
 
-describe('Auth Access Control', () => {
+describe('Auth Check User Permissions', () => {
+  const email = 'test@gmail.com';
+  const userUuid = 'userUuid';
+  const userGroupMemberships = [{ dataValues: { group_uuid: 'groupUuid' } }];
+  const permissions = [{ feature_uuid: 'featureUuid', is_deny: false }];
+  const featureInstance = { uuid: 'featureUuid' };
+
+  let authUserStub: sinon.SinonStub;
+  let groupMembershipStub: sinon.SinonStub;
+  let featureStub: sinon.SinonStub;
+  const authUtils = AuthUtils.getInstance();
+
+  afterEach(() => {
+    sinon.restore();
+  });
+
+  it('should return permissions map for a user with valid permissions', async () => {
+    authUserStub = sinon.stub(AuthUserTable, 'findOne').resolves({ uuid: userUuid } as AuthUserTable);
+    groupMembershipStub = sinon.stub(UserGroupMemberTable, 'findAll').resolves(userGroupMemberships as UserGroupMemberTable[]);
+    featureStub = sinon.stub(FeatureTable, 'findAll').resolves([
+      {
+        uuid: featureInstance.uuid,
+        permissions: permissions,
+      } as FeatureTable,
+    ]);
+    const checkAncestorPermissionsStub = sinon
+      .stub(authUtils, 'checkAncestorPermissions')
+      .resolves(false);
+
+
+
+    const result = await authUtils.checkUserPermissions(email);
+
+    expect(authUserStub.calledOnceWithExactly({ where: { email } })).to.be.true;
+    expect(groupMembershipStub.calledOnceWithExactly({ where: { auth_user_uuid: userUuid } })).to.be.true;
+    expect(featureStub.calledOnce).to.be.true;
+    expect(
+      checkAncestorPermissionsStub.calledOnceWithExactly(featureInstance.uuid, [
+        userGroupMemberships[0].dataValues.group_uuid,
+      ])
+    ).to.be.true;
+
+    expect(result).to.deep.equal({
+      [featureInstance.uuid]: false,
+    });
+  });
+
+  it('should return undefined if user is not found', async () => {
+    authUserStub = sinon.stub(AuthUserTable, 'findOne').resolves(null);
+
+    const result = await authUtils.checkUserPermissions(email);
+
+    expect(authUserStub.calledOnceWithExactly({ where: { email } })).to.be.true;
+    expect(result).to.be.undefined;
+  });
+
+  it('should handle empty group memberships gracefully', async () => {
+    authUserStub = sinon.stub(AuthUserTable, 'findOne').resolves({ uuid: userUuid } as AuthUserTable);
+    groupMembershipStub = sinon.stub(UserGroupMemberTable, 'findAll').resolves([]);
+
+    const result = await authUtils.checkUserPermissions(email);
+
+    expect(authUserStub.calledOnceWithExactly({ where: { email } })).to.be.true;
+    expect(groupMembershipStub.calledOnceWithExactly({ where: { auth_user_uuid: userUuid } })).to.be.true;
+    expect(result).to.deep.equal({});
+  });
+});
+
+describe('Auth Check Ancestor Permissions', () => {
+  const featureUuid = "featureUuid";
+  const groupUuids = ["groupUuid"];
+  const compositions = [{ parent_uuid: "parentFeatureUuid" }];
+
+  let compositionsStub: sinon.SinonStub;
+  let permissionsStub: sinon.SinonStub;
+  const authUtils = AuthUtils.getInstance();
+
+  afterEach(() => {
+    sinon.restore();
+  });
+
+  it('should return false for no ancestor permissions found', async () => {
+    compositionsStub = sinon.stub(FeatureCompositionTable, 'findAll').resolves([]);
+    permissionsStub = sinon.stub(PermissionTable, 'findAll').resolves([]);
+
+    const result = await authUtils.checkAncestorPermissions(featureUuid, groupUuids);
+
+    expect(compositionsStub.calledOnceWithExactly({ where: { child_uuid: featureUuid } })).to.be.true;
+
+    expect(result).to.equal(false);
+  });
+
+  it('should return true if an ancestor permission with deny is found', async () => {
+    compositionsStub = sinon.stub(FeatureCompositionTable, 'findAll').resolves(compositions as FeatureCompositionTable[]);
+    permissionsStub = sinon.stub(PermissionTable, 'findAll').resolves([
+      { is_deny: true } as PermissionTable,
+    ]);
+
+    const result = await authUtils.checkAncestorPermissions(featureUuid, groupUuids);
+
+    expect(compositionsStub.calledOnceWithExactly({ where: { child_uuid: featureUuid } })).to.be.true;
+    expect(
+      permissionsStub.calledOnceWithExactly({
+        where: {
+          feature_uuid: compositions[0].parent_uuid,
+          group_uuid: groupUuids,
+        },
+      })
+    ).to.be.true;
+
+    expect(result).to.equal(true);
+  });
+
+  /*   it('should return false if no deny permission is found in ancestors', async () => {
+      compositionsStub = sinon.stub(FeatureCompositionTable, 'findAll').resolves(compositions as FeatureCompositionTable[]);
+      permissionsStub = sinon.stub(PermissionTable, 'findAll').resolves([
+        { is_deny: false } as PermissionTable,
+      ]);
+  
+      const result = await authUtils.checkAncestorPermissions(featureUuid, groupUuids);
+  
+      expect(compositionsStub.calledOnceWithExactly({ where: { child_uuid: featureUuid } })).to.be.true;
+      expect(
+        permissionsStub.calledOnceWithExactly({
+          where: {
+            feature_uuid: compositions[0].parent_uuid,
+            group_uuid: groupUuids,
+          },
+        })
+      ).to.be.true;
+  
+      expect(result).to.equal(false);
+    }); */
+
+  it('should handle circular dependencies gracefully', async () => {
+    const circularCompositions = [
+      { parent_uuid: "parentFeatureUuid" },
+      { parent_uuid: featureUuid },
+    ];
+
+    compositionsStub = sinon.stub(FeatureCompositionTable, 'findAll').resolves(circularCompositions as FeatureCompositionTable[]);
+    permissionsStub = sinon.stub(PermissionTable, 'findAll').resolves([]);
+
+    const result = await authUtils.checkAncestorPermissions(featureUuid, groupUuids);
+
+    expect(compositionsStub.calledWith({ where: { child_uuid: featureUuid } })).to.be.true;
+
+    expect(result).to.equal(false);
+  });
+});
+
+describe('Auth Check Access', () => {
   const userEmail = 'user@example.com';
   const featureCode = 'someFeature';
   const elementUuid = 'someElementUuid';
@@ -314,5 +473,123 @@ describe('Auth Access Control', () => {
 
     const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
     expect(result).to.equal('deny');
+  });
+
+  it("should return 'deny' if userGroups do not match hierarchyUUIDs", async () => {
+    const utilsOptions = {
+      scopeHierarchy: sinon.stub().resolves({ element1: "elementUuid", element2: "hierarchy-uuid-1" }),
+    };
+
+    const directPermissions = [{ is_deny: false, feature_scope_uuid: "elementUuid" }] as PermissionTable[];
+    const userGroupsMismatch = [{ uuid: 'groupUuid', scope_element_uuid: "uuid-1" }] as UserGroupTable[];
+    AuthUtils.resetInstance(utilsOptions)
+    const authUtils = AuthUtils.getInstance();
+
+    sandbox.stub(AuthUserTable, 'findOne').resolves(userInstance);
+    sandbox.stub(FeatureTable, 'findOne').resolves(featureInstance);
+    sandbox.stub(UserGroupMemberTable, 'findAll').resolves(groupMemberships);
+    sandbox.stub(ScopeTable, 'findOne').resolves(scopeInstance);
+    sandbox.stub(PermissionTable, 'findAll').resolves(directPermissions);
+    sandbox.stub(UserGroupTable, 'findAll').resolves(userGroupsMismatch);
+
+    const result = await authUtils.checkAccess("test@example.com", "featureCode", "elementUuid");
+
+    expect(result).to.equal("deny");
+  });
+});
+
+describe('AuthUtils checkParentFeaturePermissions', () => {
+  let sandbox: sinon.SinonSandbox;
+  let authUtils: AuthUtils;
+  const featureUuid = 'childFeature';
+  const groupUUIDs = ['group1'];
+  const elementUuid = 'elementUuid';
+  const hierarchyUUIDs = ['elementUuid', 'anotherUuid'];
+
+  beforeEach(() => {
+    sandbox = sinon.createSandbox();
+    authUtils = AuthUtils.getInstance();
+  });
+
+  afterEach(() => {
+    sandbox.restore();
+  });
+
+  it('should return null if featureUuid is already visited', async () => {
+    const visited = new Set<string>();
+    visited.add(featureUuid);
+    const result = await authUtils.checkParentFeaturePermissions(
+      featureUuid,
+      groupUUIDs,
+      elementUuid,
+      hierarchyUUIDs,
+      visited
+    );
+    expect(result).to.be.null;
+  });
+
+  it('should return null if no compositions exist', async () => {
+    sandbox.stub(FeatureCompositionTable, 'findAll').resolves([]);
+    const result = await authUtils.checkParentFeaturePermissions(
+      featureUuid,
+      groupUUIDs,
+      elementUuid,
+      hierarchyUUIDs
+    );
+    expect(result).to.be.null;
+  });
+
+  it('should return "deny" when a parent permission denies access', async () => {
+    sandbox.stub(FeatureCompositionTable, 'findAll').resolves([{ parent_uuid: 'parentFeature' }] as FeatureCompositionTable[]);
+    sandbox.stub(PermissionTable, 'findAll').resolves([{ is_deny: true, feature_scope_uuid: elementUuid }] as PermissionTable[]);
+    sandbox.stub(FeatureTable, 'findOne').resolves({ uuid: featureUuid, scope_uuid: 'scope1' } as FeatureTable);
+    sandbox.stub(ScopeTable, 'findOne').resolves({ uuid: 'scope1', code: 'scopeCode' } as ScopeTable);
+
+    const result = await authUtils.checkParentFeaturePermissions(
+      featureUuid,
+      groupUUIDs,
+      elementUuid,
+      hierarchyUUIDs
+    );
+    expect(result).to.equal("deny");
+  });
+
+  it('should return "grant" when a parent permission grants access', async () => {
+    sandbox.stub(FeatureCompositionTable, 'findAll').resolves([{ parent_uuid: 'parentFeature' }] as FeatureCompositionTable[]);
+    sandbox.stub(PermissionTable, 'findAll').resolves([{ is_deny: false, feature_scope_uuid: elementUuid }] as PermissionTable[]);
+    sandbox.stub(FeatureTable, 'findOne').resolves({ uuid: featureUuid, scope_uuid: 'scope1' } as FeatureTable);
+    sandbox.stub(ScopeTable, 'findOne').resolves({ uuid: 'scope1', code: 'scopeCode' } as ScopeTable);
+
+    const result = await authUtils.checkParentFeaturePermissions(
+      featureUuid,
+      groupUUIDs,
+      elementUuid,
+      hierarchyUUIDs
+    );
+    expect(result).to.equal("grant");
+  });
+
+  it('should evaluate nested ancestor permissions and return "deny" if any ancestor denies access', async () => {
+    const compositionsStub = sandbox.stub(FeatureCompositionTable, 'findAll');
+    compositionsStub.withArgs({ where: { child_uuid: featureUuid } }).resolves([{ parent_uuid: 'parentFeature' }] as FeatureCompositionTable[]);
+    compositionsStub.withArgs({ where: { child_uuid: 'parentFeature' } }).resolves([{ parent_uuid: 'grandparentFeature' }] as FeatureCompositionTable[]);
+    compositionsStub.callsFake(() => Promise.resolve([]));
+
+    const permissionStub = sandbox.stub(PermissionTable, 'findAll');
+    permissionStub.withArgs({ where: { feature_uuid: 'parentFeature', group_uuid: groupUUIDs } })
+      .resolves([{ is_deny: false, feature_scope_uuid: "otherElementUuid" }] as PermissionTable[]);
+    permissionStub.withArgs({ where: { feature_uuid: 'grandparentFeature', group_uuid: groupUUIDs } })
+      .resolves([{ is_deny: true, feature_scope_uuid: elementUuid }] as PermissionTable[]);
+
+    sandbox.stub(FeatureTable, 'findOne').resolves({ uuid: featureUuid, scope_uuid: 'scope1' } as FeatureTable);
+    sandbox.stub(ScopeTable, 'findOne').resolves({ uuid: 'scope1', code: 'scopeCode' } as ScopeTable);
+
+    const result = await authUtils.checkParentFeaturePermissions(
+      featureUuid,
+      groupUUIDs,
+      elementUuid,
+      hierarchyUUIDs
+    );
+    expect(result).to.equal("deny");
   });
 });

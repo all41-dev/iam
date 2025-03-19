@@ -9,7 +9,7 @@ import { ScopeTable } from "../db/scope-table";
 
 
 export class AuthUtils {
-  private static instance: AuthUtils;
+  private static instance: AuthUtils | undefined;
   private utilsOptions: IUtilsOptions;
 
   private constructor(options?: IUtilsOptions) {
@@ -25,6 +25,10 @@ export class AuthUtils {
       AuthUtils.instance = new AuthUtils(options);
     }
     return AuthUtils.instance;
+  }
+
+  public static resetInstance(options?: IUtilsOptions) {
+    AuthUtils.instance = new AuthUtils(options);
   }
 
   async checkUser(profile: any, provider: string): Promise<{ user: any; error?: string }> {

@@ -34,9 +34,8 @@ export class AuthUtils {
   async checkUser(profile: any, provider: string): Promise<{ user: any; error?: string }> {
     const email = profile.emails[0].value;
     const displayName = profile.displayName;
-    let firstName = profile.name?.givenName || displayName.split(' ')[0];
+    const firstName = profile.name?.givenName || displayName.split(' ')[0];
     let lastName = profile.name?.familyName || displayName.split(' ')[1];
-    if (!firstName) firstName = displayName;
     if (!lastName) lastName = '';
 
     return await AuthUserTable.findOne({ where: { email } }).then(async (user) => {
@@ -170,10 +169,10 @@ export class AuthUtils {
       },
     });
 
-    for (const permission of directPermissions) {
-      const scopeHierarchy = this.utilsOptions.scopeHierarchy ? await this.utilsOptions.scopeHierarchy(elementUuid, scope.code) : {};
-      const hierarchyUUIDs = Object.values(scopeHierarchy);
+    const scopeHierarchy = this.utilsOptions.scopeHierarchy ? await this.utilsOptions.scopeHierarchy(elementUuid, scope.code) : {};
+    const hierarchyUUIDs = Object.values(scopeHierarchy);
 
+    for (const permission of directPermissions) {
       if (permission.is_deny) {
         if (!permission.feature_scope_uuid || permission.feature_scope_uuid === elementUuid || hierarchyUUIDs.includes(permission.feature_scope_uuid)) {
           return "deny";
@@ -181,24 +180,27 @@ export class AuthUtils {
       }
     }
 
+    const noElementPermission = !directPermissions.some(permission =>
+      !permission.feature_scope_uuid ||
+      permission.feature_scope_uuid === elementUuid ||
+      hierarchyUUIDs.includes(permission.feature_scope_uuid));
+
     const userGroups = await UserGroupTable.findAll({
       where: {
         uuid: groupUUIDs,
       },
     });
 
-    const hierarchy = this.utilsOptions.scopeHierarchy ? await this.utilsOptions.scopeHierarchy(elementUuid, scope.code) : {};
-    const hierarchyUUIDs = Object.values(hierarchy);
     if (!userGroups.some(group => hierarchyUUIDs.includes(group.scope_element_uuid)) && this.utilsOptions.scopeHierarchy) {
       return "deny";
     }
 
 
-    const parentPermission = await this.checkParentFeaturePermissions(feature.uuid, groupUUIDs, elementUuid, Object.values(hierarchy));
+    const parentPermission = await this.checkParentFeaturePermissions(feature.uuid, groupUUIDs, elementUuid, hierarchyUUIDs);
     if (parentPermission === "deny") return "deny";
     if (parentPermission === "grant") return "grant";
     if (parentPermission === null) {
-      if (directPermissions.length === 0) return "deny";
+      if (directPermissions.length === 0 || noElementPermission) return "deny";
     }
 
     return "grant";
@@ -242,10 +244,15 @@ export class AuthUtils {
           }
         }
       }
+      const noElementPermission = !parentPermissions.some(permission =>
+        !permission.feature_scope_uuid ||
+        permission.feature_scope_uuid === elementUuid ||
+        hierarchyUUIDs.includes(permission.feature_scope_uuid));
 
       const ancestorPermission = await this.checkParentFeaturePermissions(parentUuid, groupUUIDs, elementUuid, hierarchyUUIDs, visited);
       if (ancestorPermission === "deny") return "deny";
       if (ancestorPermission === "grant") foundGrant = true;
+      if (noElementPermission) return null;
     }
 
     return foundGrant ? "grant" : null;

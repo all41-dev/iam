@@ -30,168 +30,178 @@ describe('Auth Check User', () => {
     sandbox.restore();
   });
 
-  describe('checkUser', () => {
-    it('should return user data if user exists and is allowed', async () => {
-      const email = 'test@example.com';
-      const displayName = 'Test User';
-      const firstName = 'Test';
-      const lastName = 'User';
-      const provider = 'github';
-      const profile = {
-        emails: [{ value: email }],
-        displayName,
-        name: { givenName: firstName, familyName: lastName }
-      };
+  it('should return user data if user exists and is allowed', async () => {
+    const email = 'test@example.com';
+    const displayName = 'Test User';
+    const firstName = 'Test';
+    const lastName = 'User';
+    const provider = 'github';
+    const profile = {
+      emails: [{ value: email }],
+      displayName,
+      name: { givenName: firstName, familyName: lastName }
+    };
 
-      const user = {
-        email,
-        provider,
-        dataValues: { email, provider },
-        uuid: 'uuid-test'
-      };
+    const user = {
+      email,
+      provider,
+      dataValues: { email, provider },
+      uuid: 'uuid-test'
+    };
 
-      const userTableStub = sandbox.stub(AuthUserTable, 'findOne').resolves(user as AuthUserTable);
-      const checkUserPermissionsStub = sandbox
-        .stub(authUtils, 'checkUserPermissions')
-        .resolves({ read: true, write: true });
+    const userTableStub = sandbox.stub(AuthUserTable, 'findOne').resolves(user as AuthUserTable);
+    const checkUserPermissionsStub = sandbox
+      .stub(authUtils, 'checkUserPermissions')
+      .resolves({ read: true, write: true });
 
-      const result = await authUtils.checkUser(profile, provider);
+    const result = await authUtils.checkUser(profile, provider);
 
+    expect(userTableStub.calledOnce).to.be.true;
+    expect(checkUserPermissionsStub.calledOnce).to.be.true;
+    expect(result).to.deep.equal({
+      user: {
+        ...user.dataValues,
+        permissions: { read: true, write: true }
+      }
+    });
+  });
+
+  it('should create a new user if user does not exist and handle missing firstName and lastName', async () => {
+    const email = 'newuser@example.com';
+    const displayName = 'NewUser';
+    const provider = 'github';
+    const profile = {
+      emails: [{ value: email }],
+      displayName,
+      name: {
+        givenName: undefined,
+        familyName: undefined
+      }
+    };
+
+    const userTableFindStub = sandbox.stub(AuthUserTable, 'findOne').resolves(null);
+    const userTableCreateStub = sandbox.stub(AuthUserTable, 'create').resolves({} as AuthUserTable);
+
+    const result = await authUtils.checkUser(profile, provider);
+
+    expect(userTableFindStub.calledOnce).to.be.true;
+    expect(userTableCreateStub.calledOnce).to.be.true;
+    expect(userTableCreateStub.calledWith({
+      email,
+      username: displayName,
+      first_name: displayName,
+      last_name: '',
+      provider,
+    })).to.be.true;
+    expect(result).to.deep.equal({ user: false, error: 'denied' });
+  });
+
+
+  it('should return error if provider does not match', async () => {
+    const email = 'test@example.com';
+    const displayName = 'Test User';
+    const firstName = 'Test';
+    const lastName = 'User';
+    const provider = 'github';
+    const profile = {
+      emails: [{ value: email }],
+      displayName,
+      name: { givenName: firstName, familyName: lastName }
+    };
+
+    const user = {
+      email,
+      provider: 'microsoft',
+      dataValues: { email, provider: 'microsoft' },
+      uuid: 'uuid-test'
+    };
+
+    const userTableStub = sandbox.stub(AuthUserTable, 'findOne').resolves(user as AuthUserTable);
+
+    const result = await authUtils.checkUser(profile, provider);
+    expect(userTableStub.calledOnce).to.be.true;
+    expect(result).to.deep.equal({ user: false, error: 'provider' });
+  });
+
+  it('should return error if permission does not exist', async () => {
+    const email = 'test@example.com';
+    const provider = 'github';
+    const profile = {
+      emails: [{ value: email }],
+      displayName: 'Test User',
+    };
+
+    const user = {
+      email,
+      provider,
+      dataValues: { email, provider },
+      uuid: 'uuid-test',
+    };
+
+    const userTableStub = sandbox.stub(AuthUserTable, 'findOne').resolves(user as AuthUserTable);
+    const checkUserPermissionsStub = sandbox
+      .stub(authUtils, 'checkUserPermissions')
+      .resolves(undefined);
+
+    const result = await authUtils.checkUser(profile, provider);
+
+    expect(userTableStub.calledOnceWith({ where: { email } })).to.be.true;
+    expect(checkUserPermissionsStub.calledOnceWith(email)).to.be.true;
+    expect(result).to.deep.equal({ user: false, error: 'permission' });
+  });
+
+  it('should throw an error if checkUserPermissions fails', async () => {
+    const email = 'test@example.com';
+    const displayName = 'Test User';
+    const firstName = 'Test';
+    const lastName = 'User';
+    const provider = 'github';
+    const profile = {
+      emails: [{ value: email }],
+      displayName,
+      name: { givenName: firstName, familyName: lastName }
+    };
+
+    const user = {
+      email,
+      provider,
+      dataValues: { email, provider },
+      uuid: 'uuid-test'
+    };
+
+    const userTableStub = sandbox.stub(AuthUserTable, 'findOne').resolves(user as AuthUserTable);
+    const checkUserPermissionsStub = sandbox
+      .stub(authUtils, 'checkUserPermissions')
+      .rejects(new Error('Permissions check failed'));
+
+    try {
+      await authUtils.checkUser(profile, provider);
+    } catch (e: any) {
       expect(userTableStub.calledOnce).to.be.true;
-      expect(checkUserPermissionsStub.calledOnce).to.be.true;
-      expect(result).to.deep.equal({
-        user: {
-          ...user.dataValues,
-          permissions: { read: true, write: true }
-        }
-      });
-    });
-
-    it('should create a new user if user does not exist', async () => {
-      const email = 'newuser@example.com';
-      const displayName = 'New User';
-      const provider = 'github';
-      const profile = {
-        emails: [{ value: email }],
-        displayName,
-      };
-
-      const userTableFindStub = sandbox.stub(AuthUserTable, 'findOne').resolves(null);
-      const userTableCreateStub = sandbox.stub(AuthUserTable, 'create').resolves({} as AuthUserTable);
-
-      const result = await authUtils.checkUser(profile, provider);
-
-      expect(userTableFindStub.calledOnce).to.be.true;
-      expect(userTableCreateStub.calledOnce).to.be.true;
-      expect(result).to.deep.equal({ user: false, error: 'denied' });
-    });
-
-    it('should return error if provider does not match', async () => {
-      const email = 'test@example.com';
-      const displayName = 'Test User';
-      const firstName = 'Test';
-      const lastName = 'User';
-      const provider = 'github';
-      const profile = {
-        emails: [{ value: email }],
-        displayName,
-        name: { givenName: firstName, familyName: lastName }
-      };
-
-      const user = {
-        email,
-        provider: 'microsoft',
-        dataValues: { email, provider: 'microsoft' },
-        uuid: 'uuid-test'
-      };
-
-      const userTableStub = sandbox.stub(AuthUserTable, 'findOne').resolves(user as AuthUserTable);
-
-      const result = await authUtils.checkUser(profile, provider);
-      expect(userTableStub.calledOnce).to.be.true;
-      expect(result).to.deep.equal({ user: false, error: 'provider' });
-    });
-
-    it('should return error if permission does not exist', async () => {
-      const email = 'test@example.com';
-      const provider = 'github';
-      const profile = {
-        emails: [{ value: email }],
-        displayName: 'Test User',
-      };
-
-      const user = {
-        email,
-        provider,
-        dataValues: { email, provider },
-        uuid: 'uuid-test',
-      };
-
-      const userTableStub = sandbox.stub(AuthUserTable, 'findOne').resolves(user as AuthUserTable);
-      const checkUserPermissionsStub = sandbox
-        .stub(authUtils, 'checkUserPermissions')
-        .resolves(undefined);
-
-      const result = await authUtils.checkUser(profile, provider);
-
-      expect(userTableStub.calledOnceWith({ where: { email } })).to.be.true;
       expect(checkUserPermissionsStub.calledOnceWith(email)).to.be.true;
-      expect(result).to.deep.equal({ user: false, error: 'permission' });
-    });
+      expect(e.message).to.equal('Permissions check failed');
+    }
+  });
 
-    it('should throw an error if checkUserPermissions fails', async () => {
-      const email = 'test@example.com';
-      const displayName = 'Test User';
-      const firstName = 'Test';
-      const lastName = 'User';
-      const provider = 'github';
-      const profile = {
-        emails: [{ value: email }],
-        displayName,
-        name: { givenName: firstName, familyName: lastName }
-      };
+  it('should throw an error if user creation throws an error', async () => {
+    const email = 'newerror@example.com';
+    const displayName = 'Error User';
+    const provider = 'github';
+    const profile = {
+      emails: [{ value: email }],
+      displayName,
+      name: { givenName: 'Error', familyName: 'User' }
+    };
 
-      const user = {
-        email,
-        provider,
-        dataValues: { email, provider },
-        uuid: 'uuid-test'
-      };
+    sandbox.stub(AuthUserTable, 'findOne').resolves(null);
+    const userTableCreateStub = sandbox.stub(AuthUserTable, 'create').rejects(new Error('Creation failed'));
 
-      const userTableStub = sandbox.stub(AuthUserTable, 'findOne').resolves(user as AuthUserTable);
-      const checkUserPermissionsStub = sandbox
-        .stub(authUtils, 'checkUserPermissions')
-        .rejects(new Error('Permissions check failed'));
-
-      try {
-        await authUtils.checkUser(profile, provider);
-      } catch (e: any) {
-        expect(userTableStub.calledOnce).to.be.true;
-        expect(checkUserPermissionsStub.calledOnceWith(email)).to.be.true;
-        expect(e.message).to.equal('Permissions check failed');
-      }
-    });
-
-    it('should throw an error if user creation throws an error', async () => {
-      const email = 'newerror@example.com';
-      const displayName = 'Error User';
-      const provider = 'github';
-      const profile = {
-        emails: [{ value: email }],
-        displayName,
-        name: { givenName: 'Error', familyName: 'User' }
-      };
-
-      sandbox.stub(AuthUserTable, 'findOne').resolves(null);
-      const userTableCreateStub = sandbox.stub(AuthUserTable, 'create').rejects(new Error('Creation failed'));
-
-      try {
-        await authUtils.checkUser(profile, provider);
-      } catch (e: any) {
-        expect(userTableCreateStub.calledOnce).to.be.true;
-        expect(e.message).to.equal('Creation failed');
-      }
-    });
+    try {
+      await authUtils.checkUser(profile, provider);
+    } catch (e: any) {
+      expect(userTableCreateStub.calledOnce).to.be.true;
+      expect(e.message).to.equal('Creation failed');
+    }
   });
 });
 
@@ -308,28 +318,31 @@ describe('Auth Check Ancestor Permissions', () => {
     expect(result).to.equal(true);
   });
 
-  /*   it('should return false if no deny permission is found in ancestors', async () => {
-      compositionsStub = sinon.stub(FeatureCompositionTable, 'findAll').resolves(compositions as FeatureCompositionTable[]);
-      permissionsStub = sinon.stub(PermissionTable, 'findAll').resolves([
-        { is_deny: false } as PermissionTable,
-      ]);
-  
-      const result = await authUtils.checkAncestorPermissions(featureUuid, groupUuids);
-  
-      expect(compositionsStub.calledOnceWithExactly({ where: { child_uuid: featureUuid } })).to.be.true;
-      expect(
-        permissionsStub.calledOnceWithExactly({
-          where: {
-            feature_uuid: compositions[0].parent_uuid,
-            group_uuid: groupUuids,
-          },
-        })
-      ).to.be.true;
-  
-      expect(result).to.equal(false);
-    }); */
+  it('should return true if the recursive call returns true', async () => {
+    const compositionsStub = sinon.stub(FeatureCompositionTable, 'findAll');
+    compositionsStub.withArgs({ where: { child_uuid: 'childFeature' } })
+      .resolves([{ parent_uuid: 'parentFeature' }] as FeatureCompositionTable[]);
 
-  it('should handle circular dependencies gracefully', async () => {
+    const permissionStub = sinon.stub(PermissionTable, 'findAll');
+    permissionStub.withArgs({
+      where: { feature_uuid: 'parentFeature', group_uuid: groupUuids }
+    }).resolves([] as PermissionTable[]);
+
+    compositionsStub.withArgs({ where: { child_uuid: 'parentFeature' } })
+      .resolves([{ parent_uuid: 'grandparentFeature' }] as FeatureCompositionTable[]);
+
+    permissionStub.withArgs({
+      where: { feature_uuid: 'grandparentFeature', group_uuid: groupUuids }
+    }).resolves([{ is_deny: true }] as PermissionTable[]);
+
+    compositionsStub.withArgs({ where: { child_uuid: 'grandparentFeature' } })
+      .resolves([] as FeatureCompositionTable[]);
+
+    const result = await authUtils.checkAncestorPermissions('childFeature', groupUuids);
+    expect(result).to.be.true;
+  });
+
+  it('should handle circular dependencies', async () => {
     const circularCompositions = [
       { parent_uuid: "parentFeatureUuid" },
       { parent_uuid: featureUuid },
@@ -412,6 +425,22 @@ describe('Auth Check Access', () => {
     sandbox.stub(ScopeTable, 'findOne').resolves(scopeInstance);
     sandbox.stub(PermissionTable, 'findAll').resolves(directPermissions);
     sandbox.stub(UserGroupTable, 'findAll').resolves(userGroups);
+
+    const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+    expect(result).to.equal('deny');
+  });
+
+  it('should deny access if no direct permission and no parent permission on the element', async () => {
+    const directPermissions = [{ is_deny: true, feature_scope_uuid: "differentElementUuid" }] as PermissionTable[];
+
+    sandbox.stub(AuthUserTable, 'findOne').resolves(userInstance);
+    sandbox.stub(FeatureTable, 'findOne').resolves(featureInstance);
+    sandbox.stub(UserGroupMemberTable, 'findAll').resolves(groupMemberships);
+    sandbox.stub(ScopeTable, 'findOne').resolves(scopeInstance);
+    sandbox.stub(PermissionTable, 'findAll').resolves(directPermissions);
+    sandbox.stub(UserGroupTable, 'findAll').resolves(userGroups);
+
+    sandbox.stub(authUtils, 'checkParentFeaturePermissions').resolves(null);
 
     const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
     expect(result).to.equal('deny');
@@ -539,6 +568,33 @@ describe('AuthUtils checkParentFeaturePermissions', () => {
     expect(result).to.be.null;
   });
 
+  it('should return null if no feature exist', async () => {
+    sandbox.stub(FeatureCompositionTable, 'findAll').resolves([{ parent_uuid: 'parentFeature' }] as FeatureCompositionTable[]);
+    sandbox.stub(PermissionTable, 'findAll').resolves([{ is_deny: true, feature_scope_uuid: elementUuid }] as PermissionTable[]);
+    sandbox.stub(FeatureTable, 'findOne').resolves(null);
+    const result = await authUtils.checkParentFeaturePermissions(
+      featureUuid,
+      groupUUIDs,
+      elementUuid,
+      hierarchyUUIDs
+    );
+    expect(result).to.be.null;
+  });
+
+  it('should return null if no scope exist', async () => {
+    sandbox.stub(FeatureCompositionTable, 'findAll').resolves([{ parent_uuid: 'parentFeature' }] as FeatureCompositionTable[]);
+    sandbox.stub(PermissionTable, 'findAll').resolves([{ is_deny: true, feature_scope_uuid: elementUuid }] as PermissionTable[]);
+    sandbox.stub(FeatureTable, 'findOne').resolves({ uuid: featureUuid, scope_uuid: 'scope1' } as FeatureTable);
+    sandbox.stub(ScopeTable, 'findOne').resolves(null);
+    const result = await authUtils.checkParentFeaturePermissions(
+      featureUuid,
+      groupUUIDs,
+      elementUuid,
+      hierarchyUUIDs
+    );
+    expect(result).to.be.null;
+  });
+
   it('should return "deny" when a parent permission denies access', async () => {
     sandbox.stub(FeatureCompositionTable, 'findAll').resolves([{ parent_uuid: 'parentFeature' }] as FeatureCompositionTable[]);
     sandbox.stub(PermissionTable, 'findAll').resolves([{ is_deny: true, feature_scope_uuid: elementUuid }] as PermissionTable[]);
@@ -591,5 +647,20 @@ describe('AuthUtils checkParentFeaturePermissions', () => {
       hierarchyUUIDs
     );
     expect(result).to.equal("deny");
+  });
+
+  it('should return null when a no permission with correpsonding element found', async () => {
+    sandbox.stub(FeatureCompositionTable, 'findAll').resolves([{ parent_uuid: 'parentFeature' }] as FeatureCompositionTable[]);
+    sandbox.stub(PermissionTable, 'findAll').resolves([{ is_deny: true, feature_scope_uuid: "differentElementUuid" }] as PermissionTable[]);
+    sandbox.stub(FeatureTable, 'findOne').resolves({ uuid: featureUuid, scope_uuid: 'scope1' } as FeatureTable);
+    sandbox.stub(ScopeTable, 'findOne').resolves({ uuid: 'scope1', code: 'scopeCode' } as ScopeTable);
+
+    const result = await authUtils.checkParentFeaturePermissions(
+      featureUuid,
+      groupUUIDs,
+      elementUuid,
+      hierarchyUUIDs
+    );
+    expect(result).to.equal(null);
   });
 });

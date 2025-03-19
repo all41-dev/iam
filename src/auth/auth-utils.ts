@@ -232,27 +232,17 @@ export class AuthUtils {
       if (!scope) return null;
 
       for (const permission of parentPermissions) {
-        if (permission.is_deny) {
-          if (!permission.feature_scope_uuid || permission.feature_scope_uuid === elementUuid || hierarchyUUIDs.includes(permission.feature_scope_uuid)) {
+        if (!permission.feature_scope_uuid || permission.feature_scope_uuid === elementUuid || hierarchyUUIDs.includes(permission.feature_scope_uuid)) {
+          if (permission.is_deny) {
             return "deny";
           }
-        }
-
-        if (!permission.is_deny) {
-          if (!permission.feature_scope_uuid || permission.feature_scope_uuid === elementUuid || hierarchyUUIDs.includes(permission.feature_scope_uuid)) {
-            foundGrant = true;
-          }
+          foundGrant = true;
         }
       }
-      const noElementPermission = !(parentPermissions.some(permission =>
-        !permission.feature_scope_uuid ||
-        permission.feature_scope_uuid === elementUuid ||
-        hierarchyUUIDs.includes(permission.feature_scope_uuid)));
 
       const ancestorPermission = await this.checkParentFeaturePermissions(parentUuid, groupUUIDs, elementUuid, hierarchyUUIDs, visited);
       if (ancestorPermission === "deny") return "deny";
       if (ancestorPermission === "grant") foundGrant = true;
-      if (noElementPermission) return null;
     }
 
     return foundGrant ? "grant" : null;

@@ -15,10 +15,14 @@ export class ControllerScope extends ControllerRepositoryReadWrite<RepositorySco
 
     this.getTree = this.getTree.bind(this);
     this.getChildren = this.getChildren.bind(this);
+    this.getGroups = this.getGroups.bind(this);
+    this.getFeatures = this.getFeatures.bind(this);
 
     this.defineRoutes(
       { verb: 'get', path: '/:scopeUuid/tree', handlers: this.getTree },
       { verb: 'get', path: '/:scopeUuid/children', handlers: this.getChildren },
+      { verb: 'get', path: '/:scopeUuid/groups', handlers: this.getGroups },
+      { verb: 'get', path: '/:scopeUuid/features', handlers: this.getFeatures }
     );
   }
 
@@ -41,6 +45,26 @@ export class ControllerScope extends ControllerRepositoryReadWrite<RepositorySco
     const scopeUuid = req.params.scopeUuid;
     try {
       const response = await this.repositoryScope.getChildScopes(scopeUuid);
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  public async getGroups(req: Request, res: Response) {
+    const scopeUuid = req.params.scopeUuid;
+    try {
+      const response = await this.repositoryScope.getScopeGroups(scopeUuid);
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  public async getFeatures(req: Request, res: Response) {
+    const scopeUuid = req.params.scopeUuid;
+    try {
+      const response = await this.repositoryScope.getScopeFeatures(scopeUuid);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });

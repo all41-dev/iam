@@ -174,16 +174,16 @@ export class AuthUtils {
 
     for (const permission of directPermissions) {
       if (permission.is_deny) {
-        if (!permission.feature_scope_uuid || permission.feature_scope_uuid === elementUuid || hierarchyUUIDs.includes(permission.feature_scope_uuid)) {
+        if (!permission.scope_element_uuid || permission.scope_element_uuid === elementUuid || hierarchyUUIDs.includes(permission.scope_element_uuid)) {
           return "deny";
         }
       }
     }
 
     const noElementPermission = !(directPermissions.some(permission =>
-      !permission.feature_scope_uuid ||
-      permission.feature_scope_uuid === elementUuid ||
-      hierarchyUUIDs.includes(permission.feature_scope_uuid)));
+      !permission.scope_element_uuid ||
+      permission.scope_element_uuid === elementUuid ||
+      hierarchyUUIDs.includes(permission.scope_element_uuid)));
 
     const userGroups = await UserGroupTable.findAll({
       where: {
@@ -232,7 +232,7 @@ export class AuthUtils {
       if (!scope) return null;
 
       for (const permission of parentPermissions) {
-        if (!permission.feature_scope_uuid || permission.feature_scope_uuid === elementUuid || hierarchyUUIDs.includes(permission.feature_scope_uuid)) {
+        if (!permission.scope_element_uuid || permission.scope_element_uuid === elementUuid || hierarchyUUIDs.includes(permission.scope_element_uuid)) {
           if (permission.is_deny) {
             return "deny";
           }

@@ -59,7 +59,7 @@ create table feature
     createdAt timestamp not null default current_timestamp,
     code char(36)   not null,
     updatedAt timestamp not null default current_timestamp,
-    constraint feature_scope_uuid_fk
+    constraint scope_element_uuid_fk
         foreign key (scope_uuid) references scope (uuid),
     constraint feature_pk
         primary key (uuid)
@@ -84,12 +84,12 @@ create table permission
 (
     uuid  char(36)     not null default uuid(),
     is_deny boolean not null,
-    feature_scope_uuid char(36) not null,
+    scope_element_uuid char(36) not null,
     group_uuid char(36) not null,
     feature_uuid char(36) not null,
     createdAt timestamp not null default current_timestamp,
     updatedAt timestamp not null default current_timestamp,
-    constraint permission_feature_scope_uuid_fk
+    constraint permission_scope_element_uuid_fk
         foreign key (feature_uuid) references feature (uuid),
     constraint permission_group_uuid_fk
         foreign key (group_uuid) references user_group (uuid),

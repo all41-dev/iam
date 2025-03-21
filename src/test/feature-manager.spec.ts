@@ -180,23 +180,13 @@ describe("FeatureManager", () => {
             uuid: "feature-2",
             name: "Feature 2",
             code: "F2",
-            parents: [
-              {
-                uuid: "feature-1",
-                cyclic: true
-              }
-            ],
+            parents: [],
             children: [
               {
                 uuid: "feature-3",
                 name: "Feature 3",
                 code: "F3",
-                parents: [
-                  {
-                    uuid: "feature-2",
-                    cyclic: true
-                  }
-                ],
+                parents: [],
                 children: []
               }
             ]

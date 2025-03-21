@@ -416,7 +416,7 @@ describe('Auth Utils', () => {
     });
 
     it('should deny access if direct permission is deny', async () => {
-      const directPermissions = [{ is_deny: true, feature_scope_uuid: elementUuid }] as PermissionTable[];
+      const directPermissions = [{ is_deny: true, scope_element_uuid: elementUuid }] as PermissionTable[];
 
       sandbox.stub(AuthUserTable, 'findOne').resolves(userInstance);
       sandbox.stub(FeatureTable, 'findOne').resolves(featureInstance);
@@ -430,7 +430,7 @@ describe('Auth Utils', () => {
     });
 
     it('should deny access if no direct permission and no parent permission on the element', async () => {
-      const directPermissions = [{ is_deny: true, feature_scope_uuid: "differentElementUuid" }] as PermissionTable[];
+      const directPermissions = [{ is_deny: true, scope_element_uuid: "differentElementUuid" }] as PermissionTable[];
 
       sandbox.stub(AuthUserTable, 'findOne').resolves(userInstance);
       sandbox.stub(FeatureTable, 'findOne').resolves(featureInstance);
@@ -446,7 +446,7 @@ describe('Auth Utils', () => {
     });
 
     it('should grant access if direct permission is granted', async () => {
-      const directPermissions = [{ is_deny: false, feature_scope_uuid: elementUuid }] as PermissionTable[];
+      const directPermissions = [{ is_deny: false, scope_element_uuid: elementUuid }] as PermissionTable[];
 
       sandbox.stub(AuthUserTable, 'findOne').resolves(userInstance);
       sandbox.stub(FeatureTable, 'findOne').resolves(featureInstance);
@@ -508,7 +508,7 @@ describe('Auth Utils', () => {
         scopeHierarchy: sinon.stub().resolves({ element1: "elementUuid", element2: "hierarchy-uuid-1" }),
       };
 
-      const directPermissions = [{ is_deny: false, feature_scope_uuid: "elementUuid" }] as PermissionTable[];
+      const directPermissions = [{ is_deny: false, scope_element_uuid: "elementUuid" }] as PermissionTable[];
       const userGroupsMismatch = [{ uuid: 'groupUuid', scope_element_uuid: "uuid-1" }] as UserGroupTable[];
       AuthUtils.resetInstance(utilsOptions)
       const authUtils = AuthUtils.getInstance();
@@ -569,7 +569,7 @@ describe('Auth Utils', () => {
 
     it('should return null if no feature exist', async () => {
       sandbox.stub(FeatureCompositionTable, 'findAll').resolves([{ parent_uuid: 'parentFeature' }] as FeatureCompositionTable[]);
-      sandbox.stub(PermissionTable, 'findAll').resolves([{ is_deny: true, feature_scope_uuid: elementUuid }] as PermissionTable[]);
+      sandbox.stub(PermissionTable, 'findAll').resolves([{ is_deny: true, scope_element_uuid: elementUuid }] as PermissionTable[]);
       sandbox.stub(FeatureTable, 'findOne').resolves(null);
       const result = await authUtils.checkParentFeaturePermissions(
         featureUuid,
@@ -582,7 +582,7 @@ describe('Auth Utils', () => {
 
     it('should return null if no scope exist', async () => {
       sandbox.stub(FeatureCompositionTable, 'findAll').resolves([{ parent_uuid: 'parentFeature' }] as FeatureCompositionTable[]);
-      sandbox.stub(PermissionTable, 'findAll').resolves([{ is_deny: true, feature_scope_uuid: elementUuid }] as PermissionTable[]);
+      sandbox.stub(PermissionTable, 'findAll').resolves([{ is_deny: true, scope_element_uuid: elementUuid }] as PermissionTable[]);
       sandbox.stub(FeatureTable, 'findOne').resolves({ uuid: featureUuid, scope_uuid: 'scope1' } as FeatureTable);
       sandbox.stub(ScopeTable, 'findOne').resolves(null);
       const result = await authUtils.checkParentFeaturePermissions(
@@ -596,7 +596,7 @@ describe('Auth Utils', () => {
 
     it('should return "deny" when a parent permission denies access', async () => {
       sandbox.stub(FeatureCompositionTable, 'findAll').resolves([{ parent_uuid: 'parentFeature' }] as FeatureCompositionTable[]);
-      sandbox.stub(PermissionTable, 'findAll').resolves([{ is_deny: true, feature_scope_uuid: elementUuid }] as PermissionTable[]);
+      sandbox.stub(PermissionTable, 'findAll').resolves([{ is_deny: true, scope_element_uuid: elementUuid }] as PermissionTable[]);
       sandbox.stub(FeatureTable, 'findOne').resolves({ uuid: featureUuid, scope_uuid: 'scope1' } as FeatureTable);
       sandbox.stub(ScopeTable, 'findOne').resolves({ uuid: 'scope1', code: 'scopeCode' } as ScopeTable);
 
@@ -611,7 +611,7 @@ describe('Auth Utils', () => {
 
     it('should return "grant" when a parent permission grants access', async () => {
       sandbox.stub(FeatureCompositionTable, 'findAll').resolves([{ parent_uuid: 'parentFeature' }] as FeatureCompositionTable[]);
-      sandbox.stub(PermissionTable, 'findAll').resolves([{ is_deny: false, feature_scope_uuid: elementUuid }] as PermissionTable[]);
+      sandbox.stub(PermissionTable, 'findAll').resolves([{ is_deny: false, scope_element_uuid: elementUuid }] as PermissionTable[]);
       sandbox.stub(FeatureTable, 'findOne').resolves({ uuid: featureUuid, scope_uuid: 'scope1' } as FeatureTable);
       sandbox.stub(ScopeTable, 'findOne').resolves({ uuid: 'scope1', code: 'scopeCode' } as ScopeTable);
 
@@ -632,9 +632,9 @@ describe('Auth Utils', () => {
 
       const permissionStub = sandbox.stub(PermissionTable, 'findAll');
       permissionStub.withArgs({ where: { feature_uuid: 'parentFeature', group_uuid: groupUUIDs } })
-        .resolves([{ is_deny: false, feature_scope_uuid: "otherElementUuid" }] as PermissionTable[]);
+        .resolves([{ is_deny: false, scope_element_uuid: "otherElementUuid" }] as PermissionTable[]);
       permissionStub.withArgs({ where: { feature_uuid: 'grandparentFeature', group_uuid: groupUUIDs } })
-        .resolves([{ is_deny: true, feature_scope_uuid: elementUuid }] as PermissionTable[]);
+        .resolves([{ is_deny: true, scope_element_uuid: elementUuid }] as PermissionTable[]);
 
       sandbox.stub(FeatureTable, 'findOne').resolves({ uuid: featureUuid, scope_uuid: 'scope1' } as FeatureTable);
       sandbox.stub(ScopeTable, 'findOne').resolves({ uuid: 'scope1', code: 'scopeCode' } as ScopeTable);
@@ -650,7 +650,7 @@ describe('Auth Utils', () => {
 
     it('should return null when a no permission with correpsonding element found', async () => {
       sandbox.stub(FeatureCompositionTable, 'findAll').resolves([{ parent_uuid: 'parentFeature' }] as FeatureCompositionTable[]);
-      sandbox.stub(PermissionTable, 'findAll').resolves([{ is_deny: true, feature_scope_uuid: "differentElementUuid" }] as PermissionTable[]);
+      sandbox.stub(PermissionTable, 'findAll').resolves([{ is_deny: true, scope_element_uuid: "differentElementUuid" }] as PermissionTable[]);
       sandbox.stub(FeatureTable, 'findOne').resolves({ uuid: featureUuid, scope_uuid: 'scope1' } as FeatureTable);
       sandbox.stub(ScopeTable, 'findOne').resolves({ uuid: 'scope1', code: 'scopeCode' } as ScopeTable);
 

@@ -12,6 +12,34 @@ export class FeatureManager {
     return FeatureManager.instance;
   }
 
+  public async getHighestFeatureInScope(featureUuid: string, scopeUuid: string, allScopeUuids: Set<string>): Promise<FeatureTable | null> {
+    const parentFeatures = await this.getDirectParentFeatures(featureUuid);
+
+    const validParentFeatures = parentFeatures.filter(parent =>
+      allScopeUuids.has(parent.scope_uuid)
+    );
+
+    for (const parentFeature of validParentFeatures) {
+      const highestFeature = await this.getHighestFeatureInScope(parentFeature.uuid, scopeUuid, allScopeUuids);
+      if (highestFeature) {
+        return highestFeature;
+      }
+    }
+
+    return validParentFeatures.length === 0 ? await FeatureTable.findByPk(featureUuid) : null;
+  }
+
+  public async getDirectParentFeatures(featureUuid: string): Promise<FeatureTable[]> {
+    const parentRelations = await FeatureCompositionTable.findAll({
+      where: { child_uuid: featureUuid },
+    });
+
+    const parentUuids = parentRelations.map(relation => relation.parent_uuid);
+    return await FeatureTable.findAll({
+      where: { uuid: parentUuids },
+    });
+  }
+
   public async getAllChildScopes(scopeUuid: string, visited: Set<string> = new Set()): Promise<string[]> {
     if (visited.has(scopeUuid)) return [];
     visited.add(scopeUuid);
@@ -71,7 +99,11 @@ export class FeatureManager {
   }
 
   public async buildFeatureMatrix(featureUuid: string, visited: Set<string>, validScopes?: Set<string>): Promise<any> {
-    if (visited.has(featureUuid)) return { uuid: featureUuid, cyclic: true };
+    if (visited.has(featureUuid)) return {
+      uuid: featureUuid,
+      code: (await FeatureTable.findByPk(featureUuid))?.code,
+      cyclic: true
+    };
     visited.add(featureUuid);
 
     const feature = await FeatureTable.findByPk(featureUuid);
@@ -80,12 +112,21 @@ export class FeatureManager {
     const parents = await FeatureCompositionTable.findAll({
       where: { child_uuid: featureUuid },
     });
+    const validParents = [];
+    for (const parent of parents) {
+      if (!validScopes) {
+        validParents.push(parent);
+      } else {
+        const parentFeature = await FeatureTable.findByPk(parent.parent_uuid);
+        if (parentFeature && parentFeature.scope_uuid && validScopes.has(parentFeature.scope_uuid)) {
+          validParents.push(parent);
+        }
+      }
+    }
     const parentFeatures = await Promise.all(
-      parents
-        .filter((parent) => !validScopes || validScopes.has(parent.parent_uuid))
-        .map(async (parent) => {
-          return await this.buildFeatureMatrix(parent.parent_uuid, visited, validScopes);
-        })
+      validParents.map(async (parent) => {
+        return await this.buildFeatureMatrix(parent.parent_uuid, visited, validScopes);
+      })
     );
     const children = await FeatureCompositionTable.findAll({
       where: { parent_uuid: featureUuid },

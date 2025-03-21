@@ -92,12 +92,20 @@ export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
     });
 
     const visited = new Set<string>();
-    const featureMatrix = await Promise.all(
-      features.map(async (feature) =>
-        this.featureManager.buildFeatureMatrix(feature.uuid, visited, allScopeUuids)
-      )
-    );
+    const highestFeatures = new Set<string>();
 
+    for (const feature of features) {
+      const highestFeature = await this.featureManager.getHighestFeatureInScope(feature.uuid, scopeUuid, allScopeUuids);
+
+      if (highestFeature) {
+        highestFeatures.add(highestFeature.uuid);
+      }
+    }
+
+    const featureMatrixPromises = Array.from(highestFeatures).map(uuid =>
+      this.featureManager.buildFeatureMatrix(uuid, visited, allScopeUuids)
+    );
+    const featureMatrix = await Promise.all(featureMatrixPromises);
     return featureMatrix;
   }
 }

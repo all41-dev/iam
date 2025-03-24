@@ -18,6 +18,7 @@ create table auth_user
     first_name varchar(50),
     last_name varchar(50),
     provider varchar(50) default 'local',
+    validated boolean DEFAULT false NOT NULL;
     constraint auth_user_pk
         primary key (uuid)
 );

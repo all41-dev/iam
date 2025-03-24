@@ -83,4 +83,21 @@ export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
     });
     return permissions;
   }
+
+  public async getUserGroups(userUuid: string): Promise<UserGroupTable[] | null> {
+    const user = await this.getByKey(userUuid);
+    if (!user) {
+      throw new Error(`
+        User with uuid: ${userUuid} not found`);
+    }
+    const groupsMember = await UserGroupMemberTable.findAll({ where: { auth_user_uuid: user.uuid } });
+    if (!groupsMember.length) {
+      return null;
+    }
+    const groupUUIDs = groupsMember.map((group) => group.group_uuid);
+    const groups = await UserGroupTable.findAll({
+      where: { uuid: groupUUIDs },
+    });
+    return groups;
+  }
 }

@@ -33,6 +33,11 @@ export class AuthUserTable extends Model {
   @Column(DataType.STRING(50))
   declare provider: string;
 
+  @Default(false)
+  @AllowNull(false)
+  @Column(DataType.BOOLEAN)
+  declare validated: boolean;
+
   public get pkName() { return 'uuid' as keyof AuthUserTable; }
 
 }

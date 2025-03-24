@@ -18,13 +18,15 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
     this.checkUserPermissions = this.checkUserPermissions.bind(this)
     this.checkFeaturePermissions = this.checkFeaturePermissions.bind(this)
     this.getPermissions = this.getPermissions.bind(this)
+    this.getUserGroups = this.getUserGroups.bind(this)
 
     this.defineRoutes(
       { verb: 'post', path: '/:userUuid/set-group', handlers: this.setUserGroups },
       { verb: 'post', path: '/:userUuid/unset-group', handlers: this.unsetUserGroups },
       { verb: 'get', path: '/:email/check-permissions', handlers: this.checkUserPermissions },
       { verb: 'get', path: '/:email/check-feature-permissions/:featureCode/:elementUuid', handlers: this.checkFeaturePermissions },
-      { verb: 'get', path: '/:email/permissions', handlers: this.getPermissions }
+      { verb: 'get', path: '/:email/permissions', handlers: this.getPermissions },
+      { verb: 'get', path: '/:userUuid/groups', handlers: this.getUserGroups }
     );
   }
 
@@ -82,6 +84,16 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
     const email = req.params.email;
     try {
       const response = await this.repositoryAuthUser.getPermissions(email);
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  public async getUserGroups(req: Request, res: Response) {
+    const userUuid = req.params.userUuid;
+    try {
+      const response = await this.repositoryAuthUser.getUserGroups(userUuid);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });

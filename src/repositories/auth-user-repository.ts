@@ -58,8 +58,33 @@ export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
       }
     });
   }
-  public async checkUserPermissions(email: string) {
-    return await this.authUtils.checkUserPermissions(email);
+  public async updateGroups(userUuid: string, groupUuids: string[]) {
+    const user = await this.getByKey(userUuid);
+    if (!user) {
+      throw new Error(`User with id ${userUuid} not found`);
+    }
+
+    const currentUserGroups = await UserGroupMemberTable.findAll({
+      where: { auth_user_uuid: user.uuid },
+      attributes: ['group_uuid'],
+    });
+
+    const currentGroupUuids = currentUserGroups.map(group => group.group_uuid);
+
+    const groupsToAdd = groupUuids.filter(uuid => !currentGroupUuids.includes(uuid));
+    const groupsToRemove = currentGroupUuids.filter(uuid => !groupUuids.includes(uuid));
+
+    if (groupsToAdd.length > 0) {
+      await this.addGroups(userUuid, groupsToAdd);
+    }
+
+    if (groupsToRemove.length > 0) {
+      await this.removeGroups(userUuid, groupsToRemove);
+    }
+  }
+
+  public async checkUserEffectivePermissions(userUuid: string) {
+    return await this.authUtils.checkUserEffectivePermissions(userUuid);
   }
 
   public async checkFeaturePermissions(email: string, featureCode: string, elementUuid: string) {

@@ -15,15 +15,17 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
 
     this.setUserGroups = this.setUserGroups.bind(this);
     this.unsetUserGroups = this.unsetUserGroups.bind(this);
-    this.checkUserPermissions = this.checkUserPermissions.bind(this)
-    this.checkFeaturePermissions = this.checkFeaturePermissions.bind(this)
-    this.getPermissions = this.getPermissions.bind(this)
-    this.getUserGroups = this.getUserGroups.bind(this)
+    this.updateUserGroups = this.updateUserGroups.bind(this);
+    this.checkUserEffectivePermissions = this.checkUserEffectivePermissions.bind(this);
+    this.checkFeaturePermissions = this.checkFeaturePermissions.bind(this);
+    this.getPermissions = this.getPermissions.bind(this);
+    this.getUserGroups = this.getUserGroups.bind(this);
 
     this.defineRoutes(
       { verb: 'post', path: '/:userUuid/set-group', handlers: this.setUserGroups },
       { verb: 'post', path: '/:userUuid/unset-group', handlers: this.unsetUserGroups },
-      { verb: 'get', path: '/:email/check-permissions', handlers: this.checkUserPermissions },
+      { verb: 'patch', path: '/:userUuid/update-group', handlers: this.updateUserGroups },
+      { verb: 'get', path: '/:userUuid/check-effective-permissions', handlers: this.checkUserEffectivePermissions },
       { verb: 'get', path: '/:email/check-feature-permissions/:featureCode/:elementUuid', handlers: this.checkFeaturePermissions },
       { verb: 'get', path: '/:email/permissions', handlers: this.getPermissions },
       { verb: 'get', path: '/:userUuid/groups', handlers: this.getUserGroups }
@@ -58,10 +60,21 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
     }
   }
 
-  public async checkUserPermissions(req: Request, res: Response) {
-    const email = req.params.email;
+  public async updateUserGroups(req: Request, res: Response) {
+    const userUuid = req.params.userUuid;
+    const groupUuids = req.body.groupUuids;
     try {
-      const response = await this.repositoryAuthUser.checkUserPermissions(email);
+      await this.repositoryAuthUser.updateGroups(userUuid, groupUuids);
+      res.status(200).json({});
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  public async checkUserEffectivePermissions(req: Request, res: Response) {
+    const userUuid = req.params.userUuid;
+    try {
+      const response = await this.repositoryAuthUser.checkUserEffectivePermissions(userUuid);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });

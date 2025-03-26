@@ -46,4 +46,17 @@ export class RepositoryScope extends RepositorySequelize<ScopeTable> {
     });
     return features;
   }
+
+  public async getScopeChildrenFeatures(scopeUuid: string): Promise<FeatureTable[]> {
+    const scope = await this.getByKey(scopeUuid);
+    if (!scope) {
+      throw new Error(`Scope with id ${scopeUuid} not found`);
+    }
+    const allChildUuids = await this.featureManager.getAllChildScopes(scopeUuid);
+    const allScopeUuids = [scopeUuid, ...allChildUuids];
+    const features = await FeatureTable.findAll({
+      where: { scope_uuid: allScopeUuids },
+    });
+    return features;
+  }
 }

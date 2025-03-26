@@ -6,14 +6,17 @@ import { UserGroupTable } from "../db/user-group-table";
 import { FeatureCompositionTable } from "../db/feature-composition-table";
 import { IUtilsOptions } from "../interfaces";
 import { ScopeTable } from "../db/scope-table";
+import { FeatureManager } from "./feature-manager";
 
 
 export class AuthUtils {
   private static instance: AuthUtils | undefined;
   private utilsOptions: IUtilsOptions;
+  private featureManager: FeatureManager;
 
   private constructor(options?: IUtilsOptions) {
     this.utilsOptions = options ?? {};
+    this.featureManager = FeatureManager.getInstance();
   }
 
   public get options() {
@@ -208,11 +211,15 @@ export class AuthUtils {
       groupUUIDs = groupMemberships.map((membership) => membership.dataValues.group_uuid);
     } else if (!auth_user_uuid) {
       groupUUIDs = [group_uuid];
+      const group = await UserGroupTable.findByPk(group_uuid);
+      if (!group) return {};
+    } else {
+      return {};
     }
 
     const permissionsMap: { [uuid: string]: { right: string; context: { uuid: string; scope: string; status: string }[] } } = {};
-
-    const features = await FeatureTable.findAll();
+    const scopeUUIDs = await this.featureManager.getGroupsScopeList(groupUUIDs);
+    const features = await FeatureTable.findAll({ where: { scope_uuid: scopeUUIDs } });
 
     for (const feature of features) {
       const featureUuid = feature.uuid;
@@ -246,48 +253,45 @@ export class AuthUtils {
 
       const ancestorPermissions = await this.checkAncestorEffectivePermissions(featureUuid, groupUUIDs);
 
-      if (ancestorPermissions.permissions.length > 0) {
-        const denyExists = ancestorPermissions.permissions.some((p) => p.is_deny);
-        const grantExists = ancestorPermissions.permissions.some((p) => !p.is_deny)
+      const denyExists = ancestorPermissions.permissions.some((p) => p.is_deny);
+      const grantExists = ancestorPermissions.permissions.some((p) => !p.is_deny)
 
-        const ancestorContextSet = new Set();
-        const ancestorContext: { uuid: string; scope: string; status: string }[] = [];
+      const ancestorContextSet = new Set();
+      const ancestorContext: { uuid: string; scope: string; status: string }[] = [];
 
-        for (const permission of ancestorPermissions.permissions) {
-          const permissionStatus = permission.is_deny ? "denied" : "granted";
-          const contextKey = `${permission.scope_element_uuid}-${permissionStatus}`;
-          const scopeFeature = await ScopeTable.findByPk(permission.scope_uuid)
+      for (const permission of ancestorPermissions.permissions) {
+        const permissionStatus = permission.is_deny ? "denied" : "granted";
+        const contextKey = `${permission.scope_element_uuid}-${permissionStatus}`;
+        const scopeFeature = await ScopeTable.findByPk(permission.scope_uuid)
 
-          if (!ancestorContextSet.has(contextKey)) {
-            ancestorContextSet.add(contextKey);
-            ancestorContext.push({ uuid: permission.scope_element_uuid, scope: scopeFeature ? scopeFeature.name : "", status: permissionStatus });
-          }
+        if (!ancestorContextSet.has(contextKey)) {
+          ancestorContextSet.add(contextKey);
+          ancestorContext.push({ uuid: permission.scope_element_uuid, scope: scopeFeature ? scopeFeature.name : "", status: permissionStatus });
         }
+      }
 
-        if (permissionsMap[featureCode]) {
-          let newRight = permissionsMap[featureCode].right;
-          if (denyExists && newRight === "directGrant") {
-            newRight = "partialDeny";
-          } else if (grantExists && newRight === "directDeny") {
-            newRight = "partialDeny";
-          }
-          permissionsMap[featureCode].right = newRight;
-          permissionsMap[featureCode].context.push(...ancestorContext);
-        } else {
-          const initialRight = denyExists
-            ? grantExists
-              ? "partialDeny"
-              : "ancestorDeny"
-            : grantExists
-              ? "ancestorGrant"
-              : "noRight";
-
-          permissionsMap[featureCode] = {
-            right: initialRight,
-            context: ancestorContext,
-          };
+      if (permissionsMap[featureCode]) {
+        let newRight = permissionsMap[featureCode].right;
+        if (denyExists && newRight === "directGrant") {
+          newRight = "partialDeny";
+        } else if (grantExists && newRight === "directDeny") {
+          newRight = "partialDeny";
         }
+        permissionsMap[featureCode].right = newRight;
+        permissionsMap[featureCode].context.push(...ancestorContext);
+      } else {
+        const initialRight = denyExists
+          ? grantExists
+            ? "partialDeny"
+            : "ancestorDeny"
+          : grantExists
+            ? "ancestorGrant"
+            : "noRight";
 
+        permissionsMap[featureCode] = {
+          right: initialRight,
+          context: ancestorContext,
+        };
       }
     }
 

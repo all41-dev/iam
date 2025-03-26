@@ -1,6 +1,7 @@
 import { ScopeTable } from "../db/scope-table";
 import { FeatureCompositionTable } from "../db/feature-composition-table";
 import { FeatureTable } from "../db/feature-table";
+import { UserGroupTable } from "../db/user-group-table";
 
 export class FeatureManager {
   private static instance: FeatureManager;
@@ -176,6 +177,20 @@ export class FeatureManager {
     }
 
     return highestScopeUuid;
+  }
+
+  public async getGroupsScopeList(groupUUIDs: string[]): Promise<string[]> {
+    const groups = await UserGroupTable.findAll({ where: { uuid: groupUUIDs } });
+    const scopeUUIDs = groups.map((group) => group.dataValues.scope_uuid);
+
+    const allChildScopes = await Promise.all(
+      scopeUUIDs.map((scopeUuid) => this.getAllChildScopes(scopeUuid))
+    );
+
+    const flatChildScopes = allChildScopes.flat();
+    const combinedScopes = [...scopeUUIDs, ...flatChildScopes];
+
+    return Array.from(new Set(combinedScopes));
   }
 }
 

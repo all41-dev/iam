@@ -84,7 +84,7 @@ export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
   }
 
   public async checkUserEffectivePermissions(userUuid: string) {
-    return await this.authUtils.checkUserEffectivePermissions(userUuid);
+    return await this.authUtils.checkEffectivePermissions(userUuid);
   }
 
   public async checkFeaturePermissions(email: string, featureCode: string, elementUuid: string) {

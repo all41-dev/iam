@@ -5,10 +5,15 @@ import { AuthUserTable } from "../db/auth-user-table";
 import { Repository as SequelizeNativeRepository } from "sequelize-typescript";
 import { v4 as uuidv4 } from 'uuid';
 import { PermissionTable } from "../db/permission-table";
+import { FeatureTable } from "../db/feature-table";
+import { AuthUtils } from "../auth/auth-utils";
 
 export class RepositoryUserGroup extends RepositorySequelize<UserGroupTable> {
+  private authUtils: AuthUtils;
+
   constructor(repository: SequelizeNativeRepository<UserGroupTable>) {
     super(UserGroupTable, repository);
+    this.authUtils = AuthUtils.getInstance();
   }
 
   public async init() {
@@ -77,7 +82,17 @@ export class RepositoryUserGroup extends RepositorySequelize<UserGroupTable> {
     }
     const permissions = await PermissionTable.findAll({
       where: { group_uuid: group.uuid },
+      include: [
+        {
+          model: FeatureTable,
+          as: 'feature',
+        },
+      ],
     });
     return permissions;
+  }
+
+  public async getEffectivePermissions(groupUuid: string) {
+    return await this.authUtils.checkEffectivePermissions(undefined, groupUuid);
   }
 }

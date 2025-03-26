@@ -12,6 +12,7 @@ export class PermissionTable extends Model {
   declare uuid: string;
 
   @AllowNull(false)
+  @Default(false)
   @Column(DataType.BOOLEAN)
   declare is_deny: boolean;
 

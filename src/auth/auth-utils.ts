@@ -195,14 +195,20 @@ export class AuthUtils {
     };
   }
 
-  public async checkUserEffectivePermissions(
-    auth_user_uuid: string
+  public async checkEffectivePermissions(
+    auth_user_uuid?: string,
+    group_uuid?: string
   ): Promise<{ [uuid: string]: { right: string; context: { uuid: string; scope: string; status: string }[] } }> {
-    const user = await AuthUserTable.findByPk(auth_user_uuid);
-    if (!user) return {};
+    let groupUUIDs = [];
+    if (!group_uuid) {
+      const user = await AuthUserTable.findByPk(auth_user_uuid);
+      if (!user) return {};
 
-    const groupMemberships = await UserGroupMemberTable.findAll({ where: { auth_user_uuid } });
-    const groupUUIDs = groupMemberships.map((membership) => membership.dataValues.group_uuid);
+      const groupMemberships = await UserGroupMemberTable.findAll({ where: { auth_user_uuid } });
+      groupUUIDs = groupMemberships.map((membership) => membership.dataValues.group_uuid);
+    } else if (!auth_user_uuid) {
+      groupUUIDs = [group_uuid];
+    }
 
     const permissionsMap: { [uuid: string]: { right: string; context: { uuid: string; scope: string; status: string }[] } } = {};
 

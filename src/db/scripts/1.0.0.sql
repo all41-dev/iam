@@ -84,7 +84,7 @@ create table feature_composition
 create table permission
 (
     uuid  char(36)     not null default uuid(),
-    is_deny boolean not null,
+    is_deny boolean not null default false,
     scope_element_uuid char(36) not null,
     group_uuid char(36) not null,
     feature_uuid char(36) not null,

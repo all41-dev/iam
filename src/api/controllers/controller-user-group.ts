@@ -17,6 +17,7 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
     this.removeUsers = this.removeUsers.bind(this);
     this.getUsers = this.getUsers.bind(this);
     this.getPermissions = this.getPermissions.bind(this);
+    this.getEffectivePermissions = this.getEffectivePermissions.bind(this)
 
 
     this.defineRoutes(
@@ -24,6 +25,7 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
       { verb: 'post', path: '/:groupUuid/remove-users', handlers: this.removeUsers },
       { verb: 'get', path: '/:groupUuid/users', handlers: this.getUsers },
       { verb: 'get', path: '/:groupUuid/permissions', handlers: this.getPermissions },
+      { verb: 'get', path: '/:groupUuid/effective-permissions', handlers: this.getEffectivePermissions },
     );
   }
 
@@ -74,4 +76,13 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
     }
   }
 
+  public async getEffectivePermissions(req: Request, res: Response) {
+    const groupUuid = req.params.groupUuid
+    try {
+      const response = await this.repositoryUserGroup.getEffectivePermissions(groupUuid);
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
 }

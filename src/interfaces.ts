@@ -22,5 +22,5 @@ export interface IUtilsOptions {
     uuid: string,
     code: string
   ) => Promise<{ [key: string]: string }>;
-  scopeHierarchyFunction?: (code: string, uuid?: string) => Promise<any>;
+  scopeElementHierarchy?: (code: string, uuid?: string) => Promise<any>;
 }

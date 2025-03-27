@@ -91,16 +91,16 @@ export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
     return await this.authUtils.checkAccess(email, featureCode, elementUuid);
   }
 
-  public async getPermissions(email: string): Promise<PermissionTable[]> {
-    const user = await AuthUserTable.findOne({ where: { email: email } });
+  public async getPermissions(userUuid: string): Promise<PermissionTable[]> {
+    const user = await AuthUserTable.findByPk(userUuid);
     if (!user) {
       throw new Error(`
-        User with email: ${email} not found`);
+        User with uuid: ${userUuid} not found`);
     }
-    const groups = await UserGroupMemberTable.findAll({ where: { auth_user_uuid: user.uuid } });
+    const groups = await UserGroupMemberTable.findAll({ where: { auth_user_uuid: userUuid } });
     if (!groups.length) {
       throw new Error(`
-        User with email: ${email} has no groups`);
+        User with uuid: ${userUuid} has no groups`);
     }
     const groupUUIDs = groups.map((group) => group.group_uuid);
     const permissions = await PermissionTable.findAll({

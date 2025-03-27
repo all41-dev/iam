@@ -4,13 +4,16 @@ import { Repository as SequelizeNativeRepository } from "sequelize-typescript";
 import { FeatureManager } from "../auth/feature-manager";
 import { UserGroupTable } from "../db/user-group-table";
 import { FeatureTable } from "../db/feature-table";
+import { AuthUtils } from "../auth/auth-utils";
 
 export class RepositoryScope extends RepositorySequelize<ScopeTable> {
   private featureManager: FeatureManager;
+  private authUtils: AuthUtils;
 
   constructor(repository: SequelizeNativeRepository<ScopeTable>) {
     super(ScopeTable, repository);
     this.featureManager = FeatureManager.getInstance();
+    this.authUtils = AuthUtils.getInstance();
   }
 
   public async init() {
@@ -58,5 +61,9 @@ export class RepositoryScope extends RepositorySequelize<ScopeTable> {
       where: { scope_uuid: allScopeUuids },
     });
     return features;
+  }
+
+  public async getElementHierarchy(scopeUuid: string, elementUuid: string) {
+    return await this.authUtils.buildScopeElementHierarchy(scopeUuid, elementUuid);
   }
 }

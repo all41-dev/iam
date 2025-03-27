@@ -25,9 +25,9 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
       { verb: 'post', path: '/:userUuid/set-group', handlers: this.setUserGroups },
       { verb: 'post', path: '/:userUuid/unset-group', handlers: this.unsetUserGroups },
       { verb: 'patch', path: '/:userUuid/update-group', handlers: this.updateUserGroups },
-      { verb: 'get', path: '/:userUuid/check-effective-permissions', handlers: this.checkUserEffectivePermissions },
+      { verb: 'get', path: '/:userUuid/effective-permissions', handlers: this.checkUserEffectivePermissions },
       { verb: 'get', path: '/:email/check-feature-permissions/:featureCode/:elementUuid', handlers: this.checkFeaturePermissions },
-      { verb: 'get', path: '/:email/permissions', handlers: this.getPermissions },
+      { verb: 'get', path: '/:userUuid/permissions', handlers: this.getPermissions },
       { verb: 'get', path: '/:userUuid/groups', handlers: this.getUserGroups }
     );
   }
@@ -94,9 +94,9 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
   }
 
   public async getPermissions(req: Request, res: Response) {
-    const email = req.params.email;
+    const userUuid = req.params.userUuid;
     try {
-      const response = await this.repositoryAuthUser.getPermissions(email);
+      const response = await this.repositoryAuthUser.getPermissions(userUuid);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });

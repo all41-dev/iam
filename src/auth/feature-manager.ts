@@ -192,5 +192,16 @@ export class FeatureManager {
 
     return Array.from(new Set(combinedScopes));
   }
+  public async checkForCircularDependency(childUuid: string, parentUuid: string): Promise<boolean> {
+    const children = await FeatureCompositionTable.findAll({
+      where: { child_uuid: childUuid }
+    });
+    for (const child of children) {
+      if (child.parent_uuid === parentUuid) return true;
+      const isCircular = await this.checkForCircularDependency(child.parent_uuid, parentUuid);
+      if (isCircular) return true;
+    }
+    return false;
+  }
 }
 

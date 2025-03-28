@@ -13,20 +13,13 @@ export class ControllerScope extends ControllerRepositoryReadWrite<RepositorySco
 
     this.repositoryScope = repositoryScope;
 
-    this.getTree = this.getTree.bind(this);
-    this.getChildren = this.getChildren.bind(this);
-    this.getGroups = this.getGroups.bind(this);
-    this.getFeatures = this.getFeatures.bind(this);
-    this.getChildrenFeatures = this.getChildrenFeatures.bind(this);
-    this.getElementHierarchy = this.getElementHierarchy.bind(this);
-
     this.defineRoutes(
-      { verb: 'get', path: '/:scopeUuid/tree', handlers: this.getTree },
-      { verb: 'get', path: '/:scopeUuid/children', handlers: this.getChildren },
-      { verb: 'get', path: '/:scopeUuid/groups', handlers: this.getGroups },
-      { verb: 'get', path: '/:scopeUuid/features', handlers: this.getFeatures },
-      { verb: 'get', path: '/:scopeUuid/children/features', handlers: this.getChildrenFeatures },
-      { verb: 'get', path: '/:scopeUuid/element_hierarchy/:elementUuid?', handlers: this.getElementHierarchy }
+      { verb: 'get', path: '/:scopeUuid/tree', handlers: this.getTree.bind(this) },
+      { verb: 'get', path: '/:scopeUuid/children', handlers: this.getChildren.bind(this) },
+      { verb: 'get', path: '/:scopeUuid/groups', handlers: this.getGroups.bind(this) },
+      { verb: 'get', path: '/:scopeUuid/features', handlers: this.getFeatures.bind(this) },
+      { verb: 'get', path: '/:scopeUuid/children/features', handlers: this.getChildrenFeatures.bind(this) },
+      { verb: 'get', path: '/:scopeUuid/element_hierarchy/:elementUuid?', handlers: this.getElementHierarchy.bind(this) },
     );
   }
 

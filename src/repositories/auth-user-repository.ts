@@ -73,14 +73,10 @@ export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
 
     const groupsToAdd = groupUuids.filter(uuid => !currentGroupUuids.includes(uuid));
     const groupsToRemove = currentGroupUuids.filter(uuid => !groupUuids.includes(uuid));
-
-    if (groupsToAdd.length > 0) {
-      await this.addGroups(userUuid, groupsToAdd);
-    }
-
-    if (groupsToRemove.length > 0) {
-      await this.removeGroups(userUuid, groupsToRemove);
-    }
+    if (groupsToAdd.length > 0) await this.addGroups(userUuid, groupsToAdd);
+    if (groupsToRemove.length > 0) await this.removeGroups(userUuid, groupsToRemove);
+    const conflicts = await this.authUtils.verifyGroupCollision(groupUuids);
+    if (conflicts.length > 0) return conflicts;
   }
 
   public async checkUserEffectivePermissions(userUuid: string) {
@@ -99,13 +95,15 @@ export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
     }
     const groups = await UserGroupMemberTable.findAll({ where: { auth_user_uuid: userUuid } });
     if (!groups.length) {
-      throw new Error(`
-        User with uuid: ${userUuid} has no groups`);
+      return []
     }
     const groupUUIDs = groups.map((group) => group.group_uuid);
     const permissions = await PermissionTable.findAll({
       where: { group_uuid: groupUUIDs },
     });
+    if (!permissions.length) {
+      return []
+    }
     return permissions;
   }
 

@@ -419,11 +419,9 @@ export class AuthUtils {
 
   async checkParentFeaturePermissions(featureUuid: string, groupUUIDs: string[], elementUuid: string, hierarchyUUIDs: string[], visited: Set<string> = new Set()): Promise<"grant" | "deny" | null> {
     if (visited.has(featureUuid)) return null;
-
     visited.add(featureUuid);
 
     const compositions = await FeatureCompositionTable.findAll({ where: { child_uuid: featureUuid } });
-
     let foundGrant = false;
 
     for (const composition of compositions) {
@@ -458,6 +456,44 @@ export class AuthUtils {
 
     return foundGrant ? "grant" : null;
   }
+
+  async verifyGroupCollision(groupUUIDs: string[]): Promise<{ conflictType: string; permissions: any[] }[]> {
+    const conflicts: { conflictType: string; permissions: any[] }[] = [];
+
+    const groups = await UserGroupTable.findAll({ where: { uuid: groupUUIDs } });
+    const permissions = await PermissionTable.findAll({ where: { group_uuid: groupUUIDs } });
+
+    for (const permission of permissions) {
+      const feature = await FeatureTable.findOne({ where: { uuid: permission.feature_uuid } });
+      if (!feature) continue;
+
+      const scope = await ScopeTable.findOne({ where: { uuid: feature.scope_uuid } });
+      if (!scope) throw new Error("No scope found");
+
+      const scopeHierarchy = this.utilsOptions.scopeHierarchy
+        ? await this.utilsOptions.scopeHierarchy(permission.scope_element_uuid, scope.code)
+        : {};
+      const hierarchyUUIDs = Object.values(scopeHierarchy);
+
+      if (!permission.is_deny) {
+        const ancestorResult = await this.checkParentFeaturePermissions(
+          permission.feature_uuid,
+          groupUUIDs,
+          permission.scope_element_uuid,
+          hierarchyUUIDs
+        );
+
+        if (ancestorResult === "deny") {
+          conflicts.push({
+            conflictType: "grant_overridden_by_deny",
+            permissions: [permission],
+          });
+        }
+      }
+    }
+    return conflicts;
+  }
+
   public async buildScopeElementHierarchy(scopeUuid: string, elementUuid?: string): Promise<any> {
     if (this.options.scopeElementHierarchy) {
       const code = await ScopeTable.findByPk(scopeUuid).then((scope) => scope?.code)

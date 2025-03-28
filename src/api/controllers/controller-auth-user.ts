@@ -64,8 +64,8 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
     const userUuid = req.params.userUuid;
     const groupUuids = req.body.groupUuids;
     try {
-      await this.repositoryAuthUser.updateGroups(userUuid, groupUuids);
-      res.status(200).json({});
+      const response = await this.repositoryAuthUser.updateGroups(userUuid, groupUuids);
+      res.status(200).json(response ? response : {});
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }

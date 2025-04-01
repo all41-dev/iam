@@ -20,6 +20,7 @@ export class ControllerScope extends ControllerRepositoryReadWrite<RepositorySco
       { verb: 'get', path: '/:scopeUuid/features', handlers: this.getFeatures.bind(this) },
       { verb: 'get', path: '/:scopeUuid/children/features', handlers: this.getChildrenFeatures.bind(this) },
       { verb: 'get', path: '/:scopeUuid/element_hierarchy/:elementUuid?', handlers: this.getElementHierarchy.bind(this) },
+      { verb: 'get', path: '/element_hierarchy/all', handlers: this.getAllElementHierarchy.bind(this) },
     );
   }
 
@@ -82,6 +83,15 @@ export class ControllerScope extends ControllerRepositoryReadWrite<RepositorySco
     const elementUuid = req.params.elementUuid
     try {
       const response = await this.repositoryScope.getElementHierarchy(scopeUuid, elementUuid);
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  public async getAllElementHierarchy(req: Request, res: Response) {
+    try {
+      const response = await this.repositoryScope.getAllElementHierarchy();
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });

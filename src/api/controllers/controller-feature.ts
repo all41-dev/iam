@@ -43,8 +43,8 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
     const parentId = req.body.parentUuid;
     const childId = req.body.childUuid;
     try {
-      await this.repositoryFeature.setParentChild(parentId, childId);
-      res.status(200).json({});
+      const response = await this.repositoryFeature.setParentChild(parentId, childId);
+      res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -54,8 +54,8 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
     const parentId = req.body.parentUuid;
     const childId = req.body.childUuid;
     try {
-      await this.repositoryFeature.removeParentChild(parentId, childId);
-      res.status(200).json({});
+      const response = await this.repositoryFeature.removeParentChild(parentId, childId);
+      res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }

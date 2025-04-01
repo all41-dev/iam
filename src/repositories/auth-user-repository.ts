@@ -6,6 +6,7 @@ import { Repository as SequelizeNativeRepository } from "sequelize-typescript";
 import { v4 as uuidv4 } from 'uuid';
 import { AuthUtils } from '../auth/auth-utils';
 import { PermissionTable } from '../db/permission-table';
+import { FeatureTable } from '../db/feature-table';
 
 
 export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
@@ -83,8 +84,12 @@ export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
     return await this.authUtils.checkEffectivePermissions(userUuid);
   }
 
-  public async checkFeaturePermissions(email: string, featureCode: string, elementUuid: string) {
-    return await this.authUtils.checkAccess(email, featureCode, elementUuid);
+  public async checkFeaturePermissions(userUuid: string, featureUuid: string, elementUuid: string) {
+    const user = await AuthUserTable.findByPk(userUuid)
+    const feature = await FeatureTable.findByPk(featureUuid)
+    if (!user) throw new Error(`User with uuid: ${userUuid} not found`);
+    if (!feature) throw new Error(`Feature with uuid: ${featureUuid} not found`);
+    return await this.authUtils.checkAccess(user.email, feature.code, elementUuid);
   }
 
   public async getPermissions(userUuid: string): Promise<PermissionTable[]> {

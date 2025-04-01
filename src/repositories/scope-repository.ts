@@ -66,4 +66,8 @@ export class RepositoryScope extends RepositorySequelize<ScopeTable> {
   public async getElementHierarchy(scopeUuid: string, elementUuid: string) {
     return await this.authUtils.buildScopeElementHierarchy(scopeUuid, elementUuid);
   }
+
+  public async getAllElementHierarchy() {
+    return await this.authUtils.buildScopeElementHierarchy();
+  }
 }

@@ -127,7 +127,7 @@ const dummyHierarchy = {
   ]
 };
 
-export async function scopeElementHierarchy(code: string, uuid?: string) {
+export async function scopeElementHierarchy(code?: string, uuid?: string) {
   if (!code || code === "global-1iam") {
     return [dummyHierarchy];
   }

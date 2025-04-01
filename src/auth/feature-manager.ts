@@ -13,7 +13,7 @@ export class FeatureManager {
     return FeatureManager.instance;
   }
 
-  public async getHighestFeatureInScope(featureUuid: string, scopeUuid: string, allScopeUuids: Set<string>): Promise<FeatureTable | null> {
+  public async getHighestFeatureInScope(featureUuid: string, allScopeUuids: Set<string>): Promise<FeatureTable | null> {
     const parentFeatures = await this.getDirectParentFeatures(featureUuid);
 
     const validParentFeatures = parentFeatures.filter(parent =>
@@ -21,7 +21,7 @@ export class FeatureManager {
     );
 
     for (const parentFeature of validParentFeatures) {
-      const highestFeature = await this.getHighestFeatureInScope(parentFeature.uuid, scopeUuid, allScopeUuids);
+      const highestFeature = await this.getHighestFeatureInScope(parentFeature.uuid, allScopeUuids);
       if (highestFeature) {
         return highestFeature;
       }
@@ -160,13 +160,15 @@ export class FeatureManager {
 
     return Array.from(new Set(combinedScopes));
   }
-  public async checkForCircularDependency(childUuid: string, parentUuid: string): Promise<boolean> {
+  public async checkForCircularDependency(parentUuid: string, childUuid: string): Promise<boolean> {
+    if (parentUuid === childUuid) return true
     const children = await FeatureCompositionTable.findAll({
-      where: { child_uuid: childUuid }
+      where: { child_uuid: parentUuid }
     });
+    if (!children.length) return false
     for (const child of children) {
-      if (child.parent_uuid === parentUuid) return true;
-      const isCircular = await this.checkForCircularDependency(child.parent_uuid, parentUuid);
+      if (child.parent_uuid === childUuid) return true;
+      const isCircular = await this.checkForCircularDependency(child.parent_uuid, childUuid);
       if (isCircular) return true;
     }
     return false;

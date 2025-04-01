@@ -19,8 +19,15 @@ export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
   }
 
   public async setParentChild(parentId: string, childId: string) {
+    if (await this.featureManager.checkForCircularDependency(parentId, childId)) return { error: `Circular dependency` };
     const parent = await this.getByKey(parentId);
+    if (!parent) return { error: `Feature with uuid : ${parentId} not found` };
     const child = await this.getByKey(childId);
+    if (!child) return { error: `Feature with uuid : ${parentId} not found` };
+    const existingComposition = await FeatureCompositionTable.findOne({
+      where: { parent_uuid: parentId, child_uuid: childId }
+    });
+    if (existingComposition) return { error: `Relation already exist` };
     await FeatureCompositionTable.create({
       parent_uuid: parent.uuid,
       child_uuid: child.uuid
@@ -29,7 +36,13 @@ export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
 
   public async removeParentChild(parentId: string, childId: string) {
     const parent = await this.getByKey(parentId);
+    if (!parent) return { error: `Feature with uuid : ${parentId} not found` };
     const child = await this.getByKey(childId);
+    if (!child) return { error: `Feature with uuid : ${parentId} not found` };
+    const existingComposition = await FeatureCompositionTable.findOne({
+      where: { parent_uuid: parentId, child_uuid: childId }
+    });
+    if (!existingComposition) return { error: `Relation doesn't exist` };
     await FeatureCompositionTable.destroy({
       where: {
         parent_uuid: parent.uuid,
@@ -60,7 +73,11 @@ export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
 
 
   public async getFeatureMatrix(featureUuid: string): Promise<any> {
-    return await this.featureManager.buildFeatureMatrix(featureUuid, new Set());
+    const feature = await FeatureTable.findByPk(featureUuid)
+    if (!feature) return {}
+    const allChildUuids = await this.featureManager.getAllChildScopes(feature.scope_uuid);
+    const allScopeUuids = new Set([feature.scope_uuid, ...allChildUuids]);
+    return await this.featureManager.buildFeatureMatrix(featureUuid, new Set(), allScopeUuids);
   }
 
   public async getRootFeatureMatrix(): Promise<any> {
@@ -95,7 +112,7 @@ export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
     const highestFeatures = new Set<string>();
 
     for (const feature of features) {
-      const highestFeature = await this.featureManager.getHighestFeatureInScope(feature.uuid, scopeUuid, allScopeUuids);
+      const highestFeature = await this.featureManager.getHighestFeatureInScope(feature.uuid, allScopeUuids);
 
       if (highestFeature) {
         highestFeatures.add(highestFeature.uuid);

@@ -26,7 +26,7 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
       { verb: 'post', path: '/:userUuid/unset-group', handlers: this.unsetUserGroups },
       { verb: 'patch', path: '/:userUuid/update-group', handlers: this.updateUserGroups },
       { verb: 'get', path: '/:userUuid/effective-permissions', handlers: this.checkUserEffectivePermissions },
-      { verb: 'get', path: '/:email/check-feature-permissions/:featureCode/:elementUuid', handlers: this.checkFeaturePermissions },
+      { verb: 'get', path: '/:userUuid/feature-permissions/:featureUuid/:elementUuid', handlers: this.checkFeaturePermissions },
       { verb: 'get', path: '/:userUuid/permissions', handlers: this.getPermissions },
       { verb: 'get', path: '/:userUuid/groups', handlers: this.getUserGroups }
     );
@@ -82,11 +82,11 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
   }
 
   public async checkFeaturePermissions(req: Request, res: Response) {
-    const email = req.params.email;
-    const featureCode = req.params.featureCode;
+    const userUuid = req.params.userUuid;
+    const featureUuid = req.params.featureUuid;
     const elementUuid = req.params.elementUuid;
     try {
-      const response = await this.repositoryAuthUser.checkFeaturePermissions(email, featureCode, elementUuid);
+      const response = await this.repositoryAuthUser.checkFeaturePermissions(userUuid, featureUuid, elementUuid);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });

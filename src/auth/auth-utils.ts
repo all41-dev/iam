@@ -413,8 +413,9 @@ export class AuthUtils {
     return conflicts;
   }
 
-  public async buildScopeElementHierarchy(scopeUuid: string, elementUuid?: string): Promise<any> {
+  public async buildScopeElementHierarchy(scopeUuid?: string, elementUuid?: string): Promise<any> {
     if (this.options.scopeElementHierarchy) {
+      if (!scopeUuid) return this.options.scopeElementHierarchy()
       const code = await ScopeTable.findByPk(scopeUuid).then((scope) => scope?.code)
       if (!code) return;
       return this.options.scopeElementHierarchy(code, elementUuid);

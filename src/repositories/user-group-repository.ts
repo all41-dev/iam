@@ -92,7 +92,7 @@ export class RepositoryUserGroup extends RepositorySequelize<UserGroupTable> {
     return permissions;
   }
 
-  public async getEffectivePermissions(groupUuid: string) {
+  public async getEffectivePermissions(groupUuid: string): Promise<any> {
     return await this.authUtils.checkEffectivePermissions(undefined, groupUuid);
   }
 }

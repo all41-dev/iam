@@ -195,26 +195,4 @@ describe("FeatureManager", () => {
       });
     });
   });
-
-
-
-  describe("getHighestScope", () => {
-    it("should return the highest scope UUID", async () => {
-      const scopes = [
-        { uuid: "scope-1", parent_uuid: null },
-        { uuid: "scope-2", parent_uuid: "scope-1" },
-        { uuid: "scope-3", parent_uuid: "scope-2" }
-      ];
-
-      const result = await featureManager.getHighestScope(scopes as any);
-
-      expect(result).to.equal("scope-1");
-    });
-
-    it("should return null if no scopes are provided", async () => {
-      const result = await featureManager.getHighestScope([]);
-
-      expect(result).to.be.null;
-    });
-  });
 });

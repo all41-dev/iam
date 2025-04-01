@@ -56,8 +56,8 @@ export class AuthUtils {
       } else if (provider !== user.provider) {
         return { user: false, error: 'provider' };
       } else {
-        const permissions = (await this.checkUserPermissions(user.email));
-        if (!permissions) {
+        const permissions = (await this.checkEffectivePermissions(user.uuid));
+        if (Object.keys(permissions).length === 0) {
           return { user: false, error: 'permission' };
         }
         return {
@@ -68,88 +68,6 @@ export class AuthUtils {
         };
       }
     });
-  }
-
-  async checkUserPermissions(email: string): Promise<{ [uuid: string]: boolean } | undefined> {
-    const auth_user_uuid = await AuthUserTable.findOne({ where: { email } }).then((user) => user?.uuid);
-    if (!auth_user_uuid) {
-      return undefined;
-    }
-
-    const groupMemberships = await UserGroupMemberTable.findAll({ where: { auth_user_uuid } });
-
-    const permissionsMap: { [featureUuid: string]: boolean[] } = {};
-
-    for (const membership of groupMemberships) {
-      const group_uuid = membership.dataValues.group_uuid;
-      const features = await FeatureTable.findAll({
-        include: {
-          model: PermissionTable,
-          where: { group_uuid },
-        },
-      });
-
-      for (const feature of features) {
-        if (feature.uuid) {
-          const permission = feature.permissions?.find(
-            (p: PermissionTable) => p.feature_uuid === feature.uuid
-          );
-
-          if (permission) {
-            if (!permissionsMap[feature.uuid]) {
-              permissionsMap[feature.uuid] = [];
-            }
-            permissionsMap[feature.uuid].push(permission.is_deny);
-          }
-        }
-      }
-    }
-
-    const groupUUIDs = groupMemberships.map(membership => membership.dataValues.group_uuid);
-    const permissions: { [uuid: string]: boolean } = {};
-
-    for (const [featureUuid, decisions] of Object.entries(permissionsMap)) {
-      const ancestorDeny = await this.checkAncestorPermissions(featureUuid, groupUUIDs);
-      permissions[featureUuid] = ancestorDeny || decisions.includes(true);
-    }
-
-    return permissions;
-  }
-
-  public async checkAncestorPermissions(
-    featureUuid: string,
-    groupUUIDs: string[],
-    visited: Set<string> = new Set()
-  ): Promise<boolean> {
-    if (visited.has(featureUuid)) return false;
-
-    visited.add(featureUuid);
-
-    const compositions = await FeatureCompositionTable.findAll({
-      where: { child_uuid: featureUuid },
-    });
-
-    if (compositions.length === 0) return false;
-
-    for (const composition of compositions) {
-      const parentUuid = composition.parent_uuid;
-
-      const currentPermissions = await PermissionTable.findAll({
-        where: {
-          feature_uuid: parentUuid,
-          group_uuid: groupUUIDs,
-        },
-      });
-
-      for (const permission of currentPermissions) {
-        if (permission.is_deny) return true;
-      }
-
-      const result = await this.checkAncestorPermissions(parentUuid, groupUUIDs, visited);
-      if (result) return true;
-    }
-
-    return false;
   }
 
   public async checkAncestorEffectivePermissions(
@@ -248,13 +166,14 @@ export class AuthUtils {
   public async checkEffectivePermissions(
     auth_user_uuid?: string,
     group_uuid?: string
-  ): Promise<{ [uuid: string]: { right: string; context: { uuid: string; scope: string; status: string }[] } }> {
+  ): Promise<{ [uuid: string]: { right: string; context: PermissionContext[] } }> {
     let groupUUIDs = [];
     if (!group_uuid) {
       const user = await AuthUserTable.findByPk(auth_user_uuid);
       if (!user) return {};
 
       const groupMemberships = await UserGroupMemberTable.findAll({ where: { auth_user_uuid } });
+      if (groupMemberships.length) return {};
       groupUUIDs = groupMemberships.map((membership) => membership.dataValues.group_uuid);
     } else if (!auth_user_uuid) {
       groupUUIDs = [group_uuid];

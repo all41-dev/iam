@@ -79,7 +79,7 @@ export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
     if (conflicts.length > 0) return conflicts;
   }
 
-  public async checkUserEffectivePermissions(userUuid: string) {
+  public async checkUserEffectivePermissions(userUuid: string): Promise<any> {
     return await this.authUtils.checkEffectivePermissions(userUuid);
   }
 

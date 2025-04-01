@@ -147,38 +147,6 @@ export class FeatureManager {
     };
   }
 
-  public async getHighestScope(scopes: ScopeTable[]): Promise<string | null> {
-    if (!scopes || scopes.length === 0) {
-      return null;
-    }
-
-    const scopeMap = new Map<string, string | null>();
-    const visited = new Set<string>();
-
-    scopes.forEach((scope) => {
-      scopeMap.set(scope.uuid, scope.parent_uuid ? scope.parent_uuid : null);
-    });
-
-    let highestScopeUuid: string | null = null;
-
-    for (const scope of scopes) {
-      let currentUuid = scope.uuid;
-
-      while (currentUuid && !visited.has(currentUuid)) {
-        visited.add(currentUuid);
-        const parentUuid = scopeMap.get(currentUuid);
-        if (!parentUuid) {
-          highestScopeUuid = currentUuid;
-          break;
-        }
-
-        currentUuid = parentUuid;
-      }
-    }
-
-    return highestScopeUuid;
-  }
-
   public async getGroupsScopeList(groupUUIDs: string[]): Promise<string[]> {
     const groups = await UserGroupTable.findAll({ where: { uuid: groupUUIDs } });
     const scopeUUIDs = groups.map((group) => group.dataValues.scope_uuid);

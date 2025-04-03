@@ -13,19 +13,13 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
 
     this.repositoryUserGroup = repositoryUserGroup;
 
-    this.addUsers = this.addUsers.bind(this);
-    this.removeUsers = this.removeUsers.bind(this);
-    this.getUsers = this.getUsers.bind(this);
-    this.getPermissions = this.getPermissions.bind(this);
-    this.getEffectivePermissions = this.getEffectivePermissions.bind(this)
-
-
     this.defineRoutes(
-      { verb: 'post', path: '/:groupUuid/add-users', handlers: this.addUsers },
-      { verb: 'post', path: '/:groupUuid/remove-users', handlers: this.removeUsers },
-      { verb: 'get', path: '/:groupUuid/users', handlers: this.getUsers },
-      { verb: 'get', path: '/:groupUuid/permissions', handlers: this.getPermissions },
-      { verb: 'get', path: '/:groupUuid/effective-permissions', handlers: this.getEffectivePermissions },
+      { verb: 'post', path: '/:groupUuid/add-users', handlers: this.addUsers.bind(this) },
+      { verb: 'post', path: '/:groupUuid/remove-users', handlers: this.removeUsers.bind(this) },
+      { verb: 'post', path: '/:groupUuid/copy', handlers: this.copyGroup.bind(this) },
+      { verb: 'get', path: '/:groupUuid/users', handlers: this.getUsers.bind(this) },
+      { verb: 'get', path: '/:groupUuid/permissions', handlers: this.getPermissions.bind(this) },
+      { verb: 'get', path: '/:groupUuid/effective-permissions', handlers: this.getEffectivePermissions.bind(this) },
     );
   }
 
@@ -80,6 +74,17 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
     const groupUuid = req.params.groupUuid
     try {
       const response = await this.repositoryUserGroup.getEffectivePermissions(groupUuid);
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  public async copyGroup(req: Request, res: Response) {
+    const groupUuid = req.params.groupUuid
+    const newGroupName = req.body.newGroupName;
+    try {
+      const response = await this.repositoryUserGroup.copyGroup(groupUuid, newGroupName);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });

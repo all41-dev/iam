@@ -128,4 +128,24 @@ export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
     });
     return groups;
   }
+
+  public async copyUserGroups(userUuid: string, userToCopyUuid: string) {
+    const user = await this.getByKey(userUuid);
+    if (!user) {
+      throw new Error(`User with id ${userUuid} not found`);
+    }
+    const groups = await UserGroupMemberTable.findAll({ where: { auth_user_uuid: userUuid } });
+    if (!groups.length) {
+      throw new Error(`No Groups for User with id ${userToCopyUuid}`);
+    }
+    const groupsToCopy = await UserGroupMemberTable.findAll({ where: { auth_user_uuid: userToCopyUuid } });
+    if (!groupsToCopy.length) {
+      throw new Error(`No Groups for User with id ${userToCopyUuid}`);
+    }
+    const currentGroupUuids = groups.map(group => group.group_uuid);
+    const groupUuidsToCopy = groupsToCopy.map(group => group.group_uuid);
+
+    const groupsToAdd = groupUuidsToCopy.filter(uuid => !currentGroupUuids.includes(uuid));
+    if (groupsToAdd.length > 0) await this.addGroups(userUuid, groupsToAdd);
+  }
 }

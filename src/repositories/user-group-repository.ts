@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { PermissionTable } from "../db/permission-table";
 import { FeatureTable } from "../db/feature-table";
 import { AuthUtils } from "../auth/auth-utils";
+import { Transaction } from "sequelize";
 
 export class RepositoryUserGroup extends RepositorySequelize<UserGroupTable> {
   private authUtils: AuthUtils;
@@ -94,5 +95,43 @@ export class RepositoryUserGroup extends RepositorySequelize<UserGroupTable> {
 
   public async getEffectivePermissions(groupUuid: string): Promise<any> {
     return await this.authUtils.checkEffectivePermissions(undefined, groupUuid);
+  }
+
+  public async copyGroup(groupUuid: string, newGroupName: string) {
+    const group = await this.getByKey(groupUuid);
+    if (!group) {
+      throw new Error(`Group with id ${groupUuid} not found`);
+    }
+    const permission = await PermissionTable.findAll({ where: { group_uuid: group.uuid } });
+    const sequelizeInstance = UserGroupTable.sequelize;
+    if (!sequelizeInstance) {
+      throw new Error('Database connection unavailable.');
+    }
+    const transaction: Transaction = await sequelizeInstance.transaction();
+    try {
+      const newGroup = await UserGroupTable.create(
+        {
+          uuid: uuidv4(),
+          name: newGroupName,
+          scope_uuid: group.scope_uuid,
+          scope_element_uuid: group.scope_element_uuid,
+        },
+        { transaction }
+      );
+      const newGroupPermissions = permission.map((p) => ({
+        uuid: uuidv4(),
+        is_deny: p.is_deny,
+        scope_element_uuid: p.scope_element_uuid,
+        group_uuid: newGroup.uuid,
+        feature_uuid: p.feature_uuid,
+      }));
+
+      await PermissionTable.bulkCreate(newGroupPermissions, { transaction });
+
+      await transaction.commit();
+    } catch (error) {
+      await transaction.rollback();
+      throw new Error(`Failed to copy group: ${error}`);
+    }
   }
 }

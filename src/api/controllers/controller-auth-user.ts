@@ -13,22 +13,15 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
 
     this.repositoryAuthUser = repositoryAuthUser;
 
-    this.setUserGroups = this.setUserGroups.bind(this);
-    this.unsetUserGroups = this.unsetUserGroups.bind(this);
-    this.updateUserGroups = this.updateUserGroups.bind(this);
-    this.checkUserEffectivePermissions = this.checkUserEffectivePermissions.bind(this);
-    this.checkFeaturePermissions = this.checkFeaturePermissions.bind(this);
-    this.getPermissions = this.getPermissions.bind(this);
-    this.getUserGroups = this.getUserGroups.bind(this);
-
     this.defineRoutes(
-      { verb: 'post', path: '/:userUuid/set-group', handlers: this.setUserGroups },
-      { verb: 'post', path: '/:userUuid/unset-group', handlers: this.unsetUserGroups },
-      { verb: 'patch', path: '/:userUuid/update-group', handlers: this.updateUserGroups },
-      { verb: 'get', path: '/:userUuid/effective-permissions', handlers: this.checkUserEffectivePermissions },
-      { verb: 'get', path: '/:userUuid/feature-permissions/:featureUuid/:elementUuid', handlers: this.checkFeaturePermissions },
-      { verb: 'get', path: '/:userUuid/permissions', handlers: this.getPermissions },
-      { verb: 'get', path: '/:userUuid/groups', handlers: this.getUserGroups }
+      { verb: 'post', path: '/:userUuid/set-group', handlers: this.setUserGroups.bind(this) },
+      { verb: 'post', path: '/:userUuid/unset-group', handlers: this.unsetUserGroups.bind(this) },
+      { verb: 'post', path: '/:userUuid/group-copy', handlers: this.copyUserGroups.bind(this) },
+      { verb: 'patch', path: '/:userUuid/update-group', handlers: this.updateUserGroups.bind(this) },
+      { verb: 'get', path: '/:userUuid/effective-permissions', handlers: this.checkUserEffectivePermissions.bind(this) },
+      { verb: 'get', path: '/:userUuid/feature-permissions/:featureUuid/:elementUuid', handlers: this.checkFeaturePermissions.bind(this) },
+      { verb: 'get', path: '/:userUuid/permissions', handlers: this.getPermissions.bind(this) },
+      { verb: 'get', path: '/:userUuid/groups', handlers: this.getUserGroups.bind(this) }
     );
   }
 
@@ -107,6 +100,17 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
     const userUuid = req.params.userUuid;
     try {
       const response = await this.repositoryAuthUser.getUserGroups(userUuid);
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  public async copyUserGroups(req: Request, res: Response) {
+    const userUuid = req.params.userUuid
+    const userToCopyUuid = req.body.userToCopyUuid;
+    try {
+      const response = await this.repositoryAuthUser.copyUserGroups(userUuid, userToCopyUuid);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });

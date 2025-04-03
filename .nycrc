@@ -8,7 +8,8 @@
     "src/repositories/**/*.ts",
     "src/*.ts",
     "src/api/*.ts",
-    "src/db/*.ts"
+    "src/db/*.ts",
+    "src/utils/*.ts"
   ],
   "reporter": ["lcov", "text"]
 }

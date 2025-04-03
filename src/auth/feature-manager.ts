@@ -110,6 +110,14 @@ export class FeatureManager {
     const feature = await FeatureTable.findByPk(featureUuid);
     if (!feature) throw new Error(`Feature with UUID ${featureUuid} not found`);
 
+    const children = await FeatureCompositionTable.findAll({
+      where: { parent_uuid: featureUuid },
+    });
+    const childFeatures = await Promise.all(
+      children.map(async (child) => {
+        return await this.buildFeatureMatrix(child.child_uuid, visited, validScopes);
+      })
+    );
     const parents = await FeatureCompositionTable.findAll({
       where: { child_uuid: featureUuid },
     });
@@ -127,14 +135,6 @@ export class FeatureManager {
     const parentFeatures = await Promise.all(
       validParents.map(async (parent) => {
         return await this.buildFeatureMatrix(parent.parent_uuid, visited, validScopes);
-      })
-    );
-    const children = await FeatureCompositionTable.findAll({
-      where: { parent_uuid: featureUuid },
-    });
-    const childFeatures = await Promise.all(
-      children.map(async (child) => {
-        return await this.buildFeatureMatrix(child.child_uuid, visited, validScopes);
       })
     );
 

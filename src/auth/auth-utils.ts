@@ -8,7 +8,7 @@ import { IUtilsOptions } from "../interfaces";
 import { ScopeTable } from "../db/scope-table";
 import { FeatureManager } from "./feature-manager";
 
-interface PermissionContext { uuid: string; scope: string; status: string; type: "direct" | "ancestor" }
+interface PermissionContext { uuid: string; scope: string; status: string; type: "direct" | "ancestor"; feature_code?: string }
 
 export class AuthUtils {
 
@@ -56,7 +56,7 @@ export class AuthUtils {
       } else if (provider !== user.provider) {
         return { user: false, error: 'provider' };
       } else {
-        const permissions = (await this.checkEffectivePermissions(user.uuid));
+        const permissions = await this.checkEffectivePermissions(user.uuid);
         if (Object.keys(permissions).length === 0) {
           return { user: false, error: 'permission' };
         }
@@ -73,205 +73,158 @@ export class AuthUtils {
   public async checkAncestorEffectivePermissions(
     featureUuid: string,
     groupUUIDs: string[],
-    visited: Set<string> = new Set()
-  ): Promise<{ inherited: boolean; permissions: { scope_element_uuid: string, scope_uuid: string, is_deny: boolean }[] }> {
-    if (visited.has(featureUuid)) return { inherited: false, permissions: [] };
-
-    visited.add(featureUuid);
-
-    const compositions = await FeatureCompositionTable.findAll({
-      where: { child_uuid: featureUuid },
-    });
-
-    if (compositions.length === 0) return { inherited: false, permissions: [] };
-
-    const aggregatedPermissions: { scope_element_uuid: string; scope_uuid: string; is_deny: boolean; from_parent: boolean }[] = [];
-
-    for (const composition of compositions) {
-      const parentUuid = composition.parent_uuid;
-
-      const currentPermissions = await PermissionTable.findAll({
-        where: {
-          feature_uuid: parentUuid,
-          group_uuid: groupUUIDs,
-        },
-      });
-
-      const feature = await FeatureTable.findByPk(parentUuid);
-      aggregatedPermissions.push(
-        ...currentPermissions.map((permission) => ({
-          scope_element_uuid: permission.scope_element_uuid,
-          scope_uuid: feature ? feature.scope_uuid : "",
-          is_deny: permission.is_deny,
-          from_parent: true,
-        }))
-      );
-
-      const ancestorPermissions = await this.checkAncestorEffectivePermissions(
-        parentUuid,
-        groupUUIDs,
-        visited
-      );
-
-      if (ancestorPermissions.inherited) {
-        aggregatedPermissions.push(
-          ...ancestorPermissions.permissions.map((perm) => ({
-            ...perm,
-            from_parent: true,
-          }))
-        );
+  ): Promise<{ inherited: boolean; permissions: { scope_element_uuid: string; scope_uuid: string; feature_code: string; is_deny: boolean }[] }> {
+    const aggregatedPermissions: Array<{ scope_element_uuid: string; scope_uuid: string; feature_code: string; is_deny: boolean }> = [];
+    const compositions = await FeatureCompositionTable.findAll({ where: { child_uuid: featureUuid } });
+    if (!compositions.length) return { inherited: false, permissions: [] };
+    const processPermissions = (permissions: any[], feature_code: string, scope_uuid: string) => {
+      for (const p of permissions) {
+        aggregatedPermissions.push({
+          scope_element_uuid: p.scope_element_uuid,
+          scope_uuid,
+          feature_code,
+          is_deny: p.is_deny,
+        });
+      }
+    };
+    for (const c of compositions) {
+      const [currentPermissions, feature, ancestorPermissions] = await Promise.all([
+        PermissionTable.findAll({ where: { feature_uuid: c.parent_uuid, group_uuid: groupUUIDs } }),
+        FeatureTable.findByPk(c.parent_uuid),
+        this.checkAncestorEffectivePermissions(c.parent_uuid, groupUUIDs),
+      ]);
+      if (feature) {
+        processPermissions(currentPermissions, feature.code, feature.scope_uuid);
+      }
+      for (const p of ancestorPermissions.permissions) {
+        processPermissions([p], p.feature_code, p.scope_uuid);
       }
     }
-
-    const currentFeaturePermissions = await PermissionTable.findAll({
-      where: {
-        feature_uuid: featureUuid,
-        group_uuid: groupUUIDs,
-      },
-    });
-
-    const feature = await FeatureTable.findByPk(featureUuid);
-    aggregatedPermissions.push(
-      ...currentFeaturePermissions.map((permission) => ({
-        scope_element_uuid: permission.scope_element_uuid,
-        scope_uuid: feature ? feature.scope_uuid : "",
-        is_deny: permission.is_deny,
-        from_parent: false,
-      }))
-    );
-
-    const filteredPermissions = Object.values(
-      aggregatedPermissions.reduce<Record<string, { scope_element_uuid: string; scope_uuid: string; is_deny: boolean }>>(
-        (acc, permission) => {
-          const key = `${permission.scope_element_uuid}:${permission.scope_uuid}`;
-          if (!acc[key] || (permission.is_deny && permission.from_parent)) {
-            acc[key] = {
-              scope_element_uuid: permission.scope_element_uuid,
-              scope_uuid: permission.scope_uuid,
-              is_deny: permission.is_deny,
-            };
-          }
-          return acc;
-        },
-        {}
-      )
-    );
-
-    return {
-      inherited: filteredPermissions.length > 0,
-      permissions: filteredPermissions,
-    };
+    return { inherited: aggregatedPermissions.length > 0, permissions: aggregatedPermissions };
   }
 
-  public async checkEffectivePermissions(
-    auth_user_uuid?: string,
-    group_uuid?: string
-  ): Promise<{ [uuid: string]: { right: string; context: PermissionContext[] } }> {
-    let groupUUIDs = [];
-    if (!group_uuid) {
+  public async checkEffectivePermissions(auth_user_uuid?: string, group_uuid?: string): Promise<{ [uuid: string]: { right: string; context: PermissionContext[] } }> {
+    let groupUUIDs: string[] = [];
+
+    if (!group_uuid && auth_user_uuid) {
       const user = await AuthUserTable.findByPk(auth_user_uuid);
       if (!user) return {};
-
       const groupMemberships = await UserGroupMemberTable.findAll({ where: { auth_user_uuid } });
-      if (groupMemberships.length) return {};
-      groupUUIDs = groupMemberships.map((membership) => membership.dataValues.group_uuid);
-    } else if (!auth_user_uuid) {
-      groupUUIDs = [group_uuid];
+      if (!groupMemberships.length) return {};
+      groupUUIDs = groupMemberships.map(m => m.group_uuid);
+    } else if (group_uuid && !auth_user_uuid) {
       const group = await UserGroupTable.findByPk(group_uuid);
       if (!group) return {};
+      groupUUIDs = [group_uuid];
     } else {
       return {};
     }
 
-    const permissionsMap: { [uuid: string]: { right: string; context: PermissionContext[] } } = {};
+    const permissionsMap: Record<string, { right: string; context: PermissionContext[] }> = {};
     const scopeUUIDs = await this.featureManager.getGroupsScopeList(groupUUIDs);
     const features = await FeatureTable.findAll({ where: { scope_uuid: scopeUUIDs } });
 
     for (const feature of features) {
       const featureUuid = feature.uuid;
-      const featureCode = feature.code;
-
-      const directPermissions = await PermissionTable.findAll({
-        where: {
-          feature_uuid: featureUuid,
-          group_uuid: groupUUIDs,
-        },
-      });
+      const featureCode = feature.code
+      const [directPermissions, ancestorPermissions] = await Promise.all([
+        PermissionTable.findAll({ where: { feature_uuid: featureUuid, group_uuid: groupUUIDs } }),
+        this.checkAncestorEffectivePermissions(featureUuid, groupUUIDs),
+      ]);
 
       const contextSet = new Set<string>();
       const context: PermissionContext[] = [];
-
+      let rightConflict = false;
+      let ancestorGrant = false;
+      let grantOverride = false;
+      let ancestorConflict = false;
       for (const permission of directPermissions) {
-        const scopeFeature = await ScopeTable.findByPk(feature.scope_uuid)
+        const scopeFeature = await ScopeTable.findByPk(feature.scope_uuid);
         const permissionStatus = permission.is_deny ? "denied" : "granted";
         const contextKey = `${permission.scope_element_uuid}-${permissionStatus}`;
 
         if (!contextSet.has(contextKey)) {
           contextSet.add(contextKey);
-          context.push({ uuid: permission.scope_element_uuid, scope: scopeFeature ? scopeFeature.name : "", status: permissionStatus, type: "direct" });
+          context.push({
+            uuid: permission.scope_element_uuid,
+            scope: scopeFeature ? scopeFeature.name : "",
+            status: permissionStatus,
+            type: "direct",
+          });
         }
+        const scopeHierarchy = this.utilsOptions.scopeHierarchy
+          ? await this.utilsOptions.scopeHierarchy(permission.scope_element_uuid, scopeFeature ? scopeFeature.code : "")
+          : {};
+        const hierarchyUUIDs = Object.values(scopeHierarchy);
 
-        permissionsMap[featureCode] = {
-          right: permission.is_deny ? "directDeny" : "directGrant",
-          context: context,
-        };
+        grantOverride = await Promise.all(
+          ancestorPermissions.permissions.map(async (p) => {
+            if (!p.is_deny && permission.is_deny) {
+              const scopeHierarchy = this.utilsOptions.scopeHierarchy
+                ? await this.utilsOptions.scopeHierarchy(
+                  p.scope_element_uuid,
+                  (await ScopeTable.findByPk(p.scope_uuid))?.code || ""
+                )
+                : {};
+              return Object.values(scopeHierarchy).includes(permission.scope_element_uuid) ||
+                permission.scope_element_uuid === p.scope_element_uuid;
+            }
+            return false;
+          })
+        ).then(results => results.some(Boolean));
+
+        rightConflict = ancestorPermissions.permissions.some(p => p.is_deny && !permission.is_deny && (hierarchyUUIDs.includes(p.scope_element_uuid) || p.scope_element_uuid === permission.scope_element_uuid))
+        ancestorGrant = ancestorPermissions.permissions.some(p => !p.is_deny && permission.is_deny && (hierarchyUUIDs.includes(p.scope_element_uuid) || p.scope_element_uuid === permission.scope_element_uuid))
       }
 
-      const ancestorPermissions = await this.checkAncestorEffectivePermissions(featureUuid, groupUUIDs);
-
-      const denyExists = ancestorPermissions.permissions.some((p) => p.is_deny);
-      const grantExists = ancestorPermissions.permissions.some((p) => !p.is_deny)
-
-      const ancestorContextSet = new Set();
       const ancestorContext: PermissionContext[] = [];
+      const denyExists = ancestorPermissions.permissions.some(p => p.is_deny);
+      const grantExists = ancestorPermissions.permissions.some(p => !p.is_deny);
 
-      for (const permission of ancestorPermissions.permissions) {
-        const permissionStatus = permission.is_deny ? "denied" : "granted";
-        const contextKey = `${permission.scope_element_uuid}-${permissionStatus}`;
-        const scopeFeature = await ScopeTable.findByPk(permission.scope_uuid)
-
-        if (!ancestorContextSet.has(contextKey)) {
-          ancestorContextSet.add(contextKey);
-          ancestorContext.push({ uuid: permission.scope_element_uuid, scope: scopeFeature ? scopeFeature.name : "", status: permissionStatus, type: "ancestor" });
+      for (const ancestorPermission of ancestorPermissions.permissions) {
+        const scopeFeature = await ScopeTable.findByPk(ancestorPermission.scope_uuid);
+        const permissionStatus = ancestorPermission.is_deny ? "denied" : "granted";
+        const contextKey = `${ancestorPermission.scope_element_uuid}-${permissionStatus}`;
+        const scopeHierarchy = this.utilsOptions.scopeHierarchy
+          ? await this.utilsOptions.scopeHierarchy(ancestorPermission.scope_element_uuid, scopeFeature ? scopeFeature.code : "")
+          : {};
+        const hierarchyUUIDs = Object.values(scopeHierarchy);
+        ancestorConflict = ancestorPermissions.permissions.some(p => !ancestorPermission.is_deny && p.is_deny && (hierarchyUUIDs.includes(p.scope_element_uuid) || p.scope_element_uuid === ancestorPermission.scope_element_uuid));
+        if (!contextSet.has(contextKey)) {
+          contextSet.add(contextKey);
+          ancestorContext.push({
+            uuid: ancestorPermission.scope_element_uuid,
+            scope: scopeFeature ? scopeFeature.name : "",
+            status: permissionStatus,
+            type: "ancestor",
+            feature_code: ancestorPermission.feature_code,
+          });
         }
       }
 
-      if (permissionsMap[featureCode]) {
-        let newRight = permissionsMap[featureCode].right;
-
-        const directDenyMatch = directPermissions.some((direct) => {
-          return (
-            direct.is_deny &&
-            ancestorPermissions.permissions.some(
-              (ancestor) =>
-                !ancestor.is_deny &&
-                ancestor.scope_element_uuid === direct.scope_element_uuid
-            )
-          );
-        });
-        if (directDenyMatch) {
-          newRight = "directDeny";
-        } else if (denyExists && newRight === "directGrant") {
-          newRight = "partialDeny";
-        } else if (grantExists && newRight === "directDeny") {
-          newRight = "partialDeny";
-        }
-        permissionsMap[featureCode].right = newRight;
-        permissionsMap[featureCode].context.push(...ancestorContext);
+      let right = "noRight";
+      if (rightConflict) {
+        right = "rightConflict";
       } else {
-        const initialRight = denyExists
-          ? grantExists
-            ? "partialDeny"
-            : "ancestorDeny"
-          : grantExists
-            ? "ancestorGrant"
-            : "noRight";
-
-        permissionsMap[featureCode] = {
-          right: initialRight,
-          context: ancestorContext,
-        };
+        const hasDeny = directPermissions.some(p => p.is_deny);
+        const hasGrant = directPermissions.some(p => !p.is_deny);
+        if (hasDeny) {
+          right = ancestorGrant && !grantOverride && !ancestorConflict ? "partialDeny" : "deny";
+        } else if (hasGrant) {
+          right = "grant";
+        } else if (denyExists && grantExists) {
+          right = ancestorConflict ? "deny" : "partialGrant";
+        } else if (denyExists || ancestorConflict) {
+          right = "deny";
+        } else if (grantExists) {
+          right = "grant";
+        }
       }
+
+      permissionsMap[featureCode] = {
+        right,
+        context: [...context, ...ancestorContext],
+      };
     }
 
     return permissionsMap;

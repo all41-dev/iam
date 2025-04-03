@@ -77,7 +77,8 @@ export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
     if (!feature) return {}
     const allChildUuids = await this.featureManager.getAllChildScopes(feature.scope_uuid);
     const allScopeUuids = new Set([feature.scope_uuid, ...allChildUuids]);
-    return await this.featureManager.buildFeatureMatrix(featureUuid, new Set(), allScopeUuids);
+    const featureMatrix = await this.featureManager.buildFeatureMatrix(featureUuid, new Set(), allScopeUuids);
+    return [featureMatrix]
   }
 
   public async getRootFeatureMatrix(): Promise<any> {

@@ -23,8 +23,8 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
     this.defineRoutes(
       { verb: 'post', path: '/set-parent-child', handlers: this.setParentChild },
       { verb: 'post', path: '/remove-parent-child', handlers: this.removeParentChild },
-      { verb: 'get', path: '/childrens/:featureUuid', handlers: this.getChildrens },
-      { verb: 'get', path: '/matrix/:featureUuid', handlers: this.getFeatureMatrix },
+      { verb: 'get', path: '/:featureUuid/childrens', handlers: this.getChildrens },
+      { verb: 'get', path: '/:featureUuid/matrix', handlers: this.getFeatureMatrix },
       { verb: 'get', path: '/:scopeUuid/feature-matrix', handlers: this.getScopeFeatureMatrix },
     );
     this.defineRouteBeforeSignature(
@@ -44,7 +44,7 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
     const childId = req.body.childUuid;
     try {
       const response = await this.repositoryFeature.setParentChild(parentId, childId);
-      res.status(200).json(response);
+      res.status(200).json(response ? response : {});
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -55,7 +55,7 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
     const childId = req.body.childUuid;
     try {
       const response = await this.repositoryFeature.removeParentChild(parentId, childId);
-      res.status(200).json(response);
+      res.status(200).json(response ? response : {});
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }

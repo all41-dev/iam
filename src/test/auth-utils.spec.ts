@@ -46,7 +46,8 @@ describe('Auth Utils', () => {
         email,
         provider,
         dataValues: { email, provider },
-        uuid: 'uuid-test'
+        uuid: 'uuid-test',
+        validated: true,
       };
 
       const userTableStub = sandbox.stub(AuthUserTable, 'findOne').resolves(user as AuthUserTable);
@@ -147,7 +148,7 @@ describe('Auth Utils', () => {
       expect(result).to.deep.equal({ user: false, error: 'provider' });
     });
 
-    it('should return error if permission does not exist', async () => {
+    it('should return error if user not validated', async () => {
       const email = 'test@example.com';
       const provider = 'github';
       const profile = {
@@ -160,9 +161,35 @@ describe('Auth Utils', () => {
         provider,
         dataValues: { email, provider },
         uuid: 'uuid-test',
+        validated: false,
       };
 
       const userTableStub = sandbox.stub(AuthUserTable, 'findOne').resolves(user as AuthUserTable);
+
+      const result = await authUtils.checkUser(profile, provider);
+
+      expect(userTableStub.calledOnceWith({ where: { email } })).to.be.true;
+      expect(result).to.deep.equal({ user: false, error: 'not validated' });
+    });
+
+    it('should return no permission if user does not have permission', async () => {
+      const email = 'test@example.com';
+      const provider = 'github';
+      const profile = {
+        emails: [{ value: email }],
+        displayName: 'Test User',
+      };
+
+      const user = {
+        email,
+        provider,
+        dataValues: { email, provider },
+        uuid: 'uuid-test',
+        validated: true,
+      };
+
+      const userTableStub = sandbox.stub(AuthUserTable, 'findOne').resolves(user as AuthUserTable);
+
       const checkUserPermissionsStub = sandbox
         .stub(authUtils, 'checkEffectivePermissions')
         .resolves({});
@@ -171,7 +198,12 @@ describe('Auth Utils', () => {
 
       expect(userTableStub.calledOnceWith({ where: { email } })).to.be.true;
       expect(checkUserPermissionsStub.calledOnceWith(user.uuid)).to.be.true;
-      expect(result).to.deep.equal({ user: false, error: 'permission' });
+      expect(result).to.deep.equal({
+        user: {
+          ...user.dataValues,
+          permissions: "no permissions"
+        }
+      });
     });
 
     it('should throw an error if checkUserPermissions fails', async () => {

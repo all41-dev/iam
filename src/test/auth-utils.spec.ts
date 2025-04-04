@@ -52,7 +52,7 @@ describe('Auth Utils', () => {
 
       const userTableStub = sandbox.stub(AuthUserTable, 'findOne').resolves(user as AuthUserTable);
       const checkUserPermissionsStub = sandbox
-        .stub(authUtils, 'checkEffectivePermissions')
+        .stub(authUtils, 'getUserClientPermissions')
         .resolves({
           "read": {
             "right": "directGrant",
@@ -180,7 +180,7 @@ describe('Auth Utils', () => {
       const userTableStub = sandbox.stub(AuthUserTable, 'findOne').resolves(user as AuthUserTable);
 
       const checkUserPermissionsStub = sandbox
-        .stub(authUtils, 'checkEffectivePermissions')
+        .stub(authUtils, 'getUserClientPermissions')
         .resolves({});
 
       const result = await authUtils.checkUser(profile, provider);
@@ -216,7 +216,7 @@ describe('Auth Utils', () => {
 
       const userTableStub = sandbox.stub(AuthUserTable, 'findOne').resolves(user as AuthUserTable);
       const checkUserPermissionsStub = sandbox
-        .stub(authUtils, 'checkEffectivePermissions')
+        .stub(authUtils, 'getUserClientPermissions')
         .rejects(new Error('Permissions check failed'));
 
       try {

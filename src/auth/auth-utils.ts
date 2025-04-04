@@ -7,6 +7,10 @@ import { FeatureCompositionTable } from "../db/feature-composition-table";
 import { IUtilsOptions } from "../interfaces";
 import { ScopeTable } from "../db/scope-table";
 import { FeatureManager } from "./feature-manager";
+import jwt from "jsonwebtoken";
+import { AuthManager } from "./auth-manager";
+import { readFileSync } from "fs";
+import path from "path";
 
 interface PermissionContext { uuid: string; scope: string; status: string; type: "direct" | "ancestor"; feature_code?: string }
 
@@ -60,7 +64,7 @@ export class AuthUtils {
           return { user: false, error: 'not validated' };
         }
         const encodeBase64 = (data: string): string => Buffer.from(data).toString('base64');
-        const permissions = await this.checkEffectivePermissions(user.uuid);
+        const permissions = await this.getUserClientPermissions(user.uuid);
         return {
           user: {
             ...user.dataValues,
@@ -69,6 +73,28 @@ export class AuthUtils {
         };
       }
     });
+  }
+
+  public async getUserClientPermissions(userUuid: string): Promise<any> {
+    const groupMemberships = await UserGroupMemberTable.findAll({ where: { auth_user_uuid: userUuid } });
+    if (!groupMemberships.length) return { permissions: [] };
+
+    const permissionsMap = await this.checkEffectivePermissions(userUuid);
+
+    const compactPermissions: Array<{ f: string; e: string; d: boolean }> = [];
+
+    for (const [featureCode, { right, context }] of Object.entries(permissionsMap)) {
+      for (const ctx of context) {
+        if (ctx.status === "granted" || ctx.status === "denied") {
+          compactPermissions.push({
+            f: featureCode,
+            e: ctx.uuid,
+            d: ctx.status === "denied"
+          });
+        }
+      }
+    }
+    return compactPermissions
   }
 
   public async checkAncestorEffectivePermissions(

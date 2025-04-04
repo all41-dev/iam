@@ -56,14 +56,14 @@ export class AuthUtils {
       } else if (provider !== user.provider) {
         return { user: false, error: 'provider' };
       } else {
-        const permissions = await this.checkEffectivePermissions(user.uuid);
-        if (Object.keys(permissions).length === 0) {
-          return { user: false, error: 'permission' };
+        if (user.validated === false) {
+          return { user: false, error: 'not validated' };
         }
+        const permissions = await this.checkEffectivePermissions(user.uuid);
         return {
           user: {
             ...user.dataValues,
-            permissions,
+            permissions: permissions ? permissions : "no permissions",
           },
         };
       }

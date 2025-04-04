@@ -12,23 +12,16 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
 
     this.repositoryFeature = repositoryFeature;
 
-    this.setParentChild = this.setParentChild.bind(this);
-    this.removeParentChild = this.removeParentChild.bind(this);
-    this.getChildrens = this.getChildrens.bind(this);
-    this.getFeatureMatrix = this.getFeatureMatrix.bind(this);
-    this.getRootFeatureMatrix = this.getRootFeatureMatrix.bind(this);
-    this.getScopeFeatureMatrix = this.getScopeFeatureMatrix.bind(this);
-
     this.defineRoutes(
-      { verb: 'post', path: '/set-parent-child', handlers: this.setParentChild },
-      { verb: 'post', path: '/remove-parent-child', handlers: this.removeParentChild },
-      { verb: 'get', path: '/:featureUuid/childrens', handlers: this.getChildrens },
-      { verb: 'get', path: '/:featureUuid/matrix', handlers: this.getFeatureMatrix },
-      { verb: 'get', path: '/:scopeUuid/feature-matrix', handlers: this.getScopeFeatureMatrix },
+      { verb: 'post', path: '/set-parent-child', handlers: this.setParentChild.bind(this) },
+      { verb: 'post', path: '/remove-parent-child', handlers: this.removeParentChild.bind(this) },
+      { verb: 'get', path: '/:featureUuid/childrens', handlers: this.getChildrens.bind(this) },
+      { verb: 'get', path: '/:featureUuid/matrix', handlers: this.getFeatureMatrix.bind(this) },
+      { verb: 'get', path: '/:scopeUuid/feature-matrix', handlers: this.getScopeFeatureMatrix.bind(this) },
     );
     this.defineRouteBeforeSignature(
       { verb: 'get', path: '/:id' },
-      { verb: 'get', path: '/root-feature-matrix', handlers: this.getRootFeatureMatrix },
+      { verb: 'get', path: '/root-feature-matrix', handlers: this.getRootFeatureMatrix.bind(this) },
     );
 
   }

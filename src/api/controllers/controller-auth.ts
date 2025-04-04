@@ -55,8 +55,8 @@ export class AuthController {
       res.json({
         username: (req.user as any).user.username,
         email: (req.user as any).user.email,
-        firstName: (req.user as any).user.firstName,
-        lastName: (req.user as any).user.lastName,
+        firstName: (req.user as any).user.first_name,
+        lastName: (req.user as any).user.last_name,
         permissions: (req.user as any).user.permissions,
       });
     });

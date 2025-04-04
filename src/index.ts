@@ -1,5 +1,5 @@
-export * from './auth/auth-manager';
 export * from './interfaces';
+export * from './auth/auth-manager';
 export * from './auth/auth-utils';
 export * from './db/auth-user-table';
 export * from './db/refresh-token-table';

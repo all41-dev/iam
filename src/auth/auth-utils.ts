@@ -63,12 +63,11 @@ export class AuthUtils {
         if (!user.validated && user.validated === false) {
           return { user: false, error: 'not validated' };
         }
-        const encodeBase64 = (data: string): string => Buffer.from(data).toString('base64');
         const permissions = await this.getUserClientPermissions(user.uuid);
         return {
           user: {
             ...user.dataValues,
-            permissions: permissions && Object.keys(permissions).length > 0 ? encodeBase64(JSON.stringify(permissions)) : "no permissions",
+            permissions: permissions && Object.keys(permissions).length > 0 ? Buffer.from(JSON.stringify(permissions)).toString('base64') : "no permissions",
           },
         };
       }
@@ -77,22 +76,22 @@ export class AuthUtils {
 
   public async getUserClientPermissions(userUuid: string): Promise<any> {
     const groupMemberships = await UserGroupMemberTable.findAll({ where: { auth_user_uuid: userUuid } });
-    if (!groupMemberships.length) return { permissions: [] };
-
-    const permissionsMap = await this.checkEffectivePermissions(userUuid);
-
+    if (!groupMemberships.length) return {};
+    const groupUUIDs = groupMemberships.map((group) => group.group_uuid);
+    const permissions = await PermissionTable.findAll({
+      where: { group_uuid: groupUUIDs },
+    });
+    if (!permissions.length) {
+      return {}
+    }
     const compactPermissions: Array<{ f: string; e: string; d: boolean }> = [];
-
-    for (const [featureCode, { right, context }] of Object.entries(permissionsMap)) {
-      for (const ctx of context) {
-        if (ctx.status === "granted" || ctx.status === "denied") {
-          compactPermissions.push({
-            f: featureCode,
-            e: ctx.uuid,
-            d: ctx.status === "denied"
-          });
-        }
-      }
+    for (const permission of permissions) {
+      const feature = await FeatureTable.findByPk(permission.feature_uuid);
+      compactPermissions.push({
+        f: feature ? feature.code : permission.feature_uuid,
+        e: permission.scope_element_uuid,
+        d: permission.is_deny
+      });
     }
     return compactPermissions
   }

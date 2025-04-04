@@ -1,13 +1,12 @@
 import { Router, Request, Response } from "express";
 import { ControllerRepositoryReadWrite } from "@all41-dev/server.types";
 import { RepositoryAuthUser } from "../../repositories/auth-user-repository";
-import { AuthUserTable } from "../../db/auth-user-table";
 
 export class ControllerAuthUser extends ControllerRepositoryReadWrite<RepositoryAuthUser> {
   private repositoryAuthUser: RepositoryAuthUser;
 
   constructor() {
-    const repositoryAuthUser = new RepositoryAuthUser(AuthUserTable);
+    const repositoryAuthUser = new RepositoryAuthUser();
 
     super();
 

@@ -1,13 +1,12 @@
 import { ControllerRepositoryReadWrite } from "@all41-dev/server.types";
 import { RepositoryUserGroup } from "../../repositories/user-group-repository";
 import { Router, Request, Response } from "express";
-import { UserGroupTable } from "../../db/user-group-table";
 
 export class ControllerUserGroup extends ControllerRepositoryReadWrite<RepositoryUserGroup> {
   private repositoryUserGroup: RepositoryUserGroup;
 
   constructor() {
-    const repositoryUserGroup = new RepositoryUserGroup(UserGroupTable);
+    const repositoryUserGroup = new RepositoryUserGroup();
 
     super();
 

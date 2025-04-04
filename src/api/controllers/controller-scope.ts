@@ -1,13 +1,11 @@
 import { ControllerRepositoryReadWrite } from "@all41-dev/server.types";
 import { RepositoryScope } from "../../repositories/scope-repository";
 import { Router, Request, Response } from "express";
-import { ScopeTable } from "../../db/scope-table";
-
 export class ControllerScope extends ControllerRepositoryReadWrite<RepositoryScope> {
   private repositoryScope: RepositoryScope;
 
   constructor() {
-    const repositoryScope = new RepositoryScope(ScopeTable);
+    const repositoryScope = new RepositoryScope();
 
     super();
 

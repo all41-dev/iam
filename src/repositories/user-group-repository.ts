@@ -2,7 +2,6 @@ import { RepositorySequelize } from "@all41-dev/server.types";
 import { UserGroupTable } from "../db/user-group-table";
 import { UserGroupMemberTable } from "../db/user-group-member-table";
 import { AuthUserTable } from "../db/auth-user-table";
-import { Repository as SequelizeNativeRepository } from "sequelize-typescript";
 import { v4 as uuidv4 } from 'uuid';
 import { PermissionTable } from "../db/permission-table";
 import { FeatureTable } from "../db/feature-table";
@@ -12,8 +11,8 @@ import { Transaction } from "sequelize";
 export class RepositoryUserGroup extends RepositorySequelize<UserGroupTable> {
   private authUtils: AuthUtils;
 
-  constructor(repository: SequelizeNativeRepository<UserGroupTable>) {
-    super(UserGroupTable, repository);
+  constructor() {
+    super(UserGroupTable);
     this.authUtils = AuthUtils.getInstance();
   }
 

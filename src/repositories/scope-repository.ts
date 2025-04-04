@@ -1,6 +1,5 @@
 import { RepositorySequelize } from "@all41-dev/server.types";
 import { ScopeTable } from "../db/scope-table";
-import { Repository as SequelizeNativeRepository } from "sequelize-typescript";
 import { FeatureManager } from "../auth/feature-manager";
 import { UserGroupTable } from "../db/user-group-table";
 import { FeatureTable } from "../db/feature-table";
@@ -10,8 +9,8 @@ export class RepositoryScope extends RepositorySequelize<ScopeTable> {
   private featureManager: FeatureManager;
   private authUtils: AuthUtils;
 
-  constructor(repository: SequelizeNativeRepository<ScopeTable>) {
-    super(ScopeTable, repository);
+  constructor() {
+    super(ScopeTable);
     this.featureManager = FeatureManager.getInstance();
     this.authUtils = AuthUtils.getInstance();
   }

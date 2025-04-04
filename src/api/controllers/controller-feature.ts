@@ -1,13 +1,12 @@
 import { ControllerRepositoryReadWrite } from "@all41-dev/server.types";
 import { RepositoryFeature } from "../../repositories/feature-repository";
 import { Router, Request, Response } from "express";
-import { FeatureTable } from "../../db/feature-table";
 
 export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryFeature> {
   private repositoryFeature: RepositoryFeature;
 
   constructor() {
-    const repositoryFeature = new RepositoryFeature(FeatureTable);
+    const repositoryFeature = new RepositoryFeature();
 
     super();
 

@@ -1,7 +1,6 @@
 import { RepositorySequelize } from "@all41-dev/server.types";
 import { FeatureTable } from "../db/feature-table";
 import { FeatureCompositionTable } from "../db/feature-composition-table";
-import { Repository as SequelizeNativeRepository } from "sequelize-typescript";
 import { Op, Sequelize } from "sequelize";
 import { FeatureManager } from "../auth/feature-manager";
 
@@ -9,8 +8,8 @@ import { FeatureManager } from "../auth/feature-manager";
 export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
   private featureManager: FeatureManager
 
-  constructor(repository: SequelizeNativeRepository<FeatureTable>) {
-    super(FeatureTable, repository);
+  constructor() {
+    super(FeatureTable);
     this.featureManager = FeatureManager.getInstance();
   }
 

@@ -59,11 +59,12 @@ export class AuthUtils {
         if (!user.validated && user.validated === false) {
           return { user: false, error: 'not validated' };
         }
+        const encodeBase64 = (data: string): string => Buffer.from(data).toString('base64');
         const permissions = await this.checkEffectivePermissions(user.uuid);
         return {
           user: {
             ...user.dataValues,
-            permissions: permissions && Object.keys(permissions).length > 0 ? permissions : "no permissions",
+            permissions: permissions && Object.keys(permissions).length > 0 ? encodeBase64(JSON.stringify(permissions)) : "no permissions",
           },
         };
       }

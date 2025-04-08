@@ -68,7 +68,7 @@ export class AuthUtils {
           user: {
             ...user.dataValues,
             permissions: permissions && Object.keys(permissions).length > 0 ? Buffer.from(JSON.stringify(permissions)).toString('base64') : undefined,
-            permissionsWarning: permissions && Object.keys(permissions).length > 0 ? undefined : 'no permissions',
+            permissionWarning: permissions && Object.keys(permissions).length > 0 ? undefined : 'no permissions',
           },
         };
       }

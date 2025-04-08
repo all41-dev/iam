@@ -140,34 +140,30 @@ export class AuthManager {
       if (!req.user) {
         throw new Error("No user found in request");
       }
-      const MAX_JWT_PAYLOAD_SIZE = 8 * 1024;
+      const MAX_JWT_PAYLOAD_SIZE = 2 * 1024;
       const originalUser = { ...req.user };
 
       let payload = { user: originalUser };
-      let token = jwt.sign(payload, this.options.privateKey, {
+      const estimatePayloadSize = (payload: object) =>
+        Buffer.byteLength(JSON.stringify(payload), "utf8");
+      if (estimatePayloadSize(payload) > MAX_JWT_PAYLOAD_SIZE) {
+        payload = {
+          user: {
+            ...originalUser,
+            permissions: undefined,
+            permissionWarning:
+              "Permissions omitted due to token size limit. See /api/auth-users/:id/permission for full list.",
+          },
+        };
+      }
+
+      const token = jwt.sign(payload, this.options.privateKey, {
         algorithm: "RS256",
         expiresIn: "5m",
         issuer: process.env.AUTH_ISSUER || "all41",
         audience: process.env.AUTH_AUDIENCE || "all41",
         subject: (originalUser as any).uuid,
       });
-
-      if (Buffer.byteLength(token, 'utf8') > MAX_JWT_PAYLOAD_SIZE) {
-        const minimalUser = {
-          ...originalUser,
-          permissions: undefined,
-          permissionWarning: "Permissions omitted due to token size limit. See api/auth-users/:id/permission for full list.",
-        };
-        payload = { user: minimalUser };
-
-        token = jwt.sign(payload, this.options.privateKey, {
-          algorithm: "RS256",
-          expiresIn: "5m",
-          issuer: process.env.AUTH_ISSUER || "all41",
-          audience: process.env.AUTH_AUDIENCE || "all41",
-          subject: (originalUser as any).uuid,
-        });
-      }
 
       const refreshExpiry = this.getRefreshExpiry
         ? await this.getRefreshExpiry(req)

@@ -140,20 +140,38 @@ export class AuthManager {
       if (!req.user) {
         throw new Error("No user found in request");
       }
-      const refreshExpiry = this.getRefreshExpiry
-        ? await this.getRefreshExpiry(req)
-        : 24 * 60 * 60 * 1000;
-      const accessToken = jwt.sign(
-        { user: req.user },
-        this.options.privateKey,
-        {
+      const MAX_JWT_PAYLOAD_SIZE = 8 * 1024;
+      const originalUser = { ...req.user };
+
+      let payload = { user: originalUser };
+      let token = jwt.sign(payload, this.options.privateKey, {
+        algorithm: "RS256",
+        expiresIn: "5m",
+        issuer: process.env.AUTH_ISSUER || "all41",
+        audience: process.env.AUTH_AUDIENCE || "all41",
+        subject: (originalUser as any).uuid,
+      });
+
+      if (Buffer.byteLength(token, 'utf8') > MAX_JWT_PAYLOAD_SIZE) {
+        const minimalUser = {
+          ...originalUser,
+          permissions: undefined,
+          permissionWarning: "Permissions omitted due to token size limit. See api/auth-users/:id/permission for full list.",
+        };
+        payload = { user: minimalUser };
+
+        token = jwt.sign(payload, this.options.privateKey, {
           algorithm: "RS256",
           expiresIn: "5m",
           issuer: process.env.AUTH_ISSUER || "all41",
           audience: process.env.AUTH_AUDIENCE || "all41",
-          subject: (req.user as any).uuid,
-        }
-      );
+          subject: (originalUser as any).uuid,
+        });
+      }
+
+      const refreshExpiry = this.getRefreshExpiry
+        ? await this.getRefreshExpiry(req)
+        : 24 * 60 * 60 * 1000;
       const refreshToken = await this.saveRefreshToken(
         (req.user as { uuid: string }).uuid,
         refreshExpiry
@@ -164,9 +182,9 @@ export class AuthManager {
         res.clearCookie("redirect");
         res.clearCookie("failureRedirect");
         redirectAfter +=
-          "?" + querystring.stringify({ accessToken, refreshToken });
+          "?" + querystring.stringify({ accessToken: token, refreshToken });
       } else {
-        res.cookie("auth", accessToken, { maxAge: 5 * 60 * 1000 });
+        res.cookie("auth", token, { maxAge: 5 * 60 * 1000 });
         res.cookie("refresh", refreshToken, { maxAge: refreshExpiry });
       }
       res.redirect(redirectAfter || "/");

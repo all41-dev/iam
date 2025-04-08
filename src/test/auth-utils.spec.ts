@@ -75,7 +75,8 @@ describe('Auth Utils', () => {
         user: {
           ...user.dataValues,
           permissions:
-            "eyJyZWFkIjp7InJpZ2h0IjoiZGlyZWN0R3JhbnQiLCJjb250ZXh0IjpbeyJ1dWlkIjoiMDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAwIiwic2NvcGUiOiJnbG9iYWwiLCJzdGF0dXMiOiJncmFudGVkIiwidHlwZSI6ImRpcmVjdCJ9XX19"
+            "eyJyZWFkIjp7InJpZ2h0IjoiZGlyZWN0R3JhbnQiLCJjb250ZXh0IjpbeyJ1dWlkIjoiMDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAwIiwic2NvcGUiOiJnbG9iYWwiLCJzdGF0dXMiOiJncmFudGVkIiwidHlwZSI6ImRpcmVjdCJ9XX19",
+          permissionsWarning: undefined
         }
       });
     });
@@ -190,7 +191,8 @@ describe('Auth Utils', () => {
       expect(result).to.deep.equal({
         user: {
           ...user.dataValues,
-          permissions: "no permissions"
+          permissions: undefined,
+          permissionsWarning: "no permissions"
         }
       });
     });

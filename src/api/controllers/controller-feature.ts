@@ -18,6 +18,7 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
       { verb: 'get', path: '/:featureUuid/childrens', handlers: this.getChildrens.bind(this) },
       { verb: 'get', path: '/:featureUuid/matrix', handlers: this.getFeatureMatrix.bind(this) },
       { verb: 'get', path: '/:scopeUuid/feature-matrix', handlers: this.getScopeFeatureMatrix.bind(this) },
+      { verb: 'get', path: '/feature-composition/all', handlers: this.getAllFeatureComposition.bind(this) },
     );
     this.defineRouteBeforeSignature(
       { verb: 'get', path: '/:id' },
@@ -91,5 +92,12 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
       res.status(500).json({ error: 'Internal server error' });
     }
   }
-
+  public async getAllFeatureComposition(req: Request, res: Response) {
+    try {
+      const tree = await this.repositoryFeature.getAllFeatureComposition();
+      res.status(200).json(tree);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
 }

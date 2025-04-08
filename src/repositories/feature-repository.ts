@@ -125,4 +125,9 @@ export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
     const featureMatrix = await Promise.all(featureMatrixPromises);
     return featureMatrix;
   }
+
+  public async getAllFeatureComposition(): Promise<any> {
+    const compositions = await FeatureCompositionTable.findAll();
+    return compositions
+  }
 }

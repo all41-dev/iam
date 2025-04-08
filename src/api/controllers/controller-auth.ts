@@ -57,7 +57,9 @@ export class AuthController {
         email: (req.user as any).user.email,
         firstName: (req.user as any).user.first_name,
         lastName: (req.user as any).user.last_name,
-        permissions: JSON.parse(Buffer.from((req.user as any).user.permissions, 'base64').toString('utf8')),
+        permissions: (req.user as any).user.permissions
+          ? JSON.parse(Buffer.from((req.user as any).user.permissions, 'base64').toString('utf8'))
+          : (req.user as any).user.permissionWarning,
       });
     });
 

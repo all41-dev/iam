@@ -67,7 +67,8 @@ export class AuthUtils {
         return {
           user: {
             ...user.dataValues,
-            permissions: permissions && Object.keys(permissions).length > 0 ? Buffer.from(JSON.stringify(permissions)).toString('base64') : "no permissions",
+            permissions: permissions && Object.keys(permissions).length > 0 ? Buffer.from(JSON.stringify(permissions)).toString('base64') : undefined,
+            permissionsWarning: permissions && Object.keys(permissions).length > 0 ? undefined : 'no permissions',
           },
         };
       }
@@ -86,9 +87,8 @@ export class AuthUtils {
     }
     const compactPermissions: Array<{ f: string; e: string; d: boolean }> = [];
     for (const permission of permissions) {
-      const feature = await FeatureTable.findByPk(permission.feature_uuid);
       compactPermissions.push({
-        f: feature ? feature.code : permission.feature_uuid,
+        f: permission.feature_uuid,
         e: permission.scope_element_uuid,
         d: permission.is_deny
       });

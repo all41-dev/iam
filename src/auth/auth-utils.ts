@@ -7,10 +7,6 @@ import { FeatureCompositionTable } from "../db/feature-composition-table";
 import { IUtilsOptions } from "../interfaces";
 import { ScopeTable } from "../db/scope-table";
 import { FeatureManager } from "./feature-manager";
-import jwt from "jsonwebtoken";
-import { AuthManager } from "./auth-manager";
-import { readFileSync } from "fs";
-import path from "path";
 
 interface PermissionContext { uuid: string; scope: string; status: string; type: "direct" | "ancestor"; feature_code?: string }
 
@@ -20,8 +16,8 @@ export class AuthUtils {
   private utilsOptions: IUtilsOptions;
   private featureManager: FeatureManager;
 
-  private constructor(options?: IUtilsOptions) {
-    this.utilsOptions = options ?? {};
+  private constructor(options: IUtilsOptions) {
+    this.utilsOptions = options;
     this.featureManager = FeatureManager.getInstance();
   }
 
@@ -31,13 +27,19 @@ export class AuthUtils {
 
   public static getInstance(options?: IUtilsOptions) {
     if (!AuthUtils.instance) {
+      if (!options) {
+        throw new Error("AuthUtils not initialized");
+      }
       AuthUtils.instance = new AuthUtils(options);
     }
     return AuthUtils.instance;
   }
 
-  public static resetInstance(options?: IUtilsOptions) {
-    AuthUtils.instance = new AuthUtils(options);
+  public async buildScopeElementHierarchy(scopeUuid?: string, elementUuid?: string): Promise<any> {
+    if (!scopeUuid) return this.options.scopeElementHierarchy()
+    const code = await ScopeTable.findByPk(scopeUuid).then((scope) => scope?.code)
+    if (!code) return;
+    return this.options.scopeElementHierarchy(code, elementUuid);
   }
 
   async checkUser(profile: any, provider: string): Promise<{ user: any; error?: string }> {
@@ -63,7 +65,7 @@ export class AuthUtils {
         if (!user.validated && user.validated === false) {
           return { user: false, error: 'not validated' };
         }
-        const permissions = await this.getUserClientPermissions(user.uuid);
+        const permissions = await this.getUserPermissions(user.uuid);
         return {
           user: {
             ...user.dataValues,
@@ -75,7 +77,7 @@ export class AuthUtils {
     });
   }
 
-  public async getUserClientPermissions(userUuid: string): Promise<any> {
+  public async getUserPermissions(userUuid: string): Promise<any> {
     const groupMemberships = await UserGroupMemberTable.findAll({ where: { auth_user_uuid: userUuid } });
     if (!groupMemberships.length) return {};
     const groupUUIDs = groupMemberships.map((group) => group.group_uuid);
@@ -85,13 +87,20 @@ export class AuthUtils {
     if (!permissions.length) {
       return {}
     }
-    const compactPermissions: Array<{ f: string; e: string; d: boolean }> = [];
+    const featureUUIDs = permissions.map((permission) => permission.feature_uuid);
+    const highestFeatures = await this.featureManager.getHighestFeatures(featureUUIDs)
+    const compactPermissions: Array<{ f: string; e: string; d: boolean; h?: boolean }> = [];
     for (const permission of permissions) {
-      compactPermissions.push({
+      const isHighest = highestFeatures.includes(permission.feature_uuid);
+      const permissionObject: { f: string; e: string; d: boolean; h?: boolean } = {
         f: permission.feature_uuid,
         e: permission.scope_element_uuid,
-        d: permission.is_deny
-      });
+        d: permission.is_deny,
+      };
+      if (isHighest) {
+        permissionObject.h = true;
+      }
+      compactPermissions.push(permissionObject);
     }
     return compactPermissions
   }
@@ -178,21 +187,15 @@ export class AuthUtils {
             type: "direct",
           });
         }
-        const scopeHierarchy = this.utilsOptions.scopeHierarchy
-          ? await this.utilsOptions.scopeHierarchy(permission.scope_element_uuid, scopeFeature ? scopeFeature.code : "")
-          : {};
-        const hierarchyUUIDs = Object.values(scopeHierarchy);
+        const hierarchyUUIDs = await this.utilsOptions.scopeElementAncestor(permission.scope_element_uuid, scopeFeature ? scopeFeature.code : "");
 
         grantOverride = await Promise.all(
           ancestorPermissions.permissions.map(async (p) => {
             if (!p.is_deny && permission.is_deny) {
-              const scopeHierarchy = this.utilsOptions.scopeHierarchy
-                ? await this.utilsOptions.scopeHierarchy(
-                  p.scope_element_uuid,
-                  (await ScopeTable.findByPk(p.scope_uuid))?.code || ""
-                )
-                : {};
-              return Object.values(scopeHierarchy).includes(permission.scope_element_uuid) ||
+              return (await this.utilsOptions.scopeElementAncestor(
+                p.scope_element_uuid,
+                (await ScopeTable.findByPk(p.scope_uuid))?.code || ""
+              )).includes(permission.scope_element_uuid) ||
                 permission.scope_element_uuid === p.scope_element_uuid;
             }
             return false;
@@ -211,10 +214,7 @@ export class AuthUtils {
         const scopeFeature = await ScopeTable.findByPk(ancestorPermission.scope_uuid);
         const permissionStatus = ancestorPermission.is_deny ? "denied" : "granted";
         const contextKey = `${ancestorPermission.scope_element_uuid}-${permissionStatus}`;
-        const scopeHierarchy = this.utilsOptions.scopeHierarchy
-          ? await this.utilsOptions.scopeHierarchy(ancestorPermission.scope_element_uuid, scopeFeature ? scopeFeature.code : "")
-          : {};
-        const hierarchyUUIDs = Object.values(scopeHierarchy);
+        const hierarchyUUIDs = await this.utilsOptions.scopeElementAncestor(ancestorPermission.scope_element_uuid, scopeFeature ? scopeFeature.code : "");
         ancestorConflict = ancestorPermissions.permissions.some(p => !ancestorPermission.is_deny && p.is_deny && (hierarchyUUIDs.includes(p.scope_element_uuid) || p.scope_element_uuid === ancestorPermission.scope_element_uuid));
         if (!contextSet.has(contextKey)) {
           contextSet.add(contextKey);
@@ -278,8 +278,7 @@ export class AuthUtils {
       },
     });
 
-    const scopeHierarchy = this.utilsOptions.scopeHierarchy ? await this.utilsOptions.scopeHierarchy(elementUuid, scope.code) : {};
-    const hierarchyUUIDs = Object.values(scopeHierarchy);
+    const hierarchyUUIDs = await this.utilsOptions.scopeElementAncestor(elementUuid, scope.code);
 
     for (const permission of directPermissions) {
       if (permission.is_deny) {
@@ -300,7 +299,7 @@ export class AuthUtils {
       },
     });
 
-    if (!userGroups.some(group => hierarchyUUIDs.includes(group.scope_element_uuid)) && this.utilsOptions.scopeHierarchy) {
+    if (!userGroups.some(group => hierarchyUUIDs.includes(group.scope_element_uuid))) {
       return "deny";
     }
 
@@ -368,10 +367,7 @@ export class AuthUtils {
       const scope = await ScopeTable.findOne({ where: { uuid: feature.scope_uuid } });
       if (!scope) throw new Error("No scope found");
 
-      const scopeHierarchy = this.utilsOptions.scopeHierarchy
-        ? await this.utilsOptions.scopeHierarchy(permission.scope_element_uuid, scope.code)
-        : {};
-      const hierarchyUUIDs = Object.values(scopeHierarchy);
+      const hierarchyUUIDs = await this.utilsOptions.scopeElementAncestor(permission.scope_element_uuid, scope.code);
 
       if (!permission.is_deny) {
         const ancestorResult = await this.checkParentFeaturePermissions(
@@ -390,14 +386,5 @@ export class AuthUtils {
       }
     }
     return conflicts;
-  }
-
-  public async buildScopeElementHierarchy(scopeUuid?: string, elementUuid?: string): Promise<any> {
-    if (this.options.scopeElementHierarchy) {
-      if (!scopeUuid) return this.options.scopeElementHierarchy()
-      const code = await ScopeTable.findByPk(scopeUuid).then((scope) => scope?.code)
-      if (!code) return;
-      return this.options.scopeElementHierarchy(code, elementUuid);
-    }
   }
 }

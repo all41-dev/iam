@@ -1,24 +1,3 @@
-interface EntityDetails {
-  uuid: string | undefined;
-  name: string | undefined;
-}
-
-interface ClientDetails extends EntityDetails {
-  module: EntityDetails[];
-  exchange: EntityDetails[];
-  subscription: EntityDetails[];
-}
-
-interface PartnerDetails extends EntityDetails {
-  customer: ClientDetails[];
-}
-
-interface DummyHierarchy {
-  uuid: string;
-  name: string;
-  partner: PartnerDetails[];
-}
-
 const mockData: { [key: string]: { [uuid: string]: string[] } } = {
   "partner-2iam": {
     "2533b4d3-39d6-49bc-8f3a-207ba30b341a": ["2533b4d3-39d6-49bc-8f3a-207ba30b341a", "00000000-0000-0000-0000-000000000000"],
@@ -34,46 +13,37 @@ const mockData: { [key: string]: { [uuid: string]: string[] } } = {
   },
 };
 
-export async function scopeHierarchy(uuid: string | undefined, code: string | undefined): Promise<{ [key: string]: string }> {
+export async function scopeElementAncestor(uuid: string | undefined, code: string | undefined): Promise<string[]> {
   if (!code || !uuid) {
-    return { "global-1iam": "00000000-0000-0000-0000-000000000000" };
+    return ["00000000-0000-0000-0000-000000000000"];
   }
 
   const entityMap = mockData[code];
   if (!entityMap) {
-    return { "global-1iam": "00000000-0000-0000-0000-000000000000" };
+    return ["00000000-0000-0000-0000-000000000000"];
   }
 
   const startingEntity = entityMap[uuid];
   if (!startingEntity) {
-    return { "global-1iam": "00000000-0000-0000-0000-000000000000" };
+    return ["00000000-0000-0000-0000-000000000000"];
   }
 
-  const hierarchy: { [key: string]: string } = { [code]: startingEntity[0] };
-
-  if (code === "client-3iam") {
-    const partnerUuid = startingEntity[1];
-    const partnerEntity = mockData["partner-2iam"][partnerUuid];
-    if (partnerEntity) {
-      hierarchy["partner-2iam"] = partnerEntity[0];
-    }
-  }
-
-  hierarchy["global-1iam"] = "00000000-0000-0000-0000-000000000000";
+  const hierarchy = [...startingEntity];
 
   return hierarchy;
 }
 
 
 
-const dummyHierarchy = {
+
+export const dummyHierarchy = {
   uuid: "00000000-0000-0000-0000-000000000000",
   name: "global",
   partner: [
     {
       uuid: "2533b4d3-39d6-49bc-8f3a-207ba30b341a",
       name: "Harps",
-      customer: [
+      client: [
         {
           uuid: "3d420db4-9d2c-4f06-898e-9c650457caf1",
           name: "Gravières d'Epeisses SA",
@@ -100,7 +70,7 @@ const dummyHierarchy = {
     {
       uuid: "e687c796-8958-49fd-9db2-fba0eb130e2c",
       name: "Arc Logiciels",
-      customer: [
+      client: [
         {
           uuid: "5d256ad1-9120-4ba7-98cb-49471add0997",
           name: "Phida Management SA",
@@ -140,14 +110,14 @@ export async function scopeElementHierarchy(code?: string, uuid?: string) {
   } else if (code.startsWith("client")) {
     if (uuid) {
       for (const partner of dummyHierarchy.partner) {
-        const client = partner.customer.find(c => c.uuid === uuid);
+        const client = partner.client.find(c => c.uuid === uuid);
         if (client) {
           return [client];
         }
       }
       return [];
     } else {
-      return dummyHierarchy.partner.flatMap(partner => partner.customer);
+      return dummyHierarchy.partner.flatMap(partner => partner.client);
     }
   }
 

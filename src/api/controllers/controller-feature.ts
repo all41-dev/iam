@@ -17,12 +17,12 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
       { verb: 'post', path: '/remove-parent-child', handlers: this.removeParentChild.bind(this) },
       { verb: 'get', path: '/:featureUuid/childrens', handlers: this.getChildrens.bind(this) },
       { verb: 'get', path: '/:featureUuid/matrix', handlers: this.getFeatureMatrix.bind(this) },
-      { verb: 'get', path: '/:scopeUuid/feature-matrix', handlers: this.getScopeFeatureMatrix.bind(this) },
+      { verb: 'get', path: '/scope/:scopeUuid/feature-matrix', handlers: this.getScopeFeatureMatrix.bind(this) },
       { verb: 'get', path: '/feature-composition/all', handlers: this.getAllFeatureComposition.bind(this) },
     );
     this.defineRouteBeforeSignature(
       { verb: 'get', path: '/:id' },
-      { verb: 'get', path: '/root-feature-matrix', handlers: this.getRootFeatureMatrix.bind(this) },
+      { verb: 'get', path: '/root-matrix', handlers: this.getRootFeatureMatrix.bind(this) },
     );
 
   }

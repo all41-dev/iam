@@ -18,7 +18,7 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
       { verb: 'post', path: '/:userUuid/group-copy', handlers: this.copyUserGroups.bind(this) },
       { verb: 'patch', path: '/:userUuid/update-group', handlers: this.updateUserGroups.bind(this) },
       { verb: 'get', path: '/:userUuid/effective-permissions', handlers: this.checkUserEffectivePermissions.bind(this) },
-      { verb: 'get', path: '/:userUuid/feature-permissions/:featureUuid/:elementUuid', handlers: this.checkFeaturePermissions.bind(this) },
+      { verb: 'get', path: '/:userUuid/check-feature-permissions/:featureUuid/:elementUuid', handlers: this.checkFeaturePermissions.bind(this) },
       { verb: 'get', path: '/:userUuid/permissions', handlers: this.getPermissions.bind(this) },
       { verb: 'get', path: '/:userUuid/groups', handlers: this.getUserGroups.bind(this) }
     );

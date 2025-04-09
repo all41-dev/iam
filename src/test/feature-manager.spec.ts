@@ -76,49 +76,42 @@ describe("FeatureManager", () => {
       const scopeUuid = "scope-1";
       const visited = new Set<string>();
 
-      sandbox.stub(ScopeTable, "findByPk")
-        .withArgs("scope-1").resolves(undefined);
+      sandbox.stub(ScopeTable, "findOne").resolves(undefined);
 
       try {
-        await featureManager.buildScopesTree(scopeUuid, visited);
+        await featureManager.buildScopesTree(visited);
         assert.fail("Expected error was not thrown");
       } catch (error) {
         const err = error as Error;
-        expect(err.message).to.equal(`Scope with UUID ${scopeUuid} not found`);
+        expect(err.message).to.equal(`Scope not found`);
       }
     });
 
     it("should build the scope tree structure", async () => {
-      const scopeUuid = "scope-1";
       const scope1 = { uuid: "scope-1", name: "Scope 1", code: "S1", parent_uuid: null } as unknown as ScopeTable;
       const scope2 = { uuid: "scope-2", name: "Scope 2", code: "S2", parent_uuid: "scope-1" } as unknown as ScopeTable;
+      sandbox.stub(ScopeTable, "findOne").resolves(scope1)
 
       sandbox.stub(ScopeTable, "findByPk")
-        .withArgs("scope-1").resolves(scope1)
         .withArgs("scope-2").resolves(scope2);
 
       sandbox.stub(ScopeTable, "findAll")
         .withArgs({ where: { parent_uuid: "scope-1" } }).resolves([scope2])
         .withArgs({ where: { parent_uuid: "scope-2" } }).resolves([]);
 
-      sandbox.stub(ScopeTable, "findOne")
-        .withArgs({ where: { uuid: "scope-1" } }).resolves(scope1)
-
       const visited = new Set<string>();
 
-      const result = await featureManager.buildScopesTree(scopeUuid, visited);
+      const result = await featureManager.buildScopesTree(visited);
 
       expect(result).to.deep.equal({
         uuid: "scope-1",
         name: "Scope 1",
         code: "S1",
-        parents: [],
         children: [
           {
             uuid: "scope-2",
             name: "Scope 2",
             code: "S2",
-            parents: [{ uuid: "scope-1", cyclic: true }],
             children: []
           }
         ]
@@ -145,12 +138,17 @@ describe("FeatureManager", () => {
 
     it("should build the feature matrix structure", async () => {
       const featureUuid = "feature-1";
-      const feature1 = { uuid: "feature-1", name: "Feature 1", code: "F1" } as unknown as FeatureTable;
-      const feature2 = { uuid: "feature-2", name: "Feature 2", code: "F2" } as unknown as FeatureTable;
-      const feature3 = { uuid: "feature-3", name: "Feature 3", code: "F3" } as unknown as FeatureTable;
 
-      const parentFeatureRelation = { parent_uuid: "feature-1", child_uuid: "feature-2" } as unknown as FeatureCompositionTable;
-      const childFeatureRelation = { parent_uuid: "feature-2", child_uuid: "feature-3" } as unknown as FeatureCompositionTable;
+      const feature1 = { uuid: "feature-1", name: "Feature 1", code: "F1", scope_uuid: "scope-1" } as FeatureTable;
+      const feature2 = { uuid: "feature-2", name: "Feature 2", code: "F2", scope_uuid: "scope-2" } as FeatureTable;
+      const feature3 = { uuid: "feature-3", name: "Feature 3", code: "F3", scope_uuid: "scope-3" } as FeatureTable;
+
+      const parentFeatureRelation = { parent_uuid: "feature-1", child_uuid: "feature-2" } as FeatureCompositionTable;
+      const childFeatureRelation = { parent_uuid: "feature-2", child_uuid: "feature-3" } as FeatureCompositionTable;
+
+      const scope1 = { uuid: "scope-1", code: "S1" } as ScopeTable;
+      const scope2 = { uuid: "scope-2", code: "S2" } as ScopeTable;
+      const scope3 = { uuid: "scope-3", code: "S3" } as ScopeTable;
 
       sandbox.stub(FeatureTable, "findByPk")
         .withArgs("feature-1").resolves(feature1)
@@ -165,28 +163,48 @@ describe("FeatureManager", () => {
         .withArgs({ where: { child_uuid: "feature-3" } }).resolves([childFeatureRelation])
         .withArgs({ where: { parent_uuid: "feature-3" } }).resolves([]);
 
+      sandbox.stub(ScopeTable, "findByPk")
+        .withArgs("scope-1").resolves(scope1)
+        .withArgs("scope-2").resolves(scope2)
+        .withArgs("scope-3").resolves(scope3);
+
       const visited = new Set<string>();
-      const validScopes = new Set<string>(["feature-1", "feature-2", "feature-3"]);
+      const validScopes = new Set<string>(["scope-1", "scope-2", "scope-3"]);
 
       const result = await featureManager.buildFeatureMatrix(featureUuid, visited, validScopes);
 
       expect(result).to.deep.equal({
         uuid: "feature-1",
         name: "Feature 1",
+        scope_code: "S1",
         code: "F1",
         parents: [],
         children: [
           {
             uuid: "feature-2",
             name: "Feature 2",
+            scope_code: "S2",
             code: "F2",
-            parents: [],
+            parents: [
+              {
+                uuid: "feature-1",
+                code: "F1",
+                cyclic: true,
+              }
+            ],
             children: [
               {
                 uuid: "feature-3",
                 name: "Feature 3",
+                scope_code: "S3",
                 code: "F3",
-                parents: [],
+                parents: [
+                  {
+                    uuid: "feature-2",
+                    code: "F2",
+                    cyclic: true,
+                  }
+                ],
                 children: []
               }
             ]

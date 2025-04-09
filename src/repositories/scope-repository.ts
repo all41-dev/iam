@@ -23,8 +23,8 @@ export class RepositoryScope extends RepositorySequelize<ScopeTable> {
     return await this.featureManager.getAllChildScopes(scopeUuid);
   }
 
-  public async getTreeScopes(scopeUuid: string): Promise<any> {
-    return await this.featureManager.buildScopesTree(scopeUuid, new Set());
+  public async getTreeScopes(): Promise<any> {
+    return await this.featureManager.buildScopesTree(new Set());
   }
 
   public async getScopeGroups(scopeUuid: string): Promise<UserGroupTable[]> {

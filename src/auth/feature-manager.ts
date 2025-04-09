@@ -65,37 +65,22 @@ export class FeatureManager {
     return Array.from(uniqueUuids);
   }
 
-  public async buildScopesTree(scope_uuid: string, visited: Set<string>): Promise<any> {
-    if (visited.has(scope_uuid)) return [{ uuid: scope_uuid, cyclic: true }];
-    visited.add(scope_uuid);
-
-    const scope = await ScopeTable.findByPk(scope_uuid);
-    if (!scope) throw new Error(`Scope with UUID ${scope_uuid} not found`);
-
-    let parentFeatures = [];
-    if (scope.parent_uuid) {
-      const parent = await ScopeTable.findOne({
-        where: { uuid: scope.parent_uuid }
-      });
-      if (parent) {
-        parentFeatures = await this.buildScopesTree(parent.uuid, visited);
-      }
-    }
-
+  public async buildScopesTree(visited: Set<string>, child_uuid?: string): Promise<any> {
+    const scope = child_uuid ? await ScopeTable.findByPk(child_uuid) : await ScopeTable.findOne({ where: { parent_uuid: null } });
+    if (!scope) throw new Error(`Scope not found`);
+    if (visited.has(scope.uuid)) return [{ uuid: scope.uuid, cyclic: true }];
+    visited.add(scope.uuid);
     const children = await ScopeTable.findAll({
-      where: { parent_uuid: scope_uuid },
+      where: { parent_uuid: scope.uuid },
     });
-    const childFeatures = await Promise.all(
-      children.map(async (child) => {
-        return await this.buildScopesTree(child.uuid, visited);
-      })
+    const childScopes = await Promise.all(
+      children.map((child) => this.buildScopesTree(visited, child.uuid))
     );
     return {
       uuid: scope.uuid,
       name: scope.name,
       code: scope.code,
-      parents: parentFeatures,
-      children: childFeatures
+      children: childScopes,
     };
   }
 
@@ -137,10 +122,12 @@ export class FeatureManager {
         return await this.buildFeatureMatrix(parent.parent_uuid, visited, validScopes);
       })
     );
-
+    const scope = await ScopeTable.findByPk(feature.scope_uuid);
+    if (!scope) throw new Error(`Scope with UUID ${feature.scope_uuid} not found`);
     return {
       uuid: feature.uuid,
       name: feature.name,
+      scope_code: scope.code,
       code: feature.code,
       parents: parentFeatures,
       children: childFeatures
@@ -172,6 +159,22 @@ export class FeatureManager {
       if (isCircular) return true;
     }
     return false;
+  }
+
+  public async getHighestFeatures(featureUuids: string[]): Promise<string[]> {
+    const highestFeatures = [];
+    for (const featureUuid of featureUuids) {
+      const feature = await FeatureTable.findByPk(featureUuid);
+      if (!feature) throw new Error(`Feature with UUID ${featureUuid} not found`);
+      const relations = await FeatureCompositionTable.findAll({
+        where: { child_uuid: featureUuid, parent_uuid: featureUuids.filter(uuid => uuid !== featureUuid) },
+      });
+      if (relations.length === 0) {
+        highestFeatures.push(featureUuid);
+      }
+      continue;
+    }
+    return highestFeatures;
   }
 }
 

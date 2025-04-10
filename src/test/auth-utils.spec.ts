@@ -982,15 +982,4 @@ describe('Auth Utils', () => {
       expect(result).to.be.an('array');
     });
   });
-  describe('buildScopeElementHierarchy', () => {
-
-    afterEach(() => {
-      sinon.restore();
-    });
-    it('return scope hierarchy', async () => {
-      (authUtils.options.scopeElementHierarchy as sinon.SinonStub).resolves([]);
-      const result = await authUtils.buildScopeElementHierarchy();
-      expect(result).to.deep.equal([]);
-    })
-  });
 });

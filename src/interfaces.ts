@@ -21,3 +21,11 @@ export interface IUtilsOptions {
   scopeElementAncestor: (uuid: string, code: string) => Promise<string[]>;
   scopeElementHierarchy: (code?: string, uuid?: string) => Promise<any[]>;
 }
+
+export interface PermissionContext {
+  uuid: string;
+  scope: string;
+  status: string;
+  type: "direct" | "ancestor";
+  feature_code?: string
+}

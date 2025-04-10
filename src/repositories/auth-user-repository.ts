@@ -147,4 +147,8 @@ export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
     const groupsToAdd = groupUuidsToCopy.filter(uuid => !currentGroupUuids.includes(uuid));
     if (groupsToAdd.length > 0) await this.addGroups(userUuid, groupsToAdd);
   }
+
+  public async getCompactPermissions(userUuid: string): Promise<any> {
+    return await this.authUtils.getUserPermissions(userUuid);
+  }
 }

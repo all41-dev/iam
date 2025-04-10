@@ -40,9 +40,7 @@ export class RepositoryScope extends RepositorySequelize<ScopeTable> {
 
   public async getScopeFeatures(scopeUuid: string): Promise<FeatureTable[]> {
     const scope = await this.getByKey(scopeUuid);
-    if (!scope) {
-      throw new Error(`Scope with id ${scopeUuid} not found`);
-    }
+    if (!scope) throw new Error(`Scope with id ${scopeUuid} not found`);
     const features = await FeatureTable.findAll({
       where: { scope_uuid: scopeUuid },
     });
@@ -63,10 +61,15 @@ export class RepositoryScope extends RepositorySequelize<ScopeTable> {
   }
 
   public async getElementHierarchy(scopeUuid: string, elementUuid: string) {
-    return await this.authUtils.buildScopeElementHierarchy(scopeUuid, elementUuid);
+    const scope = await ScopeTable.findByPk(scopeUuid)
+    if (!scope) throw new Error(`Scope with id ${scopeUuid} not found`);
+    return await this.authUtils.options.scopeElementHierarchy(scope.code, elementUuid);
   }
 
   public async getAllElementHierarchy() {
-    return await this.authUtils.buildScopeElementHierarchy();
+    return await this.authUtils.options.scopeElementHierarchy();
+  }
+  public async getElementAncestor(scopeCode: string, elementUuid: string) {
+    return await this.authUtils.options.scopeElementAncestor(scopeCode, elementUuid);
   }
 }

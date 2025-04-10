@@ -162,17 +162,37 @@ export class FeatureManager {
   }
 
   public async getHighestFeatures(featureUuids: string[]): Promise<string[]> {
-    const highestFeatures = [];
-    for (const featureUuid of featureUuids) {
-      const feature = await FeatureTable.findByPk(featureUuid);
-      if (!feature) throw new Error(`Feature with UUID ${featureUuid} not found`);
-      const relations = await FeatureCompositionTable.findAll({
-        where: { child_uuid: featureUuid, parent_uuid: featureUuids.filter(uuid => uuid !== featureUuid) },
+    const highestFeatures: string[] = [];
+    const parentMap = new Map<string, string[]>();
+    const loadParents = async (uuid: string): Promise<string[]> => {
+      if (parentMap.has(uuid)) return parentMap.get(uuid)!;
+      const parents = await FeatureCompositionTable.findAll({
+        where: { child_uuid: uuid },
       });
-      if (relations.length === 0) {
-        highestFeatures.push(featureUuid);
+      const parentUuids = parents.map(p => p.parent_uuid);
+      parentMap.set(uuid, parentUuids);
+      return parentUuids;
+    };
+    const hasAncestorInList = async (
+      featureUuid: string,
+      allUuids: Set<string>,
+      visited: Set<string>
+    ): Promise<boolean> => {
+      if (visited.has(featureUuid)) return false;
+      visited.add(featureUuid);
+      const parents = await loadParents(featureUuid);
+      for (const parentUuid of parents) {
+        if (allUuids.has(parentUuid)) return true;
+        if (await hasAncestorInList(parentUuid, allUuids, visited)) return true;
       }
-      continue;
+
+      return false;
+    };
+    const uuidSet = new Set(featureUuids);
+    for (const featureUuid of featureUuids) {
+      const visited = new Set<string>();
+      const isHighest = !(await hasAncestorInList(featureUuid, uuidSet, visited));
+      if (isHighest) highestFeatures.push(featureUuid);
     }
     return highestFeatures;
   }

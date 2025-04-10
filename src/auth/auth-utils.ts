@@ -4,11 +4,10 @@ import { PermissionTable } from "../db/permission-table";
 import { FeatureTable } from "../db/feature-table";
 import { UserGroupTable } from "../db/user-group-table";
 import { FeatureCompositionTable } from "../db/feature-composition-table";
-import { IUtilsOptions } from "../interfaces";
+import { IUtilsOptions, PermissionContext } from "../interfaces";
 import { ScopeTable } from "../db/scope-table";
 import { FeatureManager } from "./feature-manager";
 
-interface PermissionContext { uuid: string; scope: string; status: string; type: "direct" | "ancestor"; feature_code?: string }
 
 export class AuthUtils {
 
@@ -33,13 +32,6 @@ export class AuthUtils {
       AuthUtils.instance = new AuthUtils(options);
     }
     return AuthUtils.instance;
-  }
-
-  public async buildScopeElementHierarchy(scopeUuid?: string, elementUuid?: string): Promise<any> {
-    if (!scopeUuid) return this.options.scopeElementHierarchy()
-    const code = await ScopeTable.findByPk(scopeUuid).then((scope) => scope?.code)
-    if (!code) return;
-    return this.options.scopeElementHierarchy(code, elementUuid);
   }
 
   async checkUser(profile: any, provider: string): Promise<{ user: any; error?: string }> {

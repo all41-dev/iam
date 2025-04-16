@@ -210,7 +210,7 @@ export class AuthManager {
     if (!user) return null;
     const permissions = await AuthUtils.getInstance().getUserPermissions(user.uuid);
     const safePayload = this.createSafeJwtPayload({
-      ...user,
+      ...user.dataValues,
       permissions: permissions && Object.keys(permissions).length > 0 ? Buffer.from(JSON.stringify(permissions)).toString('base64') : undefined,
       permissionWarning: permissions && Object.keys(permissions).length > 0 ? undefined : 'no permissions',
     });
@@ -220,7 +220,7 @@ export class AuthManager {
       expiresIn: '1m',
       issuer: this.options.authIssuer,
       audience: this.options.authAudience,
-      subject: user.uuid,
+      subject: user.dataValues.uuid,
     }
     );
     return { user: safePayload.user, token: newToken };

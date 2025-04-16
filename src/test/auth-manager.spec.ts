@@ -400,7 +400,7 @@ YQIDAQAB
     });
 
     it('should generate a new access token if refresh token is valid', async () => {
-      const mockUser = { uuid: 'user-uuid' };
+      const mockUser = { "dataValues": { uuid: 'user-uuid' } };
       const mockToken = { auth_user_uuid: 'user-uuid', token: 'hashed-token' };
       const mockPermissions = { 'feature.view': 'grant' };
 

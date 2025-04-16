@@ -16,9 +16,9 @@ export class ControllerScope extends ControllerRepositoryReadWrite<RepositorySco
       { verb: 'get', path: '/:scopeUuid/groups', handlers: this.getGroups.bind(this) },
       { verb: 'get', path: '/:scopeUuid/features', handlers: this.getFeatures.bind(this) },
       { verb: 'get', path: '/:scopeUuid/children/features', handlers: this.getChildrenFeatures.bind(this) },
-      { verb: 'get', path: '/:scopeUuid/element_hierarchy/:elementUuid?', handlers: this.getElementHierarchy.bind(this) },
-      { verb: 'get', path: '/element_hierarchy/all', handlers: this.getAllElementHierarchy.bind(this) },
+      { verb: 'get', path: '/:scopeCode/element_hierarchy/:elementUuid?', handlers: this.getElementHierarchy.bind(this) },
       { verb: 'get', path: '/:scopeCode/element_ancestor/:elementUuid', handlers: this.getAllElementHierarchy.bind(this) },
+      { verb: 'get', path: '/element_hierarchy/all', handlers: this.getAllElementHierarchy.bind(this) },
     );
     this.defineRouteBeforeSignature(
       { verb: 'get', path: '/:id' },
@@ -80,10 +80,10 @@ export class ControllerScope extends ControllerRepositoryReadWrite<RepositorySco
     }
   }
   public async getElementHierarchy(req: Request, res: Response) {
-    const scopeUuid = req.params.scopeUuid;
+    const scopeCode = req.params.scopeCode;
     const elementUuid = req.params.elementUuid
     try {
-      const response = await this.repositoryScope.getElementHierarchy(scopeUuid, elementUuid);
+      const response = await this.repositoryScope.getElementHierarchy(scopeCode, elementUuid);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });

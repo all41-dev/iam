@@ -24,7 +24,7 @@ const dbOptions: IDbOptions<any> = {
 
 const options: IServerOptions = {
   dbs: [dbOptions],
-  httpPort: process.env.PORT ? parseInt(process.env.PORT) : 7000,
+  httpPort: process.env.PORT ? parseInt(process.env.PORT) : 7070,
   apis: {
     type: IamApi,
     baseRoute: '/api'

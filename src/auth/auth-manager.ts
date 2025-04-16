@@ -12,6 +12,7 @@ import bcrypt from 'bcrypt';
 import { AuthUserTable } from '../db/auth-user-table';
 import { RefreshTokenTable } from '../db/refresh-token-table';
 import { RefreshExpiryTable } from '../db/refresh-expiry-table';
+import { AuthUtils } from "./auth-utils";
 
 export class AuthManager {
   private static instance: AuthManager;
@@ -140,29 +141,13 @@ export class AuthManager {
       if (!req.user) {
         throw new Error("No user found in request");
       }
-      const MAX_JWT_PAYLOAD_SIZE = 2 * 1024;
-      const originalUser = { ...req.user };
-
-      let payload = { user: originalUser };
-      const estimatePayloadSize = (payload: object) =>
-        Buffer.byteLength(JSON.stringify(payload), "utf8");
-      if (estimatePayloadSize(payload) > MAX_JWT_PAYLOAD_SIZE) {
-        payload = {
-          user: {
-            ...originalUser,
-            permissions: undefined,
-            permissionWarning:
-              "Permissions omitted due to token size limit. See /api/auth-users/:id/permission for full list.",
-          },
-        };
-      }
-
-      const token = jwt.sign(payload, this.options.privateKey, {
+      const safePayload = this.createSafeJwtPayload(req.user);
+      const token = jwt.sign(safePayload, this.options.privateKey, {
         algorithm: "RS256",
         expiresIn: "5m",
         issuer: process.env.AUTH_ISSUER || "all41",
         audience: process.env.AUTH_AUDIENCE || "all41",
-        subject: (originalUser as any).uuid,
+        subject: (req.user as any).uuid,
       });
 
       const refreshExpiry = this.getRefreshExpiry
@@ -220,23 +205,25 @@ export class AuthManager {
     const auth_user_uuid = (jwt.verify(refreshToken, this.options.publicKey, { algorithms: ['RS256'] }) as { id: string }).id;
     const token = await RefreshTokenTable.findAll({ where: { auth_user_uuid } })
       .then((tokens) => tokens.find((t) => bcrypt.compareSync(refreshToken, t.token)));
-
     if (!token) return null;
     const user = await AuthUserTable.findByPk(token.auth_user_uuid);
     if (!user) return null;
+    const permissions = await AuthUtils.getInstance().getUserPermissions(user.uuid);
+    const safePayload = this.createSafeJwtPayload({
+      ...user,
+      permissions: permissions && Object.keys(permissions).length > 0 ? Buffer.from(JSON.stringify(permissions)).toString('base64') : undefined,
+      permissionWarning: permissions && Object.keys(permissions).length > 0 ? undefined : 'no permissions',
+    });
 
-    const newToken = jwt.sign(
-      { user: user.dataValues },
-      this.options.privateKey,
-      {
-        algorithm: 'RS256',
-        expiresIn: '1m',
-        issuer: this.options.authIssuer,
-        audience: this.options.authAudience,
-        subject: user.uuid,
-      }
+    const newToken = jwt.sign(safePayload, this.options.privateKey, {
+      algorithm: 'RS256',
+      expiresIn: '1m',
+      issuer: this.options.authIssuer,
+      audience: this.options.authAudience,
+      subject: user.uuid,
+    }
     );
-    return { user: user.dataValues, token: newToken };
+    return { user: safePayload.user, token: newToken };
   };
 
   public revokeRefreshToken = async (refreshToken: string) => {
@@ -265,4 +252,23 @@ export class AuthManager {
     const customer_uuid = req.query.customer_uuid;
     if (customer_uuid) res.cookie('customer_uuid', customer_uuid, { maxAge: 5 * 60 * 1000 });
   };
+
+  private createSafeJwtPayload(user: any) {
+    const MAX_JWT_PAYLOAD_SIZE = 2 * 1024;
+    const estimatePayloadSize = (payload: object) =>
+      Buffer.byteLength(JSON.stringify(payload), "utf8");
+    const originalUser = { ...user };
+    let payload = { user: originalUser };
+    if (estimatePayloadSize(payload) > MAX_JWT_PAYLOAD_SIZE) {
+      payload = {
+        user: {
+          ...originalUser,
+          permissions: undefined,
+          permissionWarning:
+            "Permissions omitted due to token size limit. See /api/auth-users/:id/permission for full list.",
+        },
+      };
+    }
+    return payload;
+  }
 }

@@ -60,10 +60,8 @@ export class RepositoryScope extends RepositorySequelize<ScopeTable> {
     return features;
   }
 
-  public async getElementHierarchy(scopeUuid: string, elementUuid: string) {
-    const scope = await ScopeTable.findByPk(scopeUuid)
-    if (!scope) throw new Error(`Scope with id ${scopeUuid} not found`);
-    return await this.authUtils.options.scopeElementHierarchy(scope.code, elementUuid);
+  public async getElementHierarchy(scopeCode: string, elementUuid: string) {
+    return await this.authUtils.options.scopeElementHierarchy(scopeCode, elementUuid);
   }
 
   public async getAllElementHierarchy() {

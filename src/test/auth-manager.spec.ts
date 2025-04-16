@@ -9,6 +9,7 @@ import { IAuthOptions } from '../interfaces';
 import jwt from 'jsonwebtoken';
 import { RefreshExpiryTable } from '../db/refresh-expiry-table';
 import { Request, Response } from "express";
+import { AuthUtils } from '../auth/auth-utils';
 
 describe('AuthManager Tests', () => {
   const privateKey = `-----BEGIN RSA PRIVATE KEY-----
@@ -357,13 +358,20 @@ YQIDAQAB
     let findAllStub: sinon.SinonStub;
     let compareSyncStub: sinon.SinonStub;
     let verifyStub: sinon.SinonStub;
+    let getUserPermissionsStub: sinon.SinonStub;
+    let getAuthUtilsInstanceStub: sinon.SinonStub;
 
     beforeEach(() => {
       instance = AuthManager.getInstance(authOptions);
+
       findByPkStub = sinon.stub(AuthUserTable, 'findByPk');
       findAllStub = sinon.stub(RefreshTokenTable, 'findAll');
       compareSyncStub = sinon.stub(bcrypt, 'compareSync');
       verifyStub = sinon.stub(jwt, 'verify');
+
+      const fakeAuthUtils = { getUserPermissions: sinon.stub() };
+      getUserPermissionsStub = fakeAuthUtils.getUserPermissions;
+      getAuthUtilsInstanceStub = sinon.stub(AuthUtils, 'getInstance').returns(fakeAuthUtils as any);
     });
 
     afterEach(() => {
@@ -392,18 +400,27 @@ YQIDAQAB
     });
 
     it('should generate a new access token if refresh token is valid', async () => {
-      const mockUser = { uuid: 'user-uuid', dataValues: { uuid: 'user-uuid' } };
+      const mockUser = { uuid: 'user-uuid' };
       const mockToken = { auth_user_uuid: 'user-uuid', token: 'hashed-token' };
+      const mockPermissions = { 'feature.view': 'grant' };
+
       verifyStub.returns({ id: 'user-uuid' });
       findAllStub.resolves([mockToken]);
       compareSyncStub.returns(true);
       findByPkStub.resolves(mockUser);
+      getUserPermissionsStub.resolves(mockPermissions);
 
       const result = await instance.generateAccessToken('valid-token');
       if (!result) throw new Error('Result is null');
+
       const decodedToken = jwt.decode(result.token) as any;
       expect(decodedToken.user.uuid).to.equal('user-uuid');
       expect(result.user.uuid).to.equal('user-uuid');
+
+      const decodedPermissions = JSON.parse(
+        Buffer.from(decodedToken.user.permissions, 'base64').toString()
+      );
+      expect(decodedPermissions).to.deep.equal(mockPermissions);
     });
   });
 

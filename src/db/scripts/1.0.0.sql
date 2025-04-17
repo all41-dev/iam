@@ -1,4 +1,4 @@
-create table scope
+create table iam_scope
 (
     uuid  char(36)     not null default uuid(),
     name  varchar(100) not null,
@@ -10,7 +10,7 @@ create table scope
         foreign key (parent_uuid) references scope (uuid)
 );
 
-create table auth_user
+create table iam_auth_user
 (
     uuid  char(36)     not null default uuid(),
     username varchar(100) not null,
@@ -23,7 +23,7 @@ create table auth_user
         primary key (uuid)
 );
 
-create table user_group
+create table iam_user_group
 (
     uuid  char(36)     not null default uuid(),
     name  varchar(100) not null,
@@ -37,7 +37,7 @@ create table user_group
         primary key (uuid)
 );
 
-create table user_group_member
+create table iam_user_group_member
 (
     uuid char(36)     not null default uuid(),
     auth_user_uuid char(36) not null,
@@ -52,7 +52,7 @@ create table user_group_member
         unique (auth_user_uuid, group_uuid)
 );
 
-create table feature
+create table iam_feature
 (
     uuid  char(36)     not null default uuid(),
     name  varchar(100) not null,
@@ -66,7 +66,7 @@ create table feature
         primary key (uuid)
 );
 
-create table feature_composition
+create table iam_feature_composition
 (
     uuid char(36)     not null default uuid(),
     child_uuid char(36) not null,
@@ -81,7 +81,7 @@ create table feature_composition
         unique (child_uuid, parent_uuid)
 );
 
-create table permission
+create table iam_permission
 (
     uuid  char(36)     not null default uuid(),
     is_deny boolean not null default false,
@@ -98,7 +98,7 @@ create table permission
         primary key (uuid)
 );
 
-CREATE TABLE refreshToken (
+CREATE TABLE iam_refreshToken (
     uuid VARCHAR(36) PRIMARY KEY DEFAULT uuid() NOT NULL,
     userUuid VARCHAR(36) NOT NULL,
     token TEXT NOT NULL,

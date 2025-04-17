@@ -2,7 +2,7 @@ import { AllowNull, BelongsTo, Column, DataType, Default, Model, PrimaryKey, Tab
 import { AuthUserTable } from "./auth-user-table";
 import { UserGroupTable } from "./user-group-table";
 
-@Table({ tableName: "user_group_member", timestamps: false })
+@Table({ tableName: "iam_user_group_member", timestamps: false })
 export class UserGroupMemberTable extends Model {
 
   @PrimaryKey

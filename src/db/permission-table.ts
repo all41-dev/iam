@@ -3,7 +3,7 @@ import { Column, DataType, Default, Model, PrimaryKey } from "sequelize-typescri
 import { UserGroupTable } from "./user-group-table";
 import { FeatureTable } from "./feature-table";
 
-@Table({ tableName: "permission" })
+@Table({ tableName: "iam_permission" })
 export class PermissionTable extends Model {
 
   @PrimaryKey

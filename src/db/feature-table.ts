@@ -4,7 +4,7 @@ import { ScopeTable } from "./scope-table";
 import { FeatureCompositionTable } from "./feature-composition-table";
 import { PermissionTable } from "./permission-table";
 
-@Table({ tableName: "feature" })
+@Table({ tableName: "iam_feature" })
 export class FeatureTable extends Model {
 
   @PrimaryKey

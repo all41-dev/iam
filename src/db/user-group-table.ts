@@ -4,7 +4,7 @@ import { PermissionTable } from "./permission-table";
 import { AuthUserTable } from "./auth-user-table";
 import { UserGroupMemberTable } from "./user-group-member-table";
 
-@Table({ tableName: "user_group" })
+@Table({ tableName: "iam_user_group" })
 export class UserGroupTable extends Model {
 
   @PrimaryKey

@@ -2,7 +2,7 @@ import { AllowNull, BelongsTo, Column, DataType, Default, HasMany, Model, Primar
 import { UserGroupTable } from "./user-group-table";
 import { FeatureTable } from "./feature-table";
 
-@Table({ tableName: "scope", timestamps: false })
+@Table({ tableName: "iam_scope", timestamps: false })
 export class ScopeTable extends Model {
 
   @PrimaryKey

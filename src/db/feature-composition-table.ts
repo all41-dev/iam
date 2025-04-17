@@ -1,9 +1,9 @@
 import { AllowNull, BelongsTo, Column, DataType, Default, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { FeatureTable } from "./feature-table";
 
-@Table({tableName: "feature_composition", timestamps: false})
+@Table({ tableName: "iam_feature_composition", timestamps: false })
 export class FeatureCompositionTable extends Model {
-  
+
   @PrimaryKey
   @Default(DataType.UUIDV4)
   @Column(DataType.UUID)

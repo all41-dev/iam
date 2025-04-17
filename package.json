@@ -24,7 +24,7 @@
   },
   "homepage": "https://github.com/all41-dev/iam.api#readme",
   "devDependencies": {
-    "@all41-dev/iam.front": "^1.0.0-beta.16",
+    "@all41-dev/iam.front": "^1.0.0-beta.17",
     "@all41-dev/server": "^5.0.0-beta.4",
     "@all41-dev/server.types": "^1.0.1-beta.8",
     "@istanbuljs/nyc-config-typescript": "^1.0.2",

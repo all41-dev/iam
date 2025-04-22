@@ -982,4 +982,74 @@ describe('Auth Utils', () => {
       expect(result).to.be.an('array');
     });
   });
+
+  describe('getSpecificElementDeny', () => {
+    let findOneStub: sinon.SinonStub;
+    let findAllStub: sinon.SinonStub;
+
+    beforeEach(() => {
+      findOneStub = sinon.stub();
+      findAllStub = sinon.stub();
+
+      sinon.replace(AuthUserTable, 'findOne', findOneStub);
+      sinon.replace(UserGroupMemberTable, 'findAll', findAllStub);
+      sinon.replace(ScopeTable, 'findOne', findOneStub);
+      sinon.replace(PermissionTable, 'findAll', findAllStub);
+      sinon.replace(FeatureTable, 'findAll', findAllStub);
+    });
+
+    afterEach(() => {
+      sinon.restore();
+    });
+
+    it('should return an empty array if the user is not found', async () => {
+      findOneStub.withArgs({ where: { email: 'test@example.com' } }).resolves(null);
+
+      const result = await authUtils.getSpecificElementDeny('test@example.com', 'scopeCode');
+      expect(result).to.deep.equal([]);
+    });
+
+    it('should return an empty array if the user has no group memberships', async () => {
+      findOneStub.withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' });
+      findAllStub.withArgs({ where: { auth_user_uuid: 'user1' } }).resolves([]);
+
+      const result = await authUtils.getSpecificElementDeny('test@example.com', 'scopeCode');
+      expect(result).to.deep.equal([]);
+    });
+
+    it('should return an empty array if the scope is not found', async () => {
+      findOneStub.withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' });
+      findAllStub.withArgs({ where: { auth_user_uuid: 'user1' } }).resolves([{ group_uuid: 'group1' }]);
+      findOneStub.withArgs({ where: { code: 'scopeCode' } }).resolves(null);
+
+      const result = await authUtils.getSpecificElementDeny('test@example.com', 'scopeCode');
+      expect(result).to.deep.equal([]);
+    });
+
+    it('should return an empty array if there are no deny permissions', async () => {
+      findOneStub.withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' });
+      findAllStub.withArgs({ where: { auth_user_uuid: 'user1' } }).resolves([{ group_uuid: 'group1' }]);
+      findOneStub.withArgs({ where: { code: 'scopeCode' } }).resolves({ uuid: 'scope1' });
+      findAllStub.withArgs({ where: { group_uuid: ['group1'], is_deny: true } }).resolves([]);
+
+      const result = await authUtils.getSpecificElementDeny('test@example.com', 'scopeCode');
+      expect(result).to.deep.equal([]);
+    });
+
+    it('should return scope element UUIDs for valid deny permissions', async () => {
+      findOneStub.withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' });
+      findAllStub.withArgs({ where: { auth_user_uuid: 'user1' } }).resolves([{ group_uuid: 'group1' }]);
+      findOneStub.withArgs({ where: { code: 'scopeCode' } }).resolves({ uuid: 'scope1' });
+      findAllStub.withArgs({ where: { group_uuid: ['group1'], is_deny: true } }).resolves([
+        { feature_uuid: 'feature1', scope_element_uuid: 'scopeElement1' },
+      ]);
+      findAllStub.withArgs({ where: { scope_uuid: 'scope1' } }).resolves([
+        { uuid: 'feature1' },
+        { uuid: 'feature2' },
+      ]);
+
+      const result = await authUtils.getSpecificElementDeny('test@example.com', 'scopeCode');
+      expect(result).to.deep.equal(['scopeElement1']);
+    });
+  });
 });

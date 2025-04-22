@@ -4,6 +4,7 @@ import { FeatureManager } from "../auth/feature-manager";
 import { ScopeTable } from "../db/scope-table";
 import { FeatureTable } from "../db/feature-table";
 import { FeatureCompositionTable } from "../db/feature-composition-table";
+import { UserGroupTable } from "../db/user-group-table";
 
 describe("FeatureManager", () => {
   let featureManager: FeatureManager;
@@ -211,6 +212,273 @@ describe("FeatureManager", () => {
           }
         ]
       });
+    });
+  });
+
+  describe('getDirectParentFeatures', () => {
+    let findAllStub: sinon.SinonStub;
+
+    beforeEach(() => {
+      findAllStub = sinon.stub();
+
+      sinon.replace(FeatureCompositionTable, 'findAll', findAllStub);
+      sinon.replace(FeatureTable, 'findAll', findAllStub);
+    });
+
+    afterEach(() => {
+      sinon.restore();
+    });
+
+    it('should return an empty array if no parent relations are found', async () => {
+      findAllStub.withArgs({ where: { child_uuid: 'feature1' } }).resolves([]);
+
+      const result = await featureManager.getDirectParentFeatures('feature1');
+      expect(result).to.deep.equal([]);
+    });
+
+    it('should return parent features for a given feature UUID', async () => {
+      findAllStub.withArgs({ where: { child_uuid: 'feature1' } }).resolves([
+        { parent_uuid: 'parent1' },
+        { parent_uuid: 'parent2' },
+      ]);
+      findAllStub.withArgs({ where: { uuid: ['parent1', 'parent2'] } }).resolves([
+        { uuid: 'parent1', name: 'Parent Feature 1' },
+        { uuid: 'parent2', name: 'Parent Feature 2' },
+      ]);
+
+      const result = await featureManager.getDirectParentFeatures('feature1');
+      expect(result).to.deep.equal([
+        { uuid: 'parent1', name: 'Parent Feature 1' },
+        { uuid: 'parent2', name: 'Parent Feature 2' },
+      ]);
+    });
+  });
+
+  describe('getHighestFeatureInScope', () => {
+    let findByPkStub: sinon.SinonStub;
+    let getDirectParentFeaturesStub: sinon.SinonStub;
+
+    beforeEach(() => {
+      findByPkStub = sinon.stub();
+      getDirectParentFeaturesStub = sinon.stub();
+      sinon.replace(FeatureTable, 'findByPk', findByPkStub);
+      sinon.replace(featureManager, 'getDirectParentFeatures', getDirectParentFeaturesStub);
+    });
+
+    afterEach(() => {
+      sinon.restore();
+    });
+
+    it('should return null if no parent features are in the allowed scopes', async () => {
+      getDirectParentFeaturesStub.withArgs('feature1').resolves([]);
+      findByPkStub.resolves(null);
+
+      const result = await featureManager.getHighestFeatureInScope('feature1', new Set(['scope1']));
+      expect(result).to.be.null;
+    });
+
+    it('should return the feature itself if no valid parent features are found', async () => {
+      getDirectParentFeaturesStub.withArgs('feature1').resolves([]);
+      findByPkStub.withArgs('feature1').resolves({ uuid: 'feature1', scope_uuid: 'scope1' });
+
+      const result = await featureManager.getHighestFeatureInScope('feature1', new Set(['scope1']));
+      expect(result).to.deep.equal({ uuid: 'feature1', scope_uuid: 'scope1' });
+    });
+
+    it('should recursively find the highest feature in the allowed scopes', async () => {
+      getDirectParentFeaturesStub.withArgs('feature1').resolves([
+        { uuid: 'parent1', scope_uuid: 'scope2' },
+        { uuid: 'parent2', scope_uuid: 'scope1' },
+      ] as FeatureTable[]);
+
+      getDirectParentFeaturesStub.withArgs('parent1').resolves([]);
+      getDirectParentFeaturesStub.withArgs('parent2').resolves([]);
+
+      findByPkStub.withArgs('parent2').resolves({ uuid: 'parent2', scope_uuid: 'scope1' });
+
+      const result = await featureManager.getHighestFeatureInScope('feature1', new Set(['scope1', 'scope2']));
+      expect(result).to.deep.equal({ uuid: 'parent2', scope_uuid: 'scope1' });
+    });
+  });
+
+  describe('getGroupsScopeList', () => {
+    let findAllStub: sinon.SinonStub;
+    let getAllChildScopesStub: sinon.SinonStub;
+
+    beforeEach(() => {
+      findAllStub = sinon.stub();
+      getAllChildScopesStub = sinon.stub();
+      sinon.replace(UserGroupTable, 'findAll', findAllStub);
+      sinon.replace(featureManager, 'getAllChildScopes', getAllChildScopesStub);
+    });
+
+    afterEach(() => {
+      sinon.restore();
+    });
+
+    it('should return an empty array if no groups are found', async () => {
+      findAllStub.resolves([]);
+      const result = await featureManager.getGroupsScopeList(['group1', 'group2']);
+      expect(result).to.deep.equal([]);
+    });
+
+    it('should return unique scopes including child scopes', async () => {
+      findAllStub.resolves([
+        { dataValues: { scope_uuid: 'scope1' } },
+        { dataValues: { scope_uuid: 'scope2' } },
+      ]);
+
+      getAllChildScopesStub.withArgs('scope1').resolves(['childScope1', 'childScope2']);
+      getAllChildScopesStub.withArgs('scope2').resolves(['childScope3']);
+
+      const result = await featureManager.getGroupsScopeList(['group1', 'group2']);
+      expect(result).to.deep.equal(['scope1', 'scope2', 'childScope1', 'childScope2', 'childScope3']);
+    });
+
+    it('should handle cases with no child scopes', async () => {
+      findAllStub.resolves([{ dataValues: { scope_uuid: 'scope1' } }]);
+      getAllChildScopesStub.withArgs('scope1').resolves([]);
+
+      const result = await featureManager.getGroupsScopeList(['group1']);
+      expect(result).to.deep.equal(['scope1']);
+    });
+  });
+  describe('checkForCircularDependency', () => {
+    let findAllStub: sinon.SinonStub;
+
+    beforeEach(() => {
+      findAllStub = sinon.stub();
+      sinon.replace(FeatureCompositionTable, 'findAll', findAllStub);
+    });
+
+    afterEach(() => {
+      sinon.restore();
+    });
+
+    it('should return true for direct circular dependency', async () => {
+      const result = await featureManager.checkForCircularDependency('feature1', 'feature1');
+      expect(result).to.be.true;
+    });
+
+    it('should return false if there are no child dependencies', async () => {
+      findAllStub.resolves([]);
+      const result = await featureManager.checkForCircularDependency('feature1', 'feature2');
+      expect(result).to.be.false;
+    });
+
+    it('should return true for indirect circular dependency', async () => {
+      findAllStub.withArgs({ where: { child_uuid: 'feature1' } }).resolves([
+        { parent_uuid: 'feature2' },
+      ]);
+      findAllStub.withArgs({ where: { child_uuid: 'feature2' } }).resolves([
+        { parent_uuid: 'feature3' },
+      ]);
+      findAllStub.withArgs({ where: { child_uuid: 'feature3' } }).resolves([
+        { parent_uuid: 'feature1' },
+      ]);
+
+      const result = await featureManager.checkForCircularDependency('feature1', 'feature3');
+      expect(result).to.be.true;
+    });
+
+    it('should return true if circular dependency exists higher in hierarchy', async () => {
+      findAllStub.withArgs({ where: { child_uuid: 'feature1' } }).resolves([
+        { parent_uuid: 'feature2' },
+      ]);
+      findAllStub.withArgs({ where: { child_uuid: 'feature2' } }).resolves([
+        { parent_uuid: 'feature3' },
+      ]);
+      findAllStub.withArgs({ where: { child_uuid: 'feature3' } }).resolves([]);
+
+      const result = await featureManager.checkForCircularDependency('feature1', 'feature3');
+      expect(result).to.be.true;
+    });
+    it('should return false if no circular dependency exists', async () => {
+      findAllStub.withArgs({ where: { child_uuid: 'feature1' } }).resolves([
+        { parent_uuid: 'feature2' },
+      ]);
+      findAllStub.withArgs({ where: { child_uuid: 'feature2' } }).resolves([
+        { parent_uuid: 'feature3' },
+      ]);
+      findAllStub.withArgs({ where: { child_uuid: 'feature3' } }).resolves([]);
+
+      const result = await featureManager.checkForCircularDependency('feature1', 'feature4');
+      expect(result).to.be.false;
+    });
+  });
+  describe('getHighestFeatures', () => {
+    let findAllStub: sinon.SinonStub;
+
+    beforeEach(() => {
+      findAllStub = sinon.stub();
+
+      sinon.replace(FeatureCompositionTable, 'findAll', findAllStub);
+    });
+
+    afterEach(() => {
+      sinon.restore();
+    });
+
+    it('should return an empty array if no feature UUIDs are provided', async () => {
+      const result = await featureManager.getHighestFeatures([]);
+      expect(result).to.deep.equal([]);
+    });
+
+    it('should return the feature itself if it has no parents', async () => {
+      findAllStub.withArgs({ where: { child_uuid: 'feature1' } }).resolves([]);
+
+      const result = await featureManager.getHighestFeatures(['feature1']);
+      expect(result).to.deep.equal(['feature1']);
+    });
+
+    it('should return only the highest features when no ancestors exist in the list', async () => {
+      findAllStub.withArgs({ where: { child_uuid: 'feature1' } }).resolves([
+        { parent_uuid: 'feature2' },
+      ]);
+      findAllStub.withArgs({ where: { child_uuid: 'feature2' } }).resolves([]);
+
+      const result = await featureManager.getHighestFeatures(['feature1', 'feature2']);
+      expect(result).to.deep.equal(['feature2']);
+    });
+
+    it('should return only the highest features when some have ancestors in the list', async () => {
+      findAllStub.withArgs({ where: { child_uuid: 'feature1' } }).resolves([
+        { parent_uuid: 'feature2' },
+      ]);
+      findAllStub.withArgs({ where: { child_uuid: 'feature2' } }).resolves([
+        { parent_uuid: 'feature3' },
+      ]);
+      findAllStub.withArgs({ where: { child_uuid: 'feature3' } }).resolves([]);
+
+      const result = await featureManager.getHighestFeatures(['feature1', 'feature2', 'feature3']);
+      expect(result).to.deep.equal(['feature3']);
+    });
+
+    it('should handle circular dependencies without infinite recursion', async () => {
+      findAllStub.withArgs({ where: { child_uuid: 'feature1' } }).resolves([
+        { parent_uuid: 'feature2' },
+      ]);
+      findAllStub.withArgs({ where: { child_uuid: 'feature2' } }).resolves([
+        { parent_uuid: 'feature3' },
+      ]);
+      findAllStub.withArgs({ where: { child_uuid: 'feature3' } }).resolves([
+        { parent_uuid: 'feature1' },
+      ]);
+
+      const result = await featureManager.getHighestFeatures(['feature1', 'feature2', 'feature3']);
+      expect(result).to.deep.equal([]);
+    });
+
+    it('should handle multiple unrelated features correctly', async () => {
+      findAllStub.withArgs({ where: { child_uuid: 'feature1' } }).resolves([]);
+      findAllStub.withArgs({ where: { child_uuid: 'feature2' } }).resolves([]);
+      findAllStub.withArgs({ where: { child_uuid: 'feature3' } }).resolves([
+        { parent_uuid: 'feature4' },
+      ]);
+      findAllStub.withArgs({ where: { child_uuid: 'feature4' } }).resolves([]);
+
+      const result = await featureManager.getHighestFeatures(['feature1', 'feature2', 'feature3', 'feature4']);
+      expect(result).to.deep.equal(['feature1', 'feature2', 'feature4']);
     });
   });
 });

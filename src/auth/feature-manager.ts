@@ -36,6 +36,7 @@ export class FeatureManager {
     });
 
     const parentUuids = parentRelations.map(relation => relation.parent_uuid);
+    if (parentUuids.length === 0) return [];
     return await FeatureTable.findAll({
       where: { uuid: parentUuids },
     });

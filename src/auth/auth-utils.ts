@@ -379,4 +379,28 @@ export class AuthUtils {
     }
     return conflicts;
   }
+
+  async getSpecificElementDeny(userEmail: string, scopeCode: string): Promise<string[]> {
+    const user = await AuthUserTable.findOne({ where: { email: userEmail } });
+    if (!user) return [];
+    const groupMemberships = await UserGroupMemberTable.findAll({ where: { auth_user_uuid: user.uuid } });
+    if (!groupMemberships.length) return [];
+    const scope = await ScopeTable.findOne({ where: { code: scopeCode } });
+    if (!scope) return [];
+    const groupUUIDs = groupMemberships.map((group) => group.group_uuid);
+    const permissions = await PermissionTable.findAll({
+      where: {
+        group_uuid: groupUUIDs,
+        is_deny: true,
+      },
+    });
+    if (!permissions.length) return [];
+    const featuresScope = await FeatureTable.findAll({ where: { scope_uuid: scope.uuid } });
+    const featureUUIDs = featuresScope.map((feature) => feature.uuid);
+    const permissionsFiltered = permissions.filter((permission) => featureUUIDs.includes(permission.feature_uuid));
+    if (permissionsFiltered.length > 0) {
+      return permissionsFiltered.map((permission) => permission.scope_element_uuid);
+    }
+    return [];
+  }
 }

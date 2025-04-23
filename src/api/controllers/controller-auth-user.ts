@@ -17,11 +17,12 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
       { verb: 'post', path: '/:userUuid/unset-group', handlers: this.unsetUserGroups.bind(this) },
       { verb: 'post', path: '/:userUuid/group-copy', handlers: this.copyUserGroups.bind(this) },
       { verb: 'patch', path: '/:userUuid/update-group', handlers: this.updateUserGroups.bind(this) },
-      { verb: 'get', path: '/:userUuid/effective-permissions', handlers: this.checkUserEffectivePermissions.bind(this) },
+      { verb: 'get', path: '/:userUuid/effective-permissions', handlers: this.getUserEffectivePermissions.bind(this) },
       { verb: 'get', path: '/:userUuid/check-feature-permissions/:featureUuid/:elementUuid', handlers: this.checkFeaturePermissions.bind(this) },
       { verb: 'get', path: '/:userUuid/permissions', handlers: this.getPermissions.bind(this) },
-      { verb: 'get', path: '/:userUuid/compact-permissions', handlers: this.getCompactPermissions.bind(this) },
-      { verb: 'get', path: '/:userUuid/groups', handlers: this.getUserGroups.bind(this) }
+      { verb: 'get', path: '/:userUuid/groups', handlers: this.getUserGroups.bind(this) },
+      { verb: 'get', path: '/:userEmail/info', handlers: this.getUserInfo.bind(this) },
+      { verb: 'get', path: '/:userEmail/permission-info', handlers: this.getUserPermissionInfo.bind(this) }
     );
   }
 
@@ -64,10 +65,10 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
     }
   }
 
-  public async checkUserEffectivePermissions(req: Request, res: Response) {
+  public async getUserEffectivePermissions(req: Request, res: Response) {
     const userUuid = req.params.userUuid;
     try {
-      const response = await this.repositoryAuthUser.checkUserEffectivePermissions(userUuid);
+      const response = await this.repositoryAuthUser.getUserEffectivePermissions(userUuid);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
@@ -96,16 +97,6 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
     }
   }
 
-  public async getCompactPermissions(req: Request, res: Response) {
-    const userUuid = req.params.userUuid;
-    try {
-      const response = await this.repositoryAuthUser.getCompactPermissions(userUuid);
-      res.status(200).json(response);
-    } catch (error) {
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  }
-
   public async getUserGroups(req: Request, res: Response) {
     const userUuid = req.params.userUuid;
     try {
@@ -126,4 +117,24 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
       res.status(500).json({ error: 'Internal server error' });
     }
   }
+
+  public async getUserInfo(req: Request, res: Response) {
+    const userEmail = req.params.userEmail;
+    try {
+      const response = await this.repositoryAuthUser.getUserInfo(userEmail);
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+  public async getUserPermissionInfo(req: Request, res: Response) {
+    const userEmail = req.params.userEmail;
+    try {
+      const response = await this.repositoryAuthUser.getUserPermissionInfo(userEmail);
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
 }

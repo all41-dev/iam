@@ -79,8 +79,24 @@ export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
     if (conflicts.length > 0) return conflicts;
   }
 
-  public async checkUserEffectivePermissions(userUuid: string): Promise<any> {
+  public async getUserEffectivePermissions(userUuid: string): Promise<any> {
     return await this.authUtils.checkEffectivePermissions(userUuid);
+  }
+
+  public async getUserPermissionInfo(userEmail: string): Promise<any> {
+    const user = await AuthUserTable.findOne({ where: { email: userEmail } });
+    if (!user) {
+      throw new Error(`User with email "${userEmail}" not found`);
+    }
+    const permissions = await this.authUtils.checkEffectivePermissions(user.uuid);
+    const allowedRights = new Set(["grant", "partialGrant", "partialDeny"]);
+    const filtered: Record<string, any> = {};
+    for (const [feature, details] of Object.entries(permissions)) {
+      if (allowedRights.has(details.right)) {
+        filtered[feature] = details;
+      }
+    }
+    return filtered;
   }
 
   public async checkFeaturePermissions(userUuid: string, featureUuid: string, elementUuid: string) {
@@ -147,8 +163,28 @@ export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
     const groupsToAdd = groupUuidsToCopy.filter(uuid => !currentGroupUuids.includes(uuid));
     if (groupsToAdd.length > 0) await this.addGroups(userUuid, groupsToAdd);
   }
-
-  public async getCompactPermissions(userUuid: string): Promise<any> {
-    return await this.authUtils.getUserPermissions(userUuid);
+  public async getUserInfo(userEmail: string): Promise<{ groups: UserGroupTable[], permissions: PermissionTable[] } | null> {
+    const user = await AuthUserTable.findOne({ where: { email: userEmail } });
+    if (!user) {
+      throw new Error(`User with email "${userEmail}" not found`);
+    }
+    const groupsMember = await UserGroupMemberTable.findAll({ where: { auth_user_uuid: user.uuid } });
+    if (!groupsMember.length) {
+      return {
+        ...user.get({ plain: true }),
+        groups: [],
+        permissions: [],
+      };
+    }
+    const groupUUIDs = groupsMember.map((group) => group.group_uuid);
+    const [groups, permissions] = await Promise.all([
+      UserGroupTable.findAll({ where: { uuid: groupUUIDs } }),
+      PermissionTable.findAll({ where: { group_uuid: groupUUIDs } }),
+    ]);
+    return {
+      ...user.get({ plain: true }),
+      groups,
+      permissions,
+    };
   }
 }

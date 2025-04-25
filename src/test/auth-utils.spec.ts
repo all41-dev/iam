@@ -983,7 +983,6 @@ describe('Auth Utils', () => {
       expect(result).to.be.an('array');
     });
   });
-
   describe('getSpecificElementDeny', () => {
     let findOneStub: sinon.SinonStub;
     let findAllStub: sinon.SinonStub;
@@ -1051,6 +1050,93 @@ describe('Auth Utils', () => {
 
       const result = await authUtils.getSpecificElementDeny('test@example.com', 'scopeCode');
       expect(result).to.deep.equal(['scopeElement1']);
+    });
+  });
+  describe('getAllUniqueElement', () => {
+    let sandbox: sinon.SinonSandbox;
+
+    beforeEach(() => {
+      sandbox = sinon.createSandbox();
+    });
+
+    afterEach(() => {
+      sandbox.restore();
+    });
+
+    it('should return an empty array if no permissions provided', async () => {
+      const result = await authUtils.getAllUniqueElement([]);
+      expect(result).to.deep.equal([]);
+    });
+
+    it('should exclude permissions with no scope_element_uuid or feature_uuid', async () => {
+      const invalidPermissions = [
+        { scope_element_uuid: null, feature_uuid: 'featureUuid1', is_deny: false },
+        { scope_element_uuid: 'elementUuid1', feature_uuid: null, is_deny: false },
+      ] as unknown as PermissionTable[];
+
+      const result = await authUtils.getAllUniqueElement(invalidPermissions);
+      expect(result).to.deep.equal([]);
+    });
+
+    it('should exclude permissions marked as deny', async () => {
+      const permissions = [
+        { scope_element_uuid: 'elementUuid1', feature_uuid: 'featureUuid1', is_deny: false },
+        { scope_element_uuid: 'elementUuid2', feature_uuid: 'featureUuid2', is_deny: true },
+      ] as PermissionTable[];
+
+      sandbox.stub(FeatureTable, 'findByPk').callsFake(async (uuid) => {
+        if (uuid === 'featureUuid1') return { scope_uuid: 'scope1' } as FeatureTable;
+        if (uuid === 'featureUuid2') return { scope_uuid: 'scope2' } as FeatureTable;
+        return null;
+      });
+
+      sandbox.stub(ScopeTable, 'findByPk').callsFake(async (uuid) => {
+        if (uuid === 'scope1') return { uuid: 'scope1', code: 'scopeCode1' } as ScopeTable;
+        if (uuid === 'scope2') return { uuid: 'scope2', code: 'scopeCode2' } as ScopeTable;
+        return null;
+      });
+
+      (authUtils.options.scopeElementAncestor as sinon.SinonStub).resolves([]);
+      const result = await authUtils.getAllUniqueElement(permissions);
+      expect(result).to.deep.equal(['elementUuid1']);
+    });
+
+    it('should return unique elements when no higher elements exist', async () => {
+      const permissions = [
+        { scope_element_uuid: 'elementUuid1', feature_uuid: 'featureUuid1', is_deny: false },
+        { scope_element_uuid: 'elementUuid2', feature_uuid: 'featureUuid2', is_deny: false },
+      ] as PermissionTable[];
+
+      sandbox.stub(FeatureTable, 'findByPk').resolves({ scope_uuid: 'scope1' } as FeatureTable);
+      sandbox.stub(ScopeTable, 'findByPk').resolves({ uuid: 'scope1', code: 'scopeCode' } as ScopeTable);
+
+      (authUtils.options.scopeElementAncestor as sinon.SinonStub).callsFake((uuid) => {
+        if (uuid === 'elementUuid1') return Promise.resolve([]);
+        if (uuid === 'elementUuid2') return Promise.resolve([]);
+        return Promise.resolve([]);
+      });
+
+      const result = await authUtils.getAllUniqueElement(permissions);
+      expect(result).to.deep.equal(['elementUuid1', 'elementUuid2']);
+    });
+
+    it('should exclude elements that are encompassed by higher elements in the hierarchy', async () => {
+      const permissions = [
+        { scope_element_uuid: 'elementUuid1', feature_uuid: 'featureUuid1', is_deny: false },
+        { scope_element_uuid: 'elementUuid2', feature_uuid: 'featureUuid2', is_deny: false },
+      ] as PermissionTable[];
+
+      sandbox.stub(FeatureTable, 'findByPk').resolves({ scope_uuid: 'scope1' } as FeatureTable);
+      sandbox.stub(ScopeTable, 'findByPk').resolves({ uuid: 'scope1', code: 'scopeCode' } as ScopeTable);
+
+      (authUtils.options.scopeElementAncestor as sinon.SinonStub).callsFake((uuid) => {
+        if (uuid === 'elementUuid1') return Promise.resolve(['elementUuid2']);
+        if (uuid === 'elementUuid2') return Promise.resolve([]);
+        return Promise.resolve([]);
+      });
+
+      const result = await authUtils.getAllUniqueElement(permissions);
+      expect(result).to.deep.equal(['elementUuid2']);
     });
   });
 });

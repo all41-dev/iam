@@ -118,10 +118,14 @@ export class AuthUtils {
           permission.scope_element_uuid,
           scope.code
         );
-        if (hierarchyUUIDs.includes(permission.scope_element_uuid)) {
+        const isUnique = !permissions.some(p =>
+          p.scope_element_uuid !== permission.scope_element_uuid &&
+          hierarchyUUIDs.includes(p.scope_element_uuid)
+        );
+        if (isUnique) {
           uniqueElements.add(permission.scope_element_uuid);
         }
-      }),
+      })
     );
     return Array.from(uniqueElements);
   }

@@ -18,8 +18,7 @@ export class AuthController {
       r.get(`/${strategy}`, async (req, res, next) => {
         const redirectUri = req.query.redirectUrl;
         const failureRedirect = req.query.failureRedirect;
-        // TODO check if it's mendatory
-        if (this._authManager.additionalParams) await this._authManager.additionalParams(req, res);
+        if (this._authManager.options.additionalParams) await this._authManager.options.additionalParams(req, res);
         if (redirectUri) res.cookie('redirect', redirectUri, { maxAge: 5 * 60 * 1000 });
         if (failureRedirect) res.cookie('failureRedirect', failureRedirect, { maxAge: 5 * 60 * 1000 });
 
@@ -65,5 +64,4 @@ export class AuthController {
 
     return r;
   }
-
 }

@@ -59,7 +59,7 @@
     }
   },
   "dependencies": {
-    "@all41-dev/iam.front": "^1.0.0-beta.23",
+    "@all41-dev/iam.front": "^1.0.0-beta.24",
     "@all41-dev/server.types": "^1.0.1-beta.8",
     "@all41-dev/db-tools": "^1.3.6",
     "@types/bcrypt": "^5.0.2",

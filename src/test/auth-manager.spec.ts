@@ -7,7 +7,6 @@ import { AuthUserTable } from '../db/auth-user-table';
 import { RefreshTokenTable } from '../db/refresh-token-table';
 import { IAuthOptions } from '../interfaces';
 import jwt from 'jsonwebtoken';
-import { RefreshExpiryTable } from '../db/refresh-expiry-table';
 import { Request, Response } from "express";
 import { AuthUtils } from '../auth/auth-utils';
 
@@ -465,64 +464,6 @@ YQIDAQAB
       }
 
       expect(destroyStub.notCalled).to.be.true;
-    });
-  });
-
-  describe('getRefreshExpiry', () => {
-    let instance: AuthManager;
-    let findOneStub: sinon.SinonStub;
-
-    beforeEach(() => {
-      instance = AuthManager.getInstance(authOptions);
-      findOneStub = sinon.stub(RefreshExpiryTable, 'findOne');
-    });
-
-    afterEach(() => {
-      sinon.restore();
-    });
-
-    it('should return default expiry if no customer_uuid is present', async () => {
-      const req = { cookies: {} } as Request;
-      const expiry = await instance.getRefreshExpiry(req);
-      expect(expiry).to.equal(24 * 60 * 60 * 1000);
-    });
-
-    it('should return default expiry if no expiry record is found', async () => {
-      const req = { cookies: { customer_uuid: 'customer-uuid' } } as unknown as Request;
-      findOneStub.resolves(null);
-      const expiry = await instance.getRefreshExpiry(req);
-      expect(expiry).to.equal(24 * 60 * 60 * 1000);
-    });
-
-    it('should return expiry time from database if record is found', async () => {
-      const req = { cookies: { customer_uuid: 'customer-uuid' } } as unknown as Request;
-      const mockExpiry = { expiry_time: 48 * 60 * 60 * 1000 };
-      findOneStub.resolves(mockExpiry);
-      const expiry = await instance.getRefreshExpiry(req);
-      expect(expiry).to.equal(mockExpiry.expiry_time);
-    });
-  });
-
-  describe('additionalParams', () => {
-    let instance: AuthManager;
-    let req: Request;
-    let res: Response;
-
-    beforeEach(() => {
-      instance = AuthManager.getInstance(authOptions);
-      req = { query: {} } as Request;
-      res = { cookie: sinon.stub().returnsThis() } as unknown as Response;
-    });
-
-    it('should set customer_uuid cookie if present in query', async () => {
-      req.query.customer_uuid = 'customer-uuid';
-      await instance.additionalParams(req, res);
-      expect((res.cookie as sinon.SinonStub).calledWith('customer_uuid', 'customer-uuid')).to.be.true;
-    });
-
-    it('should not set customer_uuid cookie if not present in query', async () => {
-      await instance.additionalParams(req, res);
-      expect((res.cookie as sinon.SinonStub).notCalled).to.be.true;
     });
   });
 });

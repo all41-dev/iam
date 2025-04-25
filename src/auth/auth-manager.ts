@@ -11,7 +11,6 @@ import { IAuthOptions } from "../interfaces";
 import bcrypt from 'bcrypt';
 import { AuthUserTable } from '../db/auth-user-table';
 import { RefreshTokenTable } from '../db/refresh-token-table';
-import { RefreshExpiryTable } from '../db/refresh-expiry-table';
 import { AuthUtils } from "./auth-utils";
 
 export class AuthManager {
@@ -88,7 +87,6 @@ export class AuthManager {
       { session: false },
       async (error: any, token: any) => {
         if (error || !token) {
-          // try to refresh token
           if (!req.cookies["auth"] && !req.cookies["refresh"]) {
             return res.sendStatus(401);
           }
@@ -147,9 +145,7 @@ export class AuthManager {
         subject: (req.user as any).uuid,
       });
 
-      const refreshExpiry = this.getRefreshExpiry
-        ? await this.getRefreshExpiry(req)
-        : 24 * 60 * 60 * 1000;
+      const refreshExpiry = 24 * 60 * 60 * 1000;
       const refreshToken = await this.saveRefreshToken(
         (req.user as { uuid: string }).uuid,
         refreshExpiry
@@ -235,24 +231,6 @@ export class AuthManager {
     const token = await RefreshTokenTable.findAll({ where: { auth_user_uuid } })
       .then((tokens) => tokens.find((t) => bcrypt.compareSync(refreshToken, t.token)));
     await RefreshTokenTable.destroy({ where: { uuid: token?.uuid } });
-  };
-
-  /**TODO: check if there is no issue with the RefreshExpiryTable in IAM API with customer uuid
-   * @deprecated 
-  */
-  public getRefreshExpiry = async (req: Request) => {
-    const customer_uuid = req.cookies.customer_uuid;
-    if (!customer_uuid) return 24 * 60 * 60 * 1000;
-    const expiry = await RefreshExpiryTable.findOne({ where: { customer_uuid } });
-    if (!expiry) return 24 * 60 * 60 * 1000;
-    return expiry.expiry_time;
-  };
-  /**
-     * @deprecated 
-    */
-  public additionalParams = async (req: Request, res: Response) => {
-    const customer_uuid = req.query.customer_uuid;
-    if (customer_uuid) res.cookie('customer_uuid', customer_uuid, { maxAge: 5 * 60 * 1000 });
   };
 
   private createSafeJwtPayload(user: any) {

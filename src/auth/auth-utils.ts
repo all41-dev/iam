@@ -112,9 +112,11 @@ export class AuthUtils {
         if (!permission.scope_element_uuid || !permission.feature_uuid || permission.is_deny === true) return;
         const feature = await FeatureTable.findByPk(permission.feature_uuid);
         if (!feature) return;
+        const scope = await ScopeTable.findByPk(feature.scope_uuid);
+        if (!scope) return;
         const hierarchyUUIDs = await this.options.scopeElementAncestor(
           permission.scope_element_uuid,
-          feature.scope_uuid
+          scope.code
         );
         if (hierarchyUUIDs.includes(permission.scope_element_uuid)) {
           uniqueElements.add(permission.scope_element_uuid);

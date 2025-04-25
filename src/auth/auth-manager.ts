@@ -69,10 +69,7 @@ export class AuthManager {
     }
 
     const strategyNames = Object.keys(this.authOptions.strategies);
-
-    //TODO: look at the usage
     this.refreshToken = this.authOptions.refreshToken || this.refreshToken;
-
     return new AuthController().create(strategyNames, router);
   }
 
@@ -181,6 +178,9 @@ export class AuthManager {
   public saveRefreshToken = async (auth_user_uuid: string, refreshExpiry?: number) => {
     const authUser = await AuthUserTable.findByPk(auth_user_uuid)
     if (!authUser) throw new Error("User not found");
+    if (!this.options.privateKey) {
+      throw new Error("No private key provided for JWT generation");
+    }
     const token = jwt.sign(
       { id: authUser.uuid },
       this.options.privateKey,
@@ -214,7 +214,9 @@ export class AuthManager {
       permissions: permissions && Object.keys(permissions).length > 0 ? Buffer.from(JSON.stringify(permissions)).toString('base64') : undefined,
       permissionWarning: permissions && Object.keys(permissions).length > 0 ? undefined : 'no permissions',
     });
-
+    if (!this.options.privateKey) {
+      throw new Error("No private key provided for JWT generation");
+    }
     const newToken = jwt.sign(safePayload, this.options.privateKey, {
       algorithm: 'RS256',
       expiresIn: '1m',

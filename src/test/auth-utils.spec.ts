@@ -83,10 +83,11 @@ describe('Auth Utils', () => {
       ] as PermissionTable[]);
 
       sandbox.stub(featureManager, "getHighestFeatures").resolves(["feature-1"]);
+      sandbox.stub(authUtils, "getAllUniqueElement").resolves(["scope-1"]);
 
       const result = await authUtils.getUserPermissions('user-uuid');
       expect(result).to.deep.equal([
-        { f: 'feature-1', e: 'scope-1', d: false, h: true },
+        { f: 'feature-1', e: 'scope-1', d: false, c: "top.uniq" },
         { f: 'feature-2', e: 'scope-2', d: true }
       ]);
     });

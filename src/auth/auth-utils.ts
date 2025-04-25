@@ -70,31 +70,58 @@ export class AuthUtils {
   }
 
   public async getUserPermissions(userUuid: string): Promise<any> {
-    const groupMemberships = await UserGroupMemberTable.findAll({ where: { auth_user_uuid: userUuid } });
+    const groupMemberships = await UserGroupMemberTable.findAll({
+      where: { auth_user_uuid: userUuid },
+    });
     if (!groupMemberships.length) return {};
     const groupUUIDs = groupMemberships.map((group) => group.group_uuid);
     const permissions = await PermissionTable.findAll({
       where: { group_uuid: groupUUIDs },
     });
-    if (!permissions.length) {
-      return {}
-    }
+    if (!permissions.length) return {};
     const featureUUIDs = permissions.map((permission) => permission.feature_uuid);
-    const highestFeatures = await this.featureManager.getHighestFeatures(featureUUIDs)
-    const compactPermissions: Array<{ f: string; e: string; d: boolean; h?: boolean }> = [];
+    const highestFeatures = await this.featureManager.getHighestFeatures(featureUUIDs);
+    const uniqueElements = await this.getAllUniqueElement(permissions);
+    const compactPermissions: Array<{ f: string; e: string; d: boolean; c?: string }> = [];
     for (const permission of permissions) {
-      const isHighest = highestFeatures.includes(permission.feature_uuid);
-      const permissionObject: { f: string; e: string; d: boolean; h?: boolean } = {
+      const isTop = highestFeatures.includes(permission.feature_uuid);
+      const isUniq = uniqueElements.includes(permission.scope_element_uuid);
+      const permissionObject: { f: string; e: string; d: boolean; c?: string; h?: boolean } = {
         f: permission.feature_uuid,
         e: permission.scope_element_uuid,
         d: permission.is_deny,
       };
-      if (isHighest) {
-        permissionObject.h = true;
+      if (isTop && isUniq) {
+        permissionObject.c = "top.uniq";
+      } else if (isTop) {
+        permissionObject.c = "top";
+      } else if (isUniq) {
+        permissionObject.c = "uniq";
       }
       compactPermissions.push(permissionObject);
     }
-    return compactPermissions
+    return compactPermissions;
+  }
+
+  public async getAllUniqueElement(
+    permissions: PermissionTable[],
+  ): Promise<string[]> {
+    const uniqueElements = new Set<string>();
+    await Promise.all(
+      permissions.map(async (permission) => {
+        if (!permission.scope_element_uuid || !permission.feature_uuid || permission.is_deny === true) return;
+        const feature = await FeatureTable.findByPk(permission.feature_uuid);
+        if (!feature) return;
+        const hierarchyUUIDs = await this.options.scopeElementAncestor(
+          permission.scope_element_uuid,
+          feature.scope_uuid
+        );
+        if (hierarchyUUIDs.includes(permission.scope_element_uuid)) {
+          uniqueElements.add(permission.scope_element_uuid);
+        }
+      }),
+    );
+    return Array.from(uniqueElements);
   }
 
   public async checkAncestorEffectivePermissions(

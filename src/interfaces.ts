@@ -6,7 +6,7 @@ export interface IAuthOptions {
   redirectAfterLogin?: string;
   redirectAfterLogout?: string;
   strategies: { [key: string]: Strategy };
-  privateKey: string;
+  privateKey?: string;
   publicKey: string;
   masterApiKey: string;
   authIssuer: string;

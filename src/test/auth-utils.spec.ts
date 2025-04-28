@@ -1152,6 +1152,7 @@ describe('Auth Utils', () => {
 
     it('should return an empty array if user is not found', async () => {
       sandbox.stub(AuthUserTable, 'findOne').resolves(null);
+      sandbox.stub(ScopeTable, 'findOne').resolves({ uuid: 'scopeUuid' } as ScopeTable);
 
       const result = await authUtils.getPermissionsScopeElement('user@example.com', 'scopeCode', 'elementUuid');
       expect(result).to.deep.equal([]);

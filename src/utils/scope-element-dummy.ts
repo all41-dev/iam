@@ -93,6 +93,19 @@ export const dummyHierarchy = {
           subscription: []
         }
       ]
+    },
+    {
+      uuid: "287d0a58-fd98-4e7f-add1-504526a49cdc",
+      name: "New partner",
+      client: [
+        {
+          uuid: "0e6fcd15-a623-48d9-a276-2650cc353d68",
+          name: "qwe",
+          module: [],
+          exchange: [],
+          subscription: []
+        },
+      ]
     }
   ]
 };

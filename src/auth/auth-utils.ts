@@ -165,7 +165,6 @@ export class AuthUtils {
 
   public async checkEffectivePermissions(auth_user_uuid?: string, group_uuid?: string): Promise<{ [uuid: string]: { right: string; context: PermissionContext[] } }> {
     let groupUUIDs: string[] = [];
-
     if (!group_uuid && auth_user_uuid) {
       const user = await AuthUserTable.findByPk(auth_user_uuid);
       if (!user) return {};
@@ -179,11 +178,9 @@ export class AuthUtils {
     } else {
       return {};
     }
-
     const permissionsMap: Record<string, { right: string; context: PermissionContext[] }> = {};
     const scopeUUIDs = await this.featureManager.getGroupsScopeList(groupUUIDs);
     const features = await FeatureTable.findAll({ where: { scope_uuid: scopeUUIDs } });
-
     for (const feature of features) {
       const featureUuid = feature.uuid;
       const featureCode = feature.code
@@ -191,7 +188,6 @@ export class AuthUtils {
         PermissionTable.findAll({ where: { feature_uuid: featureUuid, group_uuid: groupUUIDs } }),
         this.checkAncestorEffectivePermissions(featureUuid, groupUUIDs),
       ]);
-
       const contextSet = new Set<string>();
       const context: PermissionContext[] = [];
       let rightConflict = false;
@@ -213,7 +209,6 @@ export class AuthUtils {
           });
         }
         const hierarchyUUIDs = await this.utilsOptions.scopeElementAncestor(permission.scope_element_uuid, scopeFeature ? scopeFeature.code : "");
-
         grantOverride = await Promise.all(
           ancestorPermissions.permissions.map(async (p) => {
             if (!p.is_deny && permission.is_deny) {
@@ -226,15 +221,12 @@ export class AuthUtils {
             return false;
           })
         ).then(results => results.some(Boolean));
-
         rightConflict = ancestorPermissions.permissions.some(p => p.is_deny && !permission.is_deny && (hierarchyUUIDs.includes(p.scope_element_uuid) || p.scope_element_uuid === permission.scope_element_uuid))
         ancestorGrant = ancestorPermissions.permissions.some(p => !p.is_deny && permission.is_deny && (hierarchyUUIDs.includes(p.scope_element_uuid) || p.scope_element_uuid === permission.scope_element_uuid))
       }
-
       const ancestorContext: PermissionContext[] = [];
       const denyExists = ancestorPermissions.permissions.some(p => p.is_deny);
       const grantExists = ancestorPermissions.permissions.some(p => !p.is_deny);
-
       for (const ancestorPermission of ancestorPermissions.permissions) {
         const scopeFeature = await ScopeTable.findByPk(ancestorPermission.scope_uuid);
         const permissionStatus = ancestorPermission.is_deny ? "denied" : "granted";
@@ -252,7 +244,6 @@ export class AuthUtils {
           });
         }
       }
-
       let right = "noRight";
       if (rightConflict) {
         right = "rightConflict";
@@ -271,13 +262,11 @@ export class AuthUtils {
           right = "grant";
         }
       }
-
       permissionsMap[featureCode] = {
         right,
         context: [...context, ...ancestorContext],
       };
     }
-
     return permissionsMap;
   }
 
@@ -368,8 +357,6 @@ export class AuthUtils {
 
   async verifyGroupCollision(groupUUIDs: string[]): Promise<{ conflictType: string; permissions: any[] }[]> {
     const conflicts: { conflictType: string; permissions: any[] }[] = [];
-
-    const groups = await UserGroupTable.findAll({ where: { uuid: groupUUIDs } });
     const permissions = await PermissionTable.findAll({ where: { group_uuid: groupUUIDs } });
 
     for (const permission of permissions) {
@@ -426,36 +413,37 @@ export class AuthUtils {
 
   async getPermissionsScopeElement(userEmail: string, scopeCode: string, scopeElementUuid: string): Promise<any[]> {
     const user = await AuthUserTable.findOne({ where: { email: userEmail } });
-    if (!user) return [];
     const scope = await ScopeTable.findOne({ where: { code: scopeCode } });
-    if (!scope) return [];
+    if (!scope || !user) return [];
     const allScopeUuids = [scope.uuid, ...(await this.featureManager.getAllChildScopes(scope.uuid))];
     const elementAncestorsUUIDs = await this.utilsOptions.scopeElementAncestor(scopeElementUuid, scopeCode);
     const effectivePermission = await this.checkEffectivePermissions(user.uuid);
     const permissions: any[] = [];
     for (const featureCode in effectivePermission) {
-      const entry = effectivePermission[featureCode];
       const validContexts = [];
       const feature = await FeatureTable.findOne({ where: { code: featureCode } });
       if (!feature || !allScopeUuids.includes(feature.scope_uuid)) continue;
-      for (const ctx of entry.context) {
-        const featureCtx = await FeatureTable.findOne({ where: { code: ctx.feature_code } });
+      const denyContexts = new Set(effectivePermission[featureCode].context.filter(ctx => ctx.status === "denied").map(ctx => ctx.uuid));
+      for (const ctx of effectivePermission[featureCode].context) {
+        const featureCtx = (ctx.type === "direct") ? feature : await FeatureTable.findOne({ where: { code: ctx.feature_code } });
         if (!featureCtx) continue;
         const contextScope = await ScopeTable.findOne({ where: { uuid: featureCtx.scope_uuid } });
         if (!contextScope) continue;
         const ctxElementAncestorsUUIDs = await this.utilsOptions.scopeElementAncestor(ctx.uuid, contextScope.code);
-        if (ctx.uuid === scopeElementUuid) {
-          validContexts.push(ctx);
-        } else if (elementAncestorsUUIDs.includes(ctx.uuid)) {
-          validContexts.push({ ...ctx, uuid: scopeElementUuid });
-        } else if (ctxElementAncestorsUUIDs.includes(scopeElementUuid)) {
-          validContexts.push(ctx);
+        const isOverriddenByDeny = ctx.status === "granted" && [
+          ctx.uuid,
+          scopeElementUuid,
+          ...ctxElementAncestorsUUIDs,
+        ].some(uuid => denyContexts.has(uuid));
+        if (!isOverriddenByDeny) {
+          if (ctx.uuid === scopeElementUuid) validContexts.push(ctx);
+          else if (elementAncestorsUUIDs.includes(ctx.uuid)) validContexts.push({ ...ctx, uuid: scopeElementUuid });
+          else if (ctxElementAncestorsUUIDs.includes(scopeElementUuid)) validContexts.push(ctx);
         }
       }
       if (validContexts.length > 0) {
         permissions.push({
           feature_code: featureCode,
-          right: entry.right,
           context: validContexts
         });
       }

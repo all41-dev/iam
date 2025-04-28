@@ -56,6 +56,16 @@ YQIDAQAB
     authAudience: 'authAudience',
     strategies: {},
   };
+  let getInstanceStub: sinon.SinonStub;
+  let fakeAuthUtils: Partial<AuthUtils>;
+
+  beforeEach(() => {
+    fakeAuthUtils = {
+      checkAccess: sinon.stub().resolves("grant"),
+      getUserPermissions: sinon.stub(),
+    };
+    getInstanceStub = sinon.stub(AuthUtils, 'getInstance').returns(fakeAuthUtils as AuthUtils);
+  });
 
   afterEach(() => {
     sinon.restore();
@@ -358,7 +368,6 @@ YQIDAQAB
     let compareSyncStub: sinon.SinonStub;
     let verifyStub: sinon.SinonStub;
     let getUserPermissionsStub: sinon.SinonStub;
-    let getAuthUtilsInstanceStub: sinon.SinonStub;
 
     beforeEach(() => {
       instance = AuthManager.getInstance(authOptions);
@@ -368,9 +377,7 @@ YQIDAQAB
       compareSyncStub = sinon.stub(bcrypt, 'compareSync');
       verifyStub = sinon.stub(jwt, 'verify');
 
-      const fakeAuthUtils = { getUserPermissions: sinon.stub() };
-      getUserPermissionsStub = fakeAuthUtils.getUserPermissions;
-      getAuthUtilsInstanceStub = sinon.stub(AuthUtils, 'getInstance').returns(fakeAuthUtils as any);
+      getUserPermissionsStub = fakeAuthUtils.getUserPermissions as sinon.SinonStub;
     });
 
     afterEach(() => {

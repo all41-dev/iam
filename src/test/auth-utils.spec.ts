@@ -1139,4 +1139,45 @@ describe('Auth Utils', () => {
       expect(result).to.deep.equal(['elementUuid2']);
     });
   });
+  describe('getPermissionsScopeElement', () => {
+    let sandbox: sinon.SinonSandbox;
+
+    beforeEach(() => {
+      sandbox = sinon.createSandbox();
+    });
+
+    afterEach(() => {
+      sandbox.restore();
+    });
+
+    it('should return an empty array if user is not found', async () => {
+      sandbox.stub(AuthUserTable, 'findOne').resolves(null);
+
+      const result = await authUtils.getPermissionsScopeElement('user@example.com', 'scopeCode', 'elementUuid');
+      expect(result).to.deep.equal([]);
+    });
+
+    it('should return an empty array if scope is not found', async () => {
+      sandbox.stub(AuthUserTable, 'findOne').resolves({ uuid: 'userUuid' } as AuthUserTable);
+      sandbox.stub(ScopeTable, 'findOne').resolves(null);
+
+      const result = await authUtils.getPermissionsScopeElement('user@example.com', 'scopeCode', 'elementUuid');
+      expect(result).to.deep.equal([]);
+    });
+
+    it('should return an empty array if no valid features match the scope', async () => {
+      sandbox.stub(AuthUserTable, 'findOne').resolves({ uuid: 'userUuid' } as AuthUserTable);
+      sandbox.stub(ScopeTable, 'findOne').resolves({ uuid: 'scopeUuid' } as ScopeTable);
+      sandbox.stub(featureManager, 'getAllChildScopes').resolves(['scopeUuid']);
+      (authUtils.options.scopeElementAncestor as sinon.SinonStub).resolves([]);
+      sandbox.stub(authUtils, 'checkEffectivePermissions').resolves({
+        'feature1': { right: 'grant', context: [] }
+      });
+      sandbox.stub(FeatureTable, 'findOne').resolves(null);
+
+      const result = await authUtils.getPermissionsScopeElement('user@example.com', 'scopeCode', 'elementUuid');
+      expect(result).to.deep.equal([]);
+    });
+  });
+
 });

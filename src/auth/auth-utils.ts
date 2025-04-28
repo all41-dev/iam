@@ -284,58 +284,45 @@ export class AuthUtils {
   async checkAccess(userEmail: string, featureCode: string, elementUuid: string): Promise<"grant" | "deny"> {
     const user = await AuthUserTable.findOne({ where: { email: userEmail } })
     if (!user) return "deny";
-
     const feature = await FeatureTable.findOne({ where: { code: featureCode } });
     if (!feature) return "deny";
-
     const userGroupMemberships = await UserGroupMemberTable.findAll({ where: { auth_user_uuid: user.uuid } });
     if (!userGroupMemberships.length) return "deny";
-
     const groupUUIDs = userGroupMemberships.map((group) => group.group_uuid);
-
     const scope = await ScopeTable.findOne({ where: { uuid: feature.scope_uuid } });
     if (!scope) return "deny";
-
     const directPermissions = await PermissionTable.findAll({
       where: {
         feature_uuid: feature.uuid,
         group_uuid: groupUUIDs,
       },
     });
-
     const hierarchyUUIDs = await this.utilsOptions.scopeElementAncestor(elementUuid, scope.code);
-
     for (const permission of directPermissions) {
       if (permission.is_deny) {
-        if (!permission.scope_element_uuid || permission.scope_element_uuid === elementUuid || hierarchyUUIDs.includes(permission.scope_element_uuid)) {
+        if (permission.scope_element_uuid === elementUuid || hierarchyUUIDs.includes(permission.scope_element_uuid)) {
           return "deny";
         }
       }
     }
-
     const noElementPermission = !(directPermissions.some(permission =>
       !permission.scope_element_uuid ||
       permission.scope_element_uuid === elementUuid ||
       hierarchyUUIDs.includes(permission.scope_element_uuid)));
-
     const userGroups = await UserGroupTable.findAll({
       where: {
         uuid: groupUUIDs,
       },
     });
-
     if (!userGroups.some(group => hierarchyUUIDs.includes(group.scope_element_uuid))) {
       return "deny";
     }
-
-
     const parentPermission = await this.checkParentFeaturePermissions(feature.uuid, groupUUIDs, elementUuid, hierarchyUUIDs);
     if (parentPermission === "deny") return "deny";
     if (parentPermission === "grant") return "grant";
     if (parentPermission === null) {
       if (directPermissions.length === 0 || noElementPermission) return "deny";
     }
-
     return "grant";
   }
 
@@ -435,5 +422,44 @@ export class AuthUtils {
       return permissionsFiltered.map((permission) => permission.scope_element_uuid);
     }
     return [];
+  }
+
+  async getPermissionsScopeElement(userEmail: string, scopeCode: string, scopeElementUuid: string): Promise<any[]> {
+    const user = await AuthUserTable.findOne({ where: { email: userEmail } });
+    if (!user) return [];
+    const scope = await ScopeTable.findOne({ where: { code: scopeCode } });
+    if (!scope) return [];
+    const allScopeUuids = await this.featureManager.getAllChildScopes(scope.uuid);
+    const elementAncestorsUUIDs = await this.utilsOptions.scopeElementAncestor(scopeElementUuid, scopeCode);
+    const effectivePermission = await this.checkEffectivePermissions(user.uuid);
+    const permissions: any[] = [];
+    for (const featureCode in effectivePermission) {
+      const entry = effectivePermission[featureCode];
+      const validContexts = [];
+      const feature = await FeatureTable.findOne({ where: { code: featureCode } });
+      if (!feature || !allScopeUuids.includes(feature.scope_uuid)) continue;
+      for (const ctx of entry.context) {
+        const featureCtx = await FeatureTable.findOne({ where: { code: ctx.feature_code } });
+        if (!featureCtx) continue;
+        const contextScope = await ScopeTable.findOne({ where: { uuid: featureCtx.scope_uuid } });
+        if (!contextScope) continue;
+        const ctxElementAncestorsUUIDs = await this.utilsOptions.scopeElementAncestor(ctx.uuid, contextScope.code);
+        if (ctx.uuid === scopeElementUuid) {
+          validContexts.push(ctx);
+        } else if (elementAncestorsUUIDs.includes(ctx.uuid)) {
+          validContexts.push({ ...ctx, uuid: scopeElementUuid });
+        } else if (ctxElementAncestorsUUIDs.includes(scopeElementUuid)) {
+          validContexts.push(ctx);
+        }
+      }
+      if (validContexts.length > 0) {
+        permissions.push({
+          feature_code: featureCode,
+          right: entry.right,
+          context: validContexts
+        });
+      }
+    }
+    return permissions;
   }
 }

@@ -50,16 +50,18 @@ export class AuthController {
 
     r.post('/refresh', this._authManager.refreshToken);
 
-    r.get('/profile', this._authManager.authMiddleware, (req, res) => {
-      res.json({
-        username: (req.user as any).user.username,
-        email: (req.user as any).user.email,
-        firstName: (req.user as any).user.first_name,
-        lastName: (req.user as any).user.last_name,
-        permissions: (req.user as any).user.permissions
-          ? JSON.parse(Buffer.from((req.user as any).user.permissions, 'base64').toString('utf8'))
-          : (req.user as any).user.permissionWarning,
-      });
+    r.get('/profile', this._authManager.authMiddleware, async (req, res) => {
+      if (this._authManager.options.additionalElementProfile) await this._authManager.options.additionalElementProfile(req, res);
+      else
+        res.json({
+          username: (req.user as any).user.username,
+          email: (req.user as any).user.email,
+          firstName: (req.user as any).user.first_name,
+          lastName: (req.user as any).user.last_name,
+          permissions: (req.user as any).user.permissions
+            ? JSON.parse(Buffer.from((req.user as any).user.permissions, 'base64').toString('utf8'))
+            : (req.user as any).user.permissionWarning,
+        });
     });
 
     return r;

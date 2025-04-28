@@ -11,6 +11,7 @@ export interface IAuthOptions {
   masterApiKey: string;
   authIssuer: string;
   authAudience: string;
+  additionalElementProfile?: (req: Request, res: Response) => Promise<any>;
   additionalParams?: (req: Request, res: Response) => Promise<void>;
   refreshToken?: (
     req: Request,

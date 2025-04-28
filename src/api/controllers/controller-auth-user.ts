@@ -22,7 +22,8 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
       { verb: 'get', path: '/:userUuid/permissions', handlers: this.getPermissions.bind(this) },
       { verb: 'get', path: '/:userUuid/groups', handlers: this.getUserGroups.bind(this) },
       { verb: 'get', path: '/:userEmail/info', handlers: this.getUserInfo.bind(this) },
-      { verb: 'get', path: '/:userEmail/permission-info', handlers: this.getUserPermissionInfo.bind(this) }
+      { verb: 'get', path: '/:userEmail/permission-info', handlers: this.getUserPermissionInfo.bind(this) },
+      { verb: 'get', path: '/:userEmail/element-permission/:scopeCode/:elementUuid', handlers: this.getElementPermission.bind(this) }
     );
   }
 
@@ -131,6 +132,18 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
     const userEmail = req.params.userEmail;
     try {
       const response = await this.repositoryAuthUser.getUserPermissionInfo(userEmail);
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  public async getElementPermission(req: Request, res: Response) {
+    const userEmail = req.params.userEmail;
+    const elementUuid = req.params.elementUuid;
+    const scopeCode = req.params.scopeCode;
+    try {
+      const response = await this.repositoryAuthUser.getElementPermission(userEmail, scopeCode, elementUuid);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });

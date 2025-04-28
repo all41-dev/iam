@@ -429,7 +429,7 @@ export class AuthUtils {
     if (!user) return [];
     const scope = await ScopeTable.findOne({ where: { code: scopeCode } });
     if (!scope) return [];
-    const allScopeUuids = await this.featureManager.getAllChildScopes(scope.uuid);
+    const allScopeUuids = [scope.uuid, ...(await this.featureManager.getAllChildScopes(scope.uuid))];
     const elementAncestorsUUIDs = await this.utilsOptions.scopeElementAncestor(scopeElementUuid, scopeCode);
     const effectivePermission = await this.checkEffectivePermissions(user.uuid);
     const permissions: any[] = [];

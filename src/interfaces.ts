@@ -1,5 +1,5 @@
 import { Strategy } from "passport";
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 
 export interface IAuthOptions {
   trustProxy?: boolean;
@@ -11,7 +11,7 @@ export interface IAuthOptions {
   masterApiKey: string;
   authIssuer: string;
   authAudience: string;
-  additionalElementProfile?: (req: Request, res: Response) => Promise<any>;
+  additionalElementProfile?: (req: Request, res: Response, next: NextFunction) => Promise<any>;
   additionalParams?: (req: Request, res: Response) => Promise<void>;
   refreshToken?: (
     req: Request,

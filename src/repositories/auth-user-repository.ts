@@ -187,4 +187,7 @@ export class RepositoryAuthUser extends RepositorySequelize<AuthUserTable> {
       permissions,
     };
   }
+  public async getElementPermission(userEmail: string, scopeCode: string, elementUuid: string) {
+    return await this.authUtils.getPermissionsScopeElement(userEmail, scopeCode, elementUuid);
+  }
 }

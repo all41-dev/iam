@@ -222,6 +222,7 @@ export class AuthUtils {
           })
         ).then(results => results.some(Boolean));
         rightConflict = ancestorPermissions.permissions.some(p => p.is_deny && !permission.is_deny && (hierarchyUUIDs.includes(p.scope_element_uuid) || p.scope_element_uuid === permission.scope_element_uuid))
+          || directPermissions.some(p => p.is_deny && !permission.is_deny && (hierarchyUUIDs.includes(p.scope_element_uuid) || p.scope_element_uuid === permission.scope_element_uuid));
         ancestorGrant = ancestorPermissions.permissions.some(p => !p.is_deny && permission.is_deny && (hierarchyUUIDs.includes(p.scope_element_uuid) || p.scope_element_uuid === permission.scope_element_uuid))
       }
       const ancestorContext: PermissionContext[] = [];
@@ -414,40 +415,68 @@ export class AuthUtils {
   async getPermissionsScopeElement(userEmail: string, scopeCode: string, scopeElementUuid: string): Promise<any[]> {
     const user = await AuthUserTable.findOne({ where: { email: userEmail } });
     const scope = await ScopeTable.findOne({ where: { code: scopeCode } });
-    if (!scope || !user) return [];
+    if (!user || !scope) return [];
     const allScopeUuids = [scope.uuid, ...(await this.featureManager.getAllChildScopes(scope.uuid))];
-    const elementAncestorsUUIDs = await this.utilsOptions.scopeElementAncestor(scopeElementUuid, scopeCode);
-    const effectivePermission = await this.checkEffectivePermissions(user.uuid);
-    const permissions: any[] = [];
-    for (const featureCode in effectivePermission) {
-      const validContexts = [];
-      const feature = await FeatureTable.findOne({ where: { code: featureCode } });
-      if (!feature || !allScopeUuids.includes(feature.scope_uuid)) continue;
-      const denyContexts = new Set(effectivePermission[featureCode].context.filter(ctx => ctx.status === "denied").map(ctx => ctx.uuid));
-      for (const ctx of effectivePermission[featureCode].context) {
-        const featureCtx = (ctx.type === "direct") ? feature : await FeatureTable.findOne({ where: { code: ctx.feature_code } });
-        if (!featureCtx) continue;
-        const contextScope = await ScopeTable.findOne({ where: { uuid: featureCtx.scope_uuid } });
-        if (!contextScope) continue;
-        const ctxElementAncestorsUUIDs = await this.utilsOptions.scopeElementAncestor(ctx.uuid, contextScope.code);
-        const isOverriddenByDeny = ctx.status === "granted" && [
-          ctx.uuid,
-          scopeElementUuid,
-          ...ctxElementAncestorsUUIDs,
-        ].some(uuid => denyContexts.has(uuid));
-        if (!isOverriddenByDeny) {
-          if (ctx.uuid === scopeElementUuid) validContexts.push(ctx);
-          else if (elementAncestorsUUIDs.includes(ctx.uuid)) validContexts.push({ ...ctx, uuid: scopeElementUuid });
-          else if (ctxElementAncestorsUUIDs.includes(scopeElementUuid)) validContexts.push(ctx);
+    const features = await FeatureTable.findAll({ where: { scope_uuid: allScopeUuids } });
+    const featureMap = new Map(features.map(f => [f.uuid, f]));
+    const groupMemberships = await UserGroupMemberTable.findAll({ where: { auth_user_uuid: user.uuid }, raw: true });
+    if (!groupMemberships.length) return [];
+    const groupUUIDs = groupMemberships.map(g => g.group_uuid);
+    const directPermissions = await PermissionTable.findAll({ where: { group_uuid: groupUUIDs }, raw: true });
+    const collectedPermissions = new Map<string, Map<string, Set<"grant" | "deny">>>();
+    const insertPermission = (featureUuid: string, elementUuid: string, status: "grant" | "deny") => {
+      if (!collectedPermissions.has(featureUuid)) collectedPermissions.set(featureUuid, new Map());
+      const entityPerms = collectedPermissions.get(featureUuid)!;
+      if (!entityPerms.has(elementUuid)) entityPerms.set(elementUuid, new Set());
+      entityPerms.get(elementUuid)!.add(status);
+    };
+
+    for (const permission of directPermissions) {
+      const feature = featureMap.get(permission.feature_uuid);
+      if (!feature) continue;
+      insertPermission(permission.feature_uuid, permission.scope_element_uuid, permission.is_deny ? "deny" : "grant");
+    }
+
+    for (const feature of features) {
+      const { permissions: inherited } = await this.checkAncestorEffectivePermissions(feature.uuid, groupUUIDs);
+
+      for (const perm of inherited) {
+        const elementScope = await ScopeTable.findByPk(perm.scope_uuid);
+        if (!elementScope) continue;
+
+        const permElementAncestors = await this.utilsOptions.scopeElementAncestor(perm.scope_element_uuid, elementScope.code);
+        const elementAncestors = await this.utilsOptions.scopeElementAncestor(scopeElementUuid, scopeCode);
+
+        const isSame = perm.scope_element_uuid === scopeElementUuid;
+        const isDescendant = permElementAncestors.some(a => a === scopeElementUuid);
+        const isAncestor = elementAncestors.some(a => a === perm.scope_element_uuid);
+
+        if (isSame || isDescendant) {
+          insertPermission(feature.uuid, perm.scope_element_uuid, perm.is_deny ? "deny" : "grant");
+        } else if (isAncestor) {
+          insertPermission(feature.uuid, scopeElementUuid, perm.is_deny ? "deny" : "grant");
+        } else {
+          continue;
         }
       }
-      if (validContexts.length > 0) {
-        permissions.push({
-          feature_code: featureCode,
-          context: validContexts
-        });
-      }
     }
-    return permissions;
+    const result: any[] = [];
+    for (const [featureUuid, entityMap] of collectedPermissions.entries()) {
+      const feature = featureMap.get(featureUuid);
+      if (!feature) continue;
+      const permissions: { uuid: string; status: "grant" | "deny" }[] = [];
+      for (const [elemUuid, perms] of entityMap.entries()) {
+        for (const status of perms) {
+          permissions.push({ uuid: elemUuid, status });
+        }
+      }
+      if (permissions.length)
+        result.push({
+          featureCode: feature.code,
+          scopeCode: scope.code,
+          permissions,
+        });
+    }
+    return result;
   }
 }

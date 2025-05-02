@@ -8,9 +8,9 @@ export interface IAuthOptions {
   strategies: { [key: string]: Strategy };
   privateKey?: string;
   publicKey: string;
-  masterApiKey: string;
-  authIssuer: string;
-  authAudience: string;
+  masterApiKey?: string;
+  authIssuer?: string;
+  authAudience?: string;
   additionalElementProfile?: (req: Request, res: Response, next: NextFunction) => Promise<any>;
   additionalParams?: (req: Request, res: Response) => Promise<void>;
   refreshToken?: (

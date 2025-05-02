@@ -73,7 +73,7 @@ export class AuthManager {
   }
 
   public authMiddleware = (req: Request, res: Response, next: any) => {
-    if (req.headers.authorization) {
+    if (req.headers.authorization && this.authOptions.masterApiKey) {
       const bearer = req.headers.authorization.split(" ");
       if (bearer.length === 2 && bearer[0] === "Bearer") {
         const apiKey = bearer[1];
@@ -216,8 +216,8 @@ export class AuthManager {
     const newToken = jwt.sign(safePayload, this.options.privateKey, {
       algorithm: 'RS256',
       expiresIn: '1m',
-      issuer: this.options.authIssuer,
-      audience: this.options.authAudience,
+      issuer: this.options.authIssuer || "all41",
+      audience: this.options.authAudience || "all41",
       subject: user.dataValues.uuid,
     }
     );

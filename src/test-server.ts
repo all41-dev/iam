@@ -1,20 +1,27 @@
 import { IServerOptions, Server } from "@all41-dev/server";
-import { AuthUtils } from "./auth/auth-utils";
-import { IUtilsOptions } from "./interfaces";
-import { scopeElementHierarchy, scopeElementAncestor } from "./utils/scope-element-dummy";
+import { IAuthOptions } from "./interfaces";
+import { AuthManager } from "./auth/auth-manager";
 
 export class TestServer extends Server {
   public static inst: TestServer;
-  private authUtils: AuthUtils;
-  private authOptions: IUtilsOptions = { scopeElementAncestor: scopeElementAncestor, scopeElementHierarchy: scopeElementHierarchy }
+  protected _testAuth: AuthManager | undefined = undefined;
+
   constructor(options: IServerOptions) {
     super(options);
-    this.authUtils = AuthUtils.getInstance(this.authOptions)
+    if (options.auth) {
+      this._registerAuth(options.auth);
+    }
     TestServer.inst = this;
   }
 
   async start() {
     await super.start();
     Server.logger.info('TestServer started');
+  }
+
+  protected async _registerAuth(authOptions: IAuthOptions): Promise<void> {
+    this._testAuth = AuthManager.getInstance(authOptions);
+
+    this.app.use('/auth', this._testAuth.init());
   }
 }

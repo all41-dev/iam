@@ -5,6 +5,13 @@ import path from "path";
 import { TestServer } from "./test-server";
 import { IamApi } from "./api/iam-api";
 import { Response } from "express";
+import { readFileSync } from "fs";
+
+import { Strategy as GitHubStrategy } from "passport-github2";
+import { Strategy as MicrosoftStrategy } from "passport-microsoft";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+import { scopeElementAncestor, scopeElementHierarchy } from "./utils/scope-element-dummy";
+import { AuthUtils } from "./auth/auth-utils";
 
 const dbOptions: IDbOptions<any> = {
   engine: 'mariadb',
@@ -22,9 +29,63 @@ const dbOptions: IDbOptions<any> = {
   }
 };
 
+const privateKey = readFileSync(path.resolve(`${__dirname}/../keys/private.pem`), 'utf8');
+const publicKey = readFileSync(path.resolve(`${__dirname}/../keys/public.pem`), 'utf8');
+const authUtils = AuthUtils.getInstance({ scopeElementAncestor, scopeElementHierarchy })
+
 const options: IServerOptions = {
-  dbs: [dbOptions],
+  dbs: dbOptions,
   httpPort: process.env.PORT ? parseInt(process.env.PORT) : 7070,
+  auth: {
+    masterApiKey: process.env.MASTER_API_KEY || '',
+    redirectAfterLogin: process.env.REDIRECT_URL || '/front/',
+    redirectAfterLogout: process.env.REDIRECT_URL || '/front/',
+    privateKey: privateKey,
+    publicKey: publicKey,
+    authIssuer: process.env.AUTH_ISSUER || '',
+    authAudience: process.env.AUTH_AUDIENCE || '',
+    strategies: {
+      github: new GitHubStrategy({
+        clientID: process.env.GITHUB_CLIENT_ID!,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+        callbackURL: process.env.GITHUB_CALLBACK_URL!,
+        scope: ['user:email', 'read:user'],
+      }, async (accessToken: any, refreshToken: any, profile: any, done: any) => {
+        try {
+          const { user, error } = await authUtils.checkUser(profile, 'github');
+          return done(null, user, error ? { message: error } : undefined);
+        } catch (e) {
+          return done(e);
+        }
+      }),
+      microsoft: new MicrosoftStrategy({
+        clientID: process.env.MICROSOFT_CLIENT_ID!,
+        clientSecret: process.env.MICROSOFT_CLIENT_SECRET!,
+        callbackURL: process.env.MICROSOFT_CALLBACK_URL!,
+        scope: ['user.read'],
+      }, async (accessToken: any, refreshToken: any, profile: any, done: any) => {
+        try {
+          const { user, error } = await authUtils.checkUser(profile, 'microsoft');
+          return done(null, user, error ? { message: error } : undefined);
+        } catch (e) {
+          return done(e);
+        }
+      }),
+      google: new GoogleStrategy({
+        clientID: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        callbackURL: process.env.GOOGLE_CALLBACK_URL!,
+        scope: ['profile', 'email'],
+      }, async (accessToken: any, refreshToken: any, profile: any, done: any) => {
+        try {
+          const { user, error } = await authUtils.checkUser(profile, 'google');
+          return done(null, user, error ? { message: error } : undefined);
+        } catch (e) {
+          return done(e);
+        }
+      }),
+    },
+  },
   apis: {
     type: IamApi,
     baseRoute: '/api'

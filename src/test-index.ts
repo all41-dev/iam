@@ -37,13 +37,10 @@ const options: IServerOptions = {
   dbs: dbOptions,
   httpPort: process.env.PORT ? parseInt(process.env.PORT) : 7070,
   auth: {
-    masterApiKey: process.env.MASTER_API_KEY || '',
-    redirectAfterLogin: process.env.REDIRECT_URL || '/front/',
-    redirectAfterLogout: process.env.REDIRECT_URL || '/front/',
+    redirectAfterLogin: process.env.REDIRECT_URL,
+    redirectAfterLogout: process.env.REDIRECT_URL,
     privateKey: privateKey,
     publicKey: publicKey,
-    authIssuer: process.env.AUTH_ISSUER || '',
-    authAudience: process.env.AUTH_AUDIENCE || '',
     strategies: {
       github: new GitHubStrategy({
         clientID: process.env.GITHUB_CLIENT_ID!,

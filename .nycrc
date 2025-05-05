@@ -9,7 +9,8 @@
     "src/*.ts",
     "src/api/*.ts",
     "src/db/*.ts",
-    "src/utils/*.ts"
+    "src/utils/*.ts",
+    "src/api/controllers/*.ts"
   ],
   "reporter": ["lcov", "text"]
 }

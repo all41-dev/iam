@@ -31,12 +31,16 @@ describe('Auth Utils', () => {
     sandbox.restore();
   });
 
+  it('should throw an error if called without initializing options', () => {
+    (AuthUtils as any).instance = undefined;
+
+    expect(() => AuthUtils.getInstance()).to.throw("AuthUtils not initialized");
+  });
+
   it('should return the options', () => {
     expect(authUtils.options).to.deep.equal(mockOptions);
   });
   describe('getUserPermissions', () => {
-    let sandbox: sinon.SinonSandbox;
-
     beforeEach(() => {
       sandbox = sinon.createSandbox();
     });
@@ -89,6 +93,34 @@ describe('Auth Utils', () => {
       expect(result).to.deep.equal([
         { f: 'feature-1', e: 'scope-1', d: false, c: "top.uniq" },
         { f: 'feature-2', e: 'scope-2', d: true }
+      ]);
+    });
+    it('should return compact permissions if permissions exist', async () => {
+      sandbox.stub(UserGroupMemberTable, 'findAll').resolves([
+        { group_uuid: 'group-1' },
+        { group_uuid: 'group-2' }
+      ] as UserGroupMemberTable[]);
+
+      sandbox.stub(PermissionTable, 'findAll').resolves([
+        {
+          feature_uuid: 'feature-1',
+          scope_element_uuid: 'scope-1',
+          is_deny: false
+        },
+        {
+          feature_uuid: 'feature-2',
+          scope_element_uuid: 'scope-2',
+          is_deny: true
+        }
+      ] as PermissionTable[]);
+
+      sandbox.stub(featureManager, "getHighestFeatures").resolves(["feature-1"]);
+      sandbox.stub(authUtils, "getAllUniqueElement").resolves(["scope-2"]);
+
+      const result = await authUtils.getUserPermissions('user-uuid');
+      expect(result).to.deep.equal([
+        { f: 'feature-1', e: 'scope-1', d: false, c: "top" },
+        { f: 'feature-2', e: 'scope-2', d: true, c: "uniq" }
       ]);
     });
   });
@@ -536,8 +568,6 @@ describe('Auth Utils', () => {
     });
   });
   describe("checkAncestorEffectivePermissions", () => {
-    let sandbox: sinon.SinonSandbox;
-
     beforeEach(() => {
       sandbox = sinon.createSandbox();
     });
@@ -644,8 +674,6 @@ describe('Auth Utils', () => {
 
   });
   describe("checkEffectivePermissions", () => {
-    let sandbox: sinon.SinonSandbox;
-
     beforeEach(() => {
       sandbox = sinon.createSandbox();
     });
@@ -687,6 +715,29 @@ describe('Auth Utils', () => {
             {
               uuid: "elementUuid",
               scope: "scopeName",
+              status: "granted",
+              type: "direct",
+            },
+          ],
+        },
+      });
+    });
+    it("should return permissions for a group with granted permissions without scopeName if Scope not found", async () => {
+      sandbox.stub(UserGroupTable, "findByPk").resolves({ uuid: "groupUuid" } as UserGroupTable);
+      sandbox.stub(featureManager, "getGroupsScopeList").resolves(["scopeUuid"]);
+      sandbox.stub(FeatureTable, "findAll").resolves([{ uuid: "featureUuid", code: "featureCode", scope_uuid: "scopeUuid" }] as FeatureTable[]);
+      sandbox.stub(PermissionTable, "findAll").resolves([{ scope_element_uuid: "elementUuid", is_deny: false }] as PermissionTable[]);
+      sandbox.stub(authUtils, "checkAncestorEffectivePermissions").resolves({ inherited: false, permissions: [] });
+      sandbox.stub(ScopeTable, "findByPk").resolves(null);
+
+      const result = await authUtils.checkEffectivePermissions("", "groupUuid");
+      expect(result).to.deep.equal({
+        featureCode: {
+          right: "grant",
+          context: [
+            {
+              uuid: "elementUuid",
+              scope: "",
               status: "granted",
               type: "direct",
             },
@@ -759,7 +810,10 @@ describe('Auth Utils', () => {
           { scope_element_uuid: "elementUuid", is_deny: false, feature_code: "featureCode2", scope_uuid: "scopeUuid" }
         ]
       });
-      sandbox.stub(ScopeTable, "findByPk").resolves({ name: "scopeName" } as ScopeTable);
+
+      sandbox.stub(ScopeTable, "findByPk").withArgs("scopeUuid").resolves({ uuid: "scopeUuid", name: "scopeName", code: 'scopeCode' } as ScopeTable);
+
+      (authUtils.options.scopeElementAncestor as sinon.SinonStub).withArgs("elementUuid", "scopeCode").resolves(['elementUuid']);
 
       const result = await authUtils.checkEffectivePermissions("userUuid", "");
       expect(result).to.deep.equal({
@@ -792,8 +846,9 @@ describe('Auth Utils', () => {
       sandbox.stub(FeatureTable, "findAll").resolves([{ uuid: "featureUuid", code: "featureCode", scope_uuid: "scopeUuid" }] as FeatureTable[]);
       sandbox.stub(PermissionTable, "findAll").resolves([{ scope_element_uuid: "elementUuid", is_deny: false }] as PermissionTable[]);
       sandbox.stub(authUtils, "checkAncestorEffectivePermissions").resolves({ inherited: true, permissions: [{ scope_element_uuid: "elementUuid", is_deny: true, feature_code: "featureCode1", scope_uuid: "scopeUuid" }] });
-      sandbox.stub(ScopeTable, "findByPk").resolves({ name: "scopeName" } as ScopeTable);
+      sandbox.stub(ScopeTable, "findByPk").withArgs("scopeUuid").resolves({ uuid: "scopeUuid", name: "scopeName", code: 'scopeCode' } as ScopeTable);
 
+      (authUtils.options.scopeElementAncestor as sinon.SinonStub).withArgs("elementUuid", "scopeCode").resolves(['elementUuid']);
       const result = await authUtils.checkEffectivePermissions("userUuid", "");
       expect(result).to.deep.equal({
         featureCode: {
@@ -816,9 +871,27 @@ describe('Auth Utils', () => {
         },
       });
     });
+    it("should return 'noRight' when no permissions exist and no ancestor conflicts are present", async () => {
+      sandbox.stub(AuthUserTable, "findByPk").resolves({ uuid: "userUuid" } as any);
+      sandbox.stub(UserGroupMemberTable, "findAll").resolves([{ group_uuid: "groupUuid" }] as UserGroupMemberTable[]);
+      sandbox.stub(UserGroupTable, "findByPk").resolves({ uuid: "groupUuid" } as UserGroupTable);
+      sandbox.stub(featureManager, "getGroupsScopeList").resolves(["scopeUuid"]);
+      sandbox.stub(FeatureTable, "findAll").resolves([{ uuid: "featureUuid", code: "featureCode", scope_uuid: "scopeUuid" }] as FeatureTable[]);
+      sandbox.stub(PermissionTable, "findAll").resolves([] as PermissionTable[]);
+      sandbox.stub(authUtils, "checkAncestorEffectivePermissions").resolves({ inherited: true, permissions: [] });
+      sandbox.stub(ScopeTable, "findByPk").resolves({ name: "scopeName" } as ScopeTable);
+
+      const result = await authUtils.checkEffectivePermissions("", "groupUuid");
+
+      expect(result).to.deep.equal({
+        featureCode: {
+          right: "noRight",
+          context: [],
+        },
+      });
+    });
   });
   describe('checkParentFeaturePermissions', () => {
-    let sandbox: sinon.SinonSandbox;
     const featureUuid = 'childFeature';
     const groupUUIDs = ['group1'];
     const elementUuid = 'elementUuid';
@@ -953,119 +1026,99 @@ describe('Auth Utils', () => {
     });
   });
   describe('verifyGroupCollision', () => {
-    let findAllStub: sinon.SinonStub;
-    let findOneStub: sinon.SinonStub;
-
     beforeEach(() => {
-      findAllStub = sinon.stub();
-      findOneStub = sinon.stub();
-
-      sinon.replace(UserGroupTable, 'findAll', findAllStub);
-      sinon.replace(PermissionTable, 'findAll', findAllStub);
-      sinon.replace(FeatureTable, 'findOne', findOneStub);
-      sinon.replace(ScopeTable, 'findOne', findOneStub);
-    });
-
-    afterEach(() => {
-      sinon.restore();
-    });
-
-    it('should return conflicts when grant is overridden by deny', async () => {
-      findAllStub.withArgs({ where: { uuid: ['group1'] } }).resolves([{ uuid: 'group1' }]);
-      findAllStub.withArgs({ where: { group_uuid: ['group1'] } }).resolves([
-        { feature_uuid: 'feature1', is_deny: false, scope_element_uuid: 'scope1' }
-      ]);
-      findOneStub.withArgs({ where: { uuid: 'feature1' } }).resolves({ scope_uuid: 'scopeA' });
-      findOneStub.withArgs({ where: { uuid: 'scopeA' } }).resolves({ code: 'scope_code' });
-      sinon.stub(authUtils, 'checkParentFeaturePermissions').resolves("deny");
-
-      const result = await authUtils.verifyGroupCollision(['group1']);
-      expect(result).to.be.an('array');
-    });
-  });
-  describe('getSpecificElementDeny', () => {
-    let findOneStub: sinon.SinonStub;
-    let findAllStub: sinon.SinonStub;
-
-    beforeEach(() => {
-      findOneStub = sinon.stub();
-      findAllStub = sinon.stub();
-
-      sinon.replace(AuthUserTable, 'findOne', findOneStub);
-      sinon.replace(UserGroupMemberTable, 'findAll', findAllStub);
-      sinon.replace(ScopeTable, 'findOne', findOneStub);
-      sinon.replace(PermissionTable, 'findAll', findAllStub);
-      sinon.replace(FeatureTable, 'findAll', findAllStub);
-    });
-
-    afterEach(() => {
-      sinon.restore();
-    });
-
-    it('should return an empty array if the user is not found', async () => {
-      findOneStub.withArgs({ where: { email: 'test@example.com' } }).resolves(null);
-
-      const result = await authUtils.getSpecificElementDeny('test@example.com', 'scopeCode');
-      expect(result).to.deep.equal([]);
-    });
-
-    it('should return an empty array if the user has no group memberships', async () => {
-      findOneStub.withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' });
-      findAllStub.withArgs({ where: { auth_user_uuid: 'user1' } }).resolves([]);
-
-      const result = await authUtils.getSpecificElementDeny('test@example.com', 'scopeCode');
-      expect(result).to.deep.equal([]);
-    });
-
-    it('should return an empty array if the scope is not found', async () => {
-      findOneStub.withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' });
-      findAllStub.withArgs({ where: { auth_user_uuid: 'user1' } }).resolves([{ group_uuid: 'group1' }]);
-      findOneStub.withArgs({ where: { code: 'scopeCode' } }).resolves(null);
-
-      const result = await authUtils.getSpecificElementDeny('test@example.com', 'scopeCode');
-      expect(result).to.deep.equal([]);
-    });
-
-    it('should return an empty array if there are no deny permissions', async () => {
-      findOneStub.withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' });
-      findAllStub.withArgs({ where: { auth_user_uuid: 'user1' } }).resolves([{ group_uuid: 'group1' }]);
-      findOneStub.withArgs({ where: { code: 'scopeCode' } }).resolves({ uuid: 'scope1' });
-      findAllStub.withArgs({ where: { group_uuid: ['group1'], is_deny: true } }).resolves([]);
-
-      const result = await authUtils.getSpecificElementDeny('test@example.com', 'scopeCode');
-      expect(result).to.deep.equal([]);
-    });
-
-    it('should return scope element UUIDs for valid deny permissions', async () => {
-      findOneStub.withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' });
-      findAllStub.withArgs({ where: { auth_user_uuid: 'user1' } }).resolves([{ group_uuid: 'group1' }]);
-      findOneStub.withArgs({ where: { code: 'scopeCode' } }).resolves({ uuid: 'scope1' });
-      findAllStub.withArgs({ where: { group_uuid: ['group1'], is_deny: true } }).resolves([
-        { feature_uuid: 'feature1', scope_element_uuid: 'scopeElement1' },
-      ]);
-      findAllStub.withArgs({ where: { scope_uuid: 'scope1' } }).resolves([
-        { uuid: 'feature1' },
-        { uuid: 'feature2' },
-      ]);
-
-      const result = await authUtils.getSpecificElementDeny('test@example.com', 'scopeCode');
-      expect(result).to.deep.equal(['scopeElement1']);
-    });
-  });
-  describe('getAllUniqueElement', () => {
-    let sandbox: sinon.SinonSandbox;
-
-    beforeEach(() => {
-      sandbox = sinon.createSandbox();
+      sandbox = sinon.createSandbox()
     });
 
     afterEach(() => {
       sandbox.restore();
     });
 
-    it('should return an empty array if no permissions provided', async () => {
-      const result = await authUtils.getAllUniqueElement([]);
+    it('should return conflicts when grant is overridden by deny', async () => {
+      sandbox.stub(UserGroupTable, 'findAll').withArgs({ where: { uuid: ['group1'] } }).resolves([{ uuid: 'group1' }] as UserGroupTable[]);
+      sandbox.stub(PermissionTable, 'findAll').withArgs({ where: { group_uuid: ['group1'] } }).resolves([
+        { feature_uuid: 'feature1', is_deny: false, scope_element_uuid: 'scope1' }
+      ] as PermissionTable[]);
+      sandbox.stub(FeatureTable, 'findOne').withArgs({ where: { uuid: 'feature1' } }).resolves({ scope_uuid: 'scopeA' } as FeatureTable);
+      sandbox.stub(ScopeTable, 'findOne').withArgs({ where: { uuid: 'scopeA' } }).resolves({ code: 'scope_code' } as ScopeTable);
+      sandbox.stub(authUtils, 'checkParentFeaturePermissions').resolves("deny");
+
+      const result = await authUtils.verifyGroupCollision(['group1']);
+      expect(result).to.be.an('array');
+    });
+  });
+  describe('getSpecificElementDeny', () => {
+    beforeEach(() => {
+      sandbox = sinon.createSandbox()
+    });
+
+    afterEach(() => {
+      sandbox.restore();
+    });
+
+    it('should return an empty array if the user is not found', async () => {
+      sandbox.stub(AuthUserTable, 'findOne').withArgs({ where: { email: 'test@example.com' } }).resolves(null);
+
+      const result = await authUtils.getSpecificElementDeny('test@example.com', 'featureCode');
       expect(result).to.deep.equal([]);
+    });
+
+    it('should return an empty array if the user has no group memberships', async () => {
+      sandbox.stub(AuthUserTable, 'findOne').withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' } as AuthUserTable);
+      sandbox.stub(UserGroupMemberTable, 'findAll').withArgs({ where: { auth_user_uuid: 'user1' } }).resolves([] as UserGroupMemberTable[]);
+
+      const result = await authUtils.getSpecificElementDeny('test@example.com', 'featureCode');
+      expect(result).to.deep.equal([]);
+    });
+
+    it('should return an empty array if the feature is not found', async () => {
+      sandbox.stub(AuthUserTable, 'findOne').withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' } as AuthUserTable);
+      sandbox.stub(UserGroupMemberTable, 'findAll').withArgs({ where: { auth_user_uuid: 'user1' } }).resolves([{ group_uuid: 'group1' }] as UserGroupMemberTable[]);
+      sandbox.stub(FeatureTable, 'findOne').withArgs({ where: { code: 'featureCode' } }).resolves(null);
+      const result = await authUtils.getSpecificElementDeny('test@example.com', 'featureCode');
+      expect(result).to.deep.equal([]);
+    });
+
+    it('should return an empty array if there are no deny permissions', async () => {
+      sandbox.stub(AuthUserTable, 'findOne').withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' } as AuthUserTable);
+      sandbox.stub(UserGroupMemberTable, 'findAll').withArgs({ where: { auth_user_uuid: 'user1' } }).resolves([{ group_uuid: 'group1' }] as UserGroupMemberTable[]);
+      sandbox.stub(FeatureTable, 'findOne').withArgs({ where: { code: 'featureCode' } }).resolves(null);
+      sandbox.stub(PermissionTable, 'findAll').withArgs({ where: { group_uuid: ['group1'], is_deny: true } }).resolves([]);
+
+      const result = await authUtils.getSpecificElementDeny('test@example.com', 'featureCode');
+      expect(result).to.deep.equal([]);
+    });
+
+    it('should return scope element UUIDs for valid deny permissions', async () => {
+      sandbox.stub(AuthUserTable, 'findOne').withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' } as AuthUserTable);
+      sandbox.stub(UserGroupMemberTable, 'findAll').withArgs({ where: { auth_user_uuid: 'user1' } }).resolves([{ group_uuid: 'group1' }] as UserGroupMemberTable[]);
+      sandbox.stub(FeatureTable, 'findOne').withArgs({ where: { code: 'featureCode' } }).resolves({ uuid: 'feature1' } as FeatureTable);
+      sandbox.stub(PermissionTable, 'findAll').withArgs({ where: { group_uuid: ['group1'], is_deny: true } }).resolves([
+        { feature_uuid: 'feature1', scope_element_uuid: 'scopeElement1' },
+      ] as PermissionTable[]);
+
+      const result = await authUtils.getSpecificElementDeny('test@example.com', 'featureCode');
+      expect(result).to.deep.equal(['scopeElement1']);
+    });
+    it('should return empty array if nothing valid is found', async () => {
+      sandbox.stub(AuthUserTable, 'findOne').withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' } as AuthUserTable);
+      sandbox.stub(UserGroupMemberTable, 'findAll').withArgs({ where: { auth_user_uuid: 'user1' } }).resolves([{ group_uuid: 'group1' }] as UserGroupMemberTable[]);
+      sandbox.stub(FeatureTable, 'findOne').withArgs({ where: { code: 'featureCode' } }).resolves({ uuid: 'feature1' } as FeatureTable);
+      sandbox.stub(PermissionTable, 'findAll').withArgs({ where: { group_uuid: ['group1'], is_deny: true } }).resolves([
+        { feature_uuid: 'feature2', scope_element_uuid: 'scopeElement1' },
+      ] as PermissionTable[]);
+
+      const result = await authUtils.getSpecificElementDeny('test@example.com', 'featureCode');
+      expect(result).to.deep.equal([]);
+    });
+  });
+  describe('getAllUniqueElement', () => {
+    beforeEach(() => {
+      sandbox = sinon.createSandbox();
+    });
+
+    afterEach(() => {
+      sandbox.restore();
     });
 
     it('should exclude permissions with no scope_element_uuid or feature_uuid', async () => {
@@ -1078,23 +1131,35 @@ describe('Auth Utils', () => {
       expect(result).to.deep.equal([]);
     });
 
+    it('should return an empty array if no feature exist', async () => {
+      const permissions = [
+        { scope_element_uuid: 'elementUuid1', feature_uuid: 'featureUuid1', is_deny: false },
+      ] as PermissionTable[];
+      sandbox.stub(FeatureTable, 'findByPk').withArgs('featureUuid1').resolves(null);
+      const result = await authUtils.getAllUniqueElement(permissions);
+      expect(result).to.deep.equal([]);
+    });
+    it('should return an empty array if no scope exist', async () => {
+      const permissions = [
+        { scope_element_uuid: 'elementUuid1', feature_uuid: 'featureUuid1', is_deny: false },
+      ] as PermissionTable[];
+      sandbox.stub(FeatureTable, 'findByPk').withArgs('featureUuid1').resolves({ scope_uuid: 'scope1' } as FeatureTable);
+      sandbox.stub(ScopeTable, 'findByPk').withArgs('scope1').resolves(null);
+      const result = await authUtils.getAllUniqueElement(permissions);
+      expect(result).to.deep.equal([]);
+    });
+
     it('should exclude permissions marked as deny', async () => {
       const permissions = [
         { scope_element_uuid: 'elementUuid1', feature_uuid: 'featureUuid1', is_deny: false },
         { scope_element_uuid: 'elementUuid2', feature_uuid: 'featureUuid2', is_deny: true },
       ] as PermissionTable[];
 
-      sandbox.stub(FeatureTable, 'findByPk').callsFake(async (uuid) => {
-        if (uuid === 'featureUuid1') return { scope_uuid: 'scope1' } as FeatureTable;
-        if (uuid === 'featureUuid2') return { scope_uuid: 'scope2' } as FeatureTable;
-        return null;
-      });
+      sandbox.stub(FeatureTable, 'findByPk').withArgs('featureUuid1').resolves({ scope_uuid: 'scope1' } as FeatureTable)
+        .withArgs('featureUuid2').resolves({ scope_uuid: 'scope2' } as FeatureTable);
 
-      sandbox.stub(ScopeTable, 'findByPk').callsFake(async (uuid) => {
-        if (uuid === 'scope1') return { uuid: 'scope1', code: 'scopeCode1' } as ScopeTable;
-        if (uuid === 'scope2') return { uuid: 'scope2', code: 'scopeCode2' } as ScopeTable;
-        return null;
-      });
+      sandbox.stub(ScopeTable, 'findByPk').withArgs('scope1').resolves({ uuid: 'scope1', code: 'scopeCode1' } as ScopeTable)
+        .withArgs('scope2').resolves({ uuid: 'scope2', code: 'scopeCode2' } as ScopeTable);
 
       (authUtils.options.scopeElementAncestor as sinon.SinonStub).resolves([]);
       const result = await authUtils.getAllUniqueElement(permissions);
@@ -1107,14 +1172,14 @@ describe('Auth Utils', () => {
         { scope_element_uuid: 'elementUuid2', feature_uuid: 'featureUuid2', is_deny: false },
       ] as PermissionTable[];
 
-      sandbox.stub(FeatureTable, 'findByPk').resolves({ scope_uuid: 'scope1' } as FeatureTable);
-      sandbox.stub(ScopeTable, 'findByPk').resolves({ uuid: 'scope1', code: 'scopeCode' } as ScopeTable);
+      sandbox.stub(FeatureTable, 'findByPk').withArgs('featureUuid1').resolves({ scope_uuid: 'scope1' } as FeatureTable)
+        .withArgs('featureUuid2').resolves({ scope_uuid: 'scope2' } as FeatureTable);
 
-      (authUtils.options.scopeElementAncestor as sinon.SinonStub).callsFake((uuid) => {
-        if (uuid === 'elementUuid1') return Promise.resolve([]);
-        if (uuid === 'elementUuid2') return Promise.resolve([]);
-        return Promise.resolve([]);
-      });
+      sandbox.stub(ScopeTable, 'findByPk').withArgs('scope1').resolves({ uuid: 'scope1', code: 'scopeCode1' } as ScopeTable)
+        .withArgs('scope2').resolves({ uuid: 'scope2', code: 'scopeCode2' } as ScopeTable);
+
+      (authUtils.options.scopeElementAncestor as sinon.SinonStub).withArgs('elementUuid1').resolves(['elementUuid1'])
+        .withArgs('elementUuid2').resolves(['elementUuid2']);
 
       const result = await authUtils.getAllUniqueElement(permissions);
       expect(result).to.deep.equal(['elementUuid1', 'elementUuid2']);
@@ -1126,22 +1191,20 @@ describe('Auth Utils', () => {
         { scope_element_uuid: 'elementUuid2', feature_uuid: 'featureUuid2', is_deny: false },
       ] as PermissionTable[];
 
-      sandbox.stub(FeatureTable, 'findByPk').resolves({ scope_uuid: 'scope1' } as FeatureTable);
-      sandbox.stub(ScopeTable, 'findByPk').resolves({ uuid: 'scope1', code: 'scopeCode' } as ScopeTable);
+      sandbox.stub(FeatureTable, 'findByPk').withArgs('featureUuid1').resolves({ scope_uuid: 'scope1' } as FeatureTable)
+        .withArgs('featureUuid2').resolves({ scope_uuid: 'scope2' } as FeatureTable);
 
-      (authUtils.options.scopeElementAncestor as sinon.SinonStub).callsFake((uuid) => {
-        if (uuid === 'elementUuid1') return Promise.resolve(['elementUuid2']);
-        if (uuid === 'elementUuid2') return Promise.resolve([]);
-        return Promise.resolve([]);
-      });
+      sandbox.stub(ScopeTable, 'findByPk').withArgs('scope1').resolves({ uuid: 'scope1', code: 'scopeCode1' } as ScopeTable)
+        .withArgs('scope2').resolves({ uuid: 'scope2', code: 'scopeCode2' } as ScopeTable);
+
+      (authUtils.options.scopeElementAncestor as sinon.SinonStub).withArgs('elementUuid1').resolves(['elementUuid2', 'elementUuid1'])
+        .withArgs('elementUuid2').resolves(['elementUuid2']);
 
       const result = await authUtils.getAllUniqueElement(permissions);
       expect(result).to.deep.equal(['elementUuid2']);
     });
   });
   describe('getPermissionsScopeElement', () => {
-    let sandbox: sinon.SinonSandbox;
-
     beforeEach(() => {
       sandbox = sinon.createSandbox();
     });
@@ -1163,6 +1226,150 @@ describe('Auth Utils', () => {
       sandbox.stub(ScopeTable, 'findOne').resolves(null);
 
       const result = await authUtils.getPermissionsScopeElement('user@example.com', 'scopeCode', 'elementUuid');
+      expect(result).to.deep.equal([]);
+    });
+
+    it('should return an empty array if the user has no group memberships', async () => {
+      sandbox.stub(AuthUserTable, 'findOne').withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' } as AuthUserTable);
+      sandbox.stub(ScopeTable, 'findOne').withArgs({ where: { code: 'scopeCode' } }).resolves({ uuid: 'scope1' } as ScopeTable);
+      sandbox.stub(FeatureTable, 'findAll').withArgs({ where: { scope_uuid: ['scope1'] } }).resolves([{ uuid: 'feature1', code: 'featureCode' }] as FeatureTable[]);
+      sandbox.stub(UserGroupMemberTable, 'findAll').withArgs({ where: { auth_user_uuid: 'user1' }, raw: true }).resolves([]);
+
+      sandbox.stub(featureManager, 'getAllChildScopes').resolves([]);
+      const result = await authUtils.getPermissionsScopeElement('test@example.com', 'scopeCode', 'scopeElement');
+      expect(result).to.deep.equal([]);
+    });
+
+    it('should return an empty array if there are no deny permissions', async () => {
+      sandbox.stub(AuthUserTable, 'findOne').withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' } as AuthUserTable);
+      sandbox.stub(ScopeTable, 'findOne').withArgs({ where: { code: 'scopeCode' } }).resolves({ uuid: 'scope1' } as ScopeTable);
+      sandbox.stub(FeatureTable, 'findAll').withArgs({ where: { scope_uuid: ['scope1'] } }).resolves([{ uuid: 'feature1', code: 'featureCode' }] as FeatureTable[]);
+      sandbox.stub(UserGroupMemberTable, 'findAll').withArgs({ where: { auth_user_uuid: 'user1' }, raw: true }).resolves([{ group_uuid: 'group1' }] as UserGroupMemberTable[]);
+      sandbox.stub(PermissionTable, 'findAll').withArgs({ where: { group_uuid: ['group1'] }, raw: true }).resolves([]);
+
+      sandbox.stub(authUtils, 'checkAncestorEffectivePermissions').resolves({ inherited: false, permissions: [] });
+
+      sandbox.stub(featureManager, 'getAllChildScopes').resolves([]);
+      (authUtils.options.scopeElementAncestor as sinon.SinonStub)
+        .resolves([]);
+
+      const result = await authUtils.getPermissionsScopeElement('test@example.com', 'scopeCode', 'scopeElement');
+      expect(result).to.deep.equal([]);
+    });
+
+    it('should return permissions for each feature found', async () => {
+      sandbox.stub(AuthUserTable, 'findOne').withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' } as AuthUserTable);
+      sandbox.stub(ScopeTable, 'findOne').withArgs({ where: { code: 'scopeCode' } }).resolves({ uuid: 'scope1', code: 'scopeCode' } as ScopeTable);
+      sandbox.stub(UserGroupMemberTable, 'findAll').withArgs({ where: { auth_user_uuid: 'user1' }, raw: true }).resolves([{ group_uuid: 'group1' }] as UserGroupMemberTable[]);
+      sandbox.stub(FeatureTable, 'findAll').withArgs({ where: { scope_uuid: ['scope1'] } }).resolves([{ uuid: 'feature1', code: 'featureCode' }] as FeatureTable[]);
+      sandbox.stub(PermissionTable, 'findAll').withArgs({ where: { group_uuid: ['group1'] }, raw: true }).resolves([
+        { feature_uuid: 'feature1', scope_element_uuid: 'scopeElement', is_deny: true }
+      ] as PermissionTable[]);
+
+      sandbox.stub(authUtils, 'checkAncestorEffectivePermissions').resolves({ inherited: false, permissions: [] });
+
+      sandbox.stub(featureManager, 'getAllChildScopes').resolves([]);
+      (authUtils.options.scopeElementAncestor as sinon.SinonStub)
+        .resolves([]);
+
+      const result = await authUtils.getPermissionsScopeElement('test@example.com', 'scopeCode', 'scopeElement');
+      expect(result).to.deep.equal([
+        {
+          featureCode: 'featureCode',
+          scopeCode: 'scopeCode',
+          permissions: [
+            { uuid: 'scopeElement', status: 'deny' }
+          ]
+        }
+      ]);
+    });
+
+    it('should handle inherited permissions of higher hierarchy correctly', async () => {
+      sandbox.stub(AuthUserTable, 'findOne').withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' } as AuthUserTable);
+      sandbox.stub(ScopeTable, 'findOne').withArgs({ where: { code: 'scopeCode' } }).resolves({ uuid: 'scope1', code: 'scopeCode' } as ScopeTable);
+      sandbox.stub(UserGroupMemberTable, 'findAll').withArgs({ where: { auth_user_uuid: 'user1' }, raw: true }).resolves([{ group_uuid: 'group1' }] as UserGroupMemberTable[]);
+      sandbox.stub(FeatureTable, 'findAll').withArgs({ where: { scope_uuid: ['scope1'] } }).resolves([{ uuid: 'feature1', code: 'featureCode' }] as FeatureTable[]);
+      sandbox.stub(PermissionTable, 'findAll').withArgs({ where: { group_uuid: ['group1'] }, raw: true }).resolves([]);
+
+      sandbox.stub(ScopeTable, 'findByPk').withArgs('scope2').resolves({ uuid: 'scope2', code: 'scopeCodeAncestor' } as ScopeTable);
+
+      sandbox.stub(authUtils, 'checkAncestorEffectivePermissions').resolves({
+        inherited: true,
+        permissions: [
+          { scope_uuid: 'scope2', scope_element_uuid: 'ancestor1', feature_code: 'featureCode', is_deny: true }
+        ]
+      });
+
+      sandbox.stub(featureManager, 'getAllChildScopes').resolves([]);
+      (authUtils.options.scopeElementAncestor as sinon.SinonStub)
+        .withArgs('ancestor1', 'scopeCodeAncestor').resolves(['ancestor1'])
+        .withArgs('scopeElement', 'scopeCode').resolves(['ancestor1', 'scopeElement']);
+
+      const result = await authUtils.getPermissionsScopeElement('test@example.com', 'scopeCode', 'scopeElement');
+      expect(result).to.deep.equal([
+        {
+          featureCode: 'featureCode',
+          scopeCode: 'scopeCode',
+          permissions: [
+            { uuid: 'scopeElement', status: 'deny' }
+          ]
+        }
+      ]);
+    });
+    it('should handle inherited permissions of lower hierarchy correctly', async () => {
+      sandbox.stub(AuthUserTable, 'findOne').withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' } as AuthUserTable);
+      sandbox.stub(ScopeTable, 'findOne').withArgs({ where: { code: 'scopeCode' } }).resolves({ uuid: 'scope1', code: 'scopeCode' } as ScopeTable);
+      sandbox.stub(UserGroupMemberTable, 'findAll').withArgs({ where: { auth_user_uuid: 'user1' }, raw: true }).resolves([{ group_uuid: 'group1' }] as UserGroupMemberTable[]);
+      sandbox.stub(FeatureTable, 'findAll').withArgs({ where: { scope_uuid: ['scope1'] } }).resolves([{ uuid: 'feature1', code: 'featureCode' }] as FeatureTable[]);
+      sandbox.stub(PermissionTable, 'findAll').withArgs({ where: { group_uuid: ['group1'] }, raw: true }).resolves([]);
+
+      sandbox.stub(ScopeTable, 'findByPk').withArgs('scope2').resolves({ uuid: 'scope2', code: 'scopeCodeDescendant' } as ScopeTable);
+
+      sandbox.stub(authUtils, 'checkAncestorEffectivePermissions').resolves({
+        inherited: true,
+        permissions: [
+          { scope_uuid: 'scope2', scope_element_uuid: 'descendant1', feature_code: 'featureCode', is_deny: true }
+        ]
+      });
+
+      sandbox.stub(featureManager, 'getAllChildScopes').resolves([]);
+      (authUtils.options.scopeElementAncestor as sinon.SinonStub)
+        .withArgs('descendant1', 'scopeCodeDescendant').resolves(['scopeElement', 'descendant1'])
+        .withArgs('scopeElement', 'scopeCode').resolves(['scopeElement']);
+
+      const result = await authUtils.getPermissionsScopeElement('test@example.com', 'scopeCode', 'scopeElement');
+      expect(result).to.deep.equal([
+        {
+          featureCode: 'featureCode',
+          scopeCode: 'scopeCode',
+          permissions: [
+            { uuid: 'descendant1', status: 'deny' }
+          ]
+        }
+      ]);
+    });
+    it('should handle inherited permissions of unknown hierarchy correctly', async () => {
+      sandbox.stub(AuthUserTable, 'findOne').withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' } as AuthUserTable);
+      sandbox.stub(ScopeTable, 'findOne').withArgs({ where: { code: 'scopeCode' } }).resolves({ uuid: 'scope1', code: 'scopeCode' } as ScopeTable);
+      sandbox.stub(UserGroupMemberTable, 'findAll').withArgs({ where: { auth_user_uuid: 'user1' }, raw: true }).resolves([{ group_uuid: 'group1' }] as UserGroupMemberTable[]);
+      sandbox.stub(FeatureTable, 'findAll').withArgs({ where: { scope_uuid: ['scope1'] } }).resolves([{ uuid: 'feature1', code: 'featureCode' }] as FeatureTable[]);
+      sandbox.stub(PermissionTable, 'findAll').withArgs({ where: { group_uuid: ['group1'] }, raw: true }).resolves([]);
+
+      sandbox.stub(ScopeTable, 'findByPk').withArgs('scope2').resolves({ uuid: 'scope2', code: 'scopeCodeUnknown' } as ScopeTable);
+
+      sandbox.stub(authUtils, 'checkAncestorEffectivePermissions').resolves({
+        inherited: true,
+        permissions: [
+          { scope_uuid: 'scope2', scope_element_uuid: 'unknown1', feature_code: 'featureCode', is_deny: true }
+        ]
+      });
+
+      sandbox.stub(featureManager, 'getAllChildScopes').resolves([]);
+      (authUtils.options.scopeElementAncestor as sinon.SinonStub)
+        .withArgs('unknown1', 'scopeCodeUnknown').resolves(['unknown1'])
+        .withArgs('scopeElement', 'scopeCode').resolves(['scopeElement']);
+
+      const result = await authUtils.getPermissionsScopeElement('test@example.com', 'scopeCode', 'scopeElement');
       expect(result).to.deep.equal([]);
     });
   });

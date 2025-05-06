@@ -32,7 +32,6 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
     return controller.create(controller.repositoryAuthUser);
   }
 
-
   public async setUserGroups(req: Request, res: Response) {
     const userUuid = req.params.userUuid;
     const groupUuids = req.body.groupUuids;
@@ -61,6 +60,17 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
     try {
       const response = await this.repositoryAuthUser.updateGroups(userUuid, groupUuids);
       res.status(200).json(response ? response : {});
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  public async copyUserGroups(req: Request, res: Response) {
+    const userUuid = req.params.userUuid
+    const userToCopyUuid = req.body.userToCopyUuid;
+    try {
+      const response = await this.repositoryAuthUser.copyUserGroups(userUuid, userToCopyUuid);
+      res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -102,17 +112,6 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
     const userUuid = req.params.userUuid;
     try {
       const response = await this.repositoryAuthUser.getUserGroups(userUuid);
-      res.status(200).json(response);
-    } catch (error) {
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  }
-
-  public async copyUserGroups(req: Request, res: Response) {
-    const userUuid = req.params.userUuid
-    const userToCopyUuid = req.body.userToCopyUuid;
-    try {
-      const response = await this.repositoryAuthUser.copyUserGroups(userUuid, userToCopyUuid);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });

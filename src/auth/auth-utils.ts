@@ -382,17 +382,23 @@ export class AuthUtils {
     if (!groupMemberships.length) return [];
     const groupUUIDs = groupMemberships.map((group) => group.group_uuid);
     const feature = await FeatureTable.findOne({ where: { code: featureCode } });
-    if (!feature) return []
+    if (!feature) return [];
+
     const permissions = await PermissionTable.findAll({
       where: {
         group_uuid: groupUUIDs,
         is_deny: true,
       },
     });
-    if (!permissions.length) return [];
-    const permissionsFiltered = permissions.filter((permission) => (feature.uuid === permission.feature_uuid));
-    if (permissionsFiltered.length > 0) return permissionsFiltered.map((permission) => permission.scope_element_uuid);
-    return [];
+    const directDenials = permissions
+      .filter((permission) => feature.uuid === permission.feature_uuid)
+      .map((permission) => permission.scope_element_uuid);
+    const inheritedPermissions = await this.checkAncestorEffectivePermissions(feature.uuid, groupUUIDs);
+    const inheritedDenials = inheritedPermissions.permissions
+      .filter((permission) => permission.is_deny)
+      .map((permission) => permission.scope_element_uuid);
+    const allDeniedElements = new Set([...directDenials, ...inheritedDenials]);
+    return Array.from(allDeniedElements);
   }
 
   async getPermissionsScopeElement(userEmail: string, scopeCode: string, scopeElementUuid: string): Promise<any[]> {

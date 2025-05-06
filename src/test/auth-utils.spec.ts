@@ -1049,41 +1049,39 @@ describe('Auth Utils', () => {
   });
   describe('getSpecificElementDeny', () => {
     beforeEach(() => {
-      sandbox = sinon.createSandbox()
+      sandbox = sinon.createSandbox();
     });
-
     afterEach(() => {
       sandbox.restore();
     });
-
     it('should return an empty array if the user is not found', async () => {
       sandbox.stub(AuthUserTable, 'findOne').withArgs({ where: { email: 'test@example.com' } }).resolves(null);
-
       const result = await authUtils.getSpecificElementDeny('test@example.com', 'featureCode');
       expect(result).to.deep.equal([]);
     });
-
     it('should return an empty array if the user has no group memberships', async () => {
       sandbox.stub(AuthUserTable, 'findOne').withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' } as AuthUserTable);
       sandbox.stub(UserGroupMemberTable, 'findAll').withArgs({ where: { auth_user_uuid: 'user1' } }).resolves([] as UserGroupMemberTable[]);
-
       const result = await authUtils.getSpecificElementDeny('test@example.com', 'featureCode');
       expect(result).to.deep.equal([]);
     });
-
     it('should return an empty array if the feature is not found', async () => {
       sandbox.stub(AuthUserTable, 'findOne').withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' } as AuthUserTable);
       sandbox.stub(UserGroupMemberTable, 'findAll').withArgs({ where: { auth_user_uuid: 'user1' } }).resolves([{ group_uuid: 'group1' }] as UserGroupMemberTable[]);
       sandbox.stub(FeatureTable, 'findOne').withArgs({ where: { code: 'featureCode' } }).resolves(null);
+
       const result = await authUtils.getSpecificElementDeny('test@example.com', 'featureCode');
       expect(result).to.deep.equal([]);
     });
-
     it('should return an empty array if there are no deny permissions', async () => {
       sandbox.stub(AuthUserTable, 'findOne').withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' } as AuthUserTable);
       sandbox.stub(UserGroupMemberTable, 'findAll').withArgs({ where: { auth_user_uuid: 'user1' } }).resolves([{ group_uuid: 'group1' }] as UserGroupMemberTable[]);
-      sandbox.stub(FeatureTable, 'findOne').withArgs({ where: { code: 'featureCode' } }).resolves(null);
+      sandbox.stub(FeatureTable, 'findOne').withArgs({ where: { code: 'featureCode' } }).resolves({ uuid: 'feature1' } as FeatureTable);
       sandbox.stub(PermissionTable, 'findAll').withArgs({ where: { group_uuid: ['group1'], is_deny: true } }).resolves([]);
+      sandbox.stub(authUtils, 'checkAncestorEffectivePermissions').resolves({
+        inherited: true,
+        permissions: [],
+      });
 
       const result = await authUtils.getSpecificElementDeny('test@example.com', 'featureCode');
       expect(result).to.deep.equal([]);
@@ -1096,9 +1094,15 @@ describe('Auth Utils', () => {
       sandbox.stub(PermissionTable, 'findAll').withArgs({ where: { group_uuid: ['group1'], is_deny: true } }).resolves([
         { feature_uuid: 'feature1', scope_element_uuid: 'scopeElement1' },
       ] as PermissionTable[]);
+      sandbox.stub(authUtils, 'checkAncestorEffectivePermissions').resolves({
+        inherited: true,
+        permissions: [
+          { scope_element_uuid: 'scopeElement2', scope_uuid: 'scope1', feature_code: 'featureCode', is_deny: true },
+        ],
+      });
 
       const result = await authUtils.getSpecificElementDeny('test@example.com', 'featureCode');
-      expect(result).to.deep.equal(['scopeElement1']);
+      expect(result).to.deep.equal(['scopeElement1', 'scopeElement2']);
     });
     it('should return empty array if nothing valid is found', async () => {
       sandbox.stub(AuthUserTable, 'findOne').withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' } as AuthUserTable);
@@ -1107,7 +1111,10 @@ describe('Auth Utils', () => {
       sandbox.stub(PermissionTable, 'findAll').withArgs({ where: { group_uuid: ['group1'], is_deny: true } }).resolves([
         { feature_uuid: 'feature2', scope_element_uuid: 'scopeElement1' },
       ] as PermissionTable[]);
-
+      sandbox.stub(authUtils, 'checkAncestorEffectivePermissions').resolves({
+        inherited: true,
+        permissions: [],
+      });
       const result = await authUtils.getSpecificElementDeny('test@example.com', 'featureCode');
       expect(result).to.deep.equal([]);
     });

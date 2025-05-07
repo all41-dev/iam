@@ -30,7 +30,7 @@ export class FeatureManager {
     return validParentFeatures.length === 0 ? await FeatureTable.findByPk(featureUuid) : null;
   }
 
-  public async getDirectParentFeatures(featureUuid: string): Promise<FeatureTable[]> {
+  async getDirectParentFeatures(featureUuid: string): Promise<FeatureTable[]> {
     const parentRelations = await FeatureCompositionTable.findAll({
       where: { child_uuid: featureUuid },
     });

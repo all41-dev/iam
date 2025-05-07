@@ -8,8 +8,6 @@ import { Response } from "express";
 import { readFileSync } from "fs";
 
 import { Strategy as GitHubStrategy } from "passport-github2";
-import { Strategy as MicrosoftStrategy } from "passport-microsoft";
-import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { scopeElementAncestor, scopeElementHierarchy } from "./utils/scope-element-dummy";
 import { AuthUtils } from "./auth/auth-utils";
 
@@ -37,6 +35,7 @@ const options: IServerOptions = {
   dbs: dbOptions,
   httpPort: process.env.PORT ? parseInt(process.env.PORT) : 7070,
   auth: {
+    masterApiKey: process.env.MASTER_API_KEY,
     redirectAfterLogin: process.env.REDIRECT_URL,
     redirectAfterLogout: process.env.REDIRECT_URL,
     privateKey: privateKey,
@@ -55,36 +54,11 @@ const options: IServerOptions = {
           return done(e);
         }
       }),
-      microsoft: new MicrosoftStrategy({
-        clientID: process.env.MICROSOFT_CLIENT_ID!,
-        clientSecret: process.env.MICROSOFT_CLIENT_SECRET!,
-        callbackURL: process.env.MICROSOFT_CALLBACK_URL!,
-        scope: ['user.read'],
-      }, async (accessToken: any, refreshToken: any, profile: any, done: any) => {
-        try {
-          const { user, error } = await authUtils.checkUser(profile, 'microsoft');
-          return done(null, user, error ? { message: error } : undefined);
-        } catch (e) {
-          return done(e);
-        }
-      }),
-      google: new GoogleStrategy({
-        clientID: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-        callbackURL: process.env.GOOGLE_CALLBACK_URL!,
-        scope: ['profile', 'email'],
-      }, async (accessToken: any, refreshToken: any, profile: any, done: any) => {
-        try {
-          const { user, error } = await authUtils.checkUser(profile, 'google');
-          return done(null, user, error ? { message: error } : undefined);
-        } catch (e) {
-          return done(e);
-        }
-      }),
     },
   },
   apis: {
     type: IamApi,
+    requireAuth: !(process.env.DISABLE_AUTH === 'true'),
     baseRoute: '/api'
   },
   statics: [{

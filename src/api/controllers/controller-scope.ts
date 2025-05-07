@@ -1,6 +1,7 @@
 import { ControllerRepositoryReadWrite } from "@all41-dev/server.types";
 import { RepositoryScope } from "../../repositories/scope-repository";
 import { Router, Request, Response } from "express";
+import { checkPermission } from "../../utils/check-permission";
 export class ControllerScope extends ControllerRepositoryReadWrite<RepositoryScope> {
   private repositoryScope: RepositoryScope;
 
@@ -12,13 +13,43 @@ export class ControllerScope extends ControllerRepositoryReadWrite<RepositorySco
     this.repositoryScope = repositoryScope;
 
     this.defineRoutes(
-      { verb: 'get', path: '/:scopeUuid/children', handlers: this.getChildren.bind(this) },
-      { verb: 'get', path: '/:scopeUuid/groups', handlers: this.getGroups.bind(this) },
-      { verb: 'get', path: '/:scopeUuid/features', handlers: this.getFeatures.bind(this) },
-      { verb: 'get', path: '/:scopeUuid/children/features', handlers: this.getChildrenFeatures.bind(this) },
-      { verb: 'get', path: '/:scopeCode/element_hierarchy/:elementUuid?', handlers: this.getElementHierarchy.bind(this) },
-      { verb: 'get', path: '/:scopeCode/element_ancestor/:elementUuid', handlers: this.getAllElementHierarchy.bind(this) },
-      { verb: 'get', path: '/element_hierarchy/all', handlers: this.getAllElementHierarchy.bind(this) },
+      { verb: 'get', path: '/:scopeUuid/children', handlers: [checkPermission("global-read-show-rights"), this.getChildren.bind(this)] },
+      { verb: 'get', path: '/:scopeUuid/groups', handlers: [checkPermission("global-read-show-rights"), this.getGroups.bind(this)] },
+      { verb: 'get', path: '/:scopeUuid/features', handlers: [checkPermission("global-read-show-rights"), this.getFeatures.bind(this)] },
+      { verb: 'get', path: '/:scopeUuid/children/features', handlers: [checkPermission("global-read-show-rights"), this.getChildrenFeatures.bind(this)] },
+      { verb: 'get', path: '/:scopeCode/element_hierarchy/:elementUuid?', handlers: [checkPermission("global-read-show-rights"), this.getElementHierarchy.bind(this)] },
+      { verb: 'get', path: '/:scopeCode/element_ancestor/:elementUuid', handlers: [checkPermission("global-read-show-rights"), this.getAllElementHierarchy.bind(this)] },
+      { verb: 'get', path: '/element_hierarchy/all', handlers: [checkPermission("global-read-show-rights"), this.getAllElementHierarchy.bind(this)] },
+      {
+        verb: 'post', path: "/", handlers: [
+          checkPermission("global-write-rights"),
+          this.post
+        ]
+      },
+      {
+        verb: 'patch', path: "/:id", handlers: [
+          checkPermission("global-write-rights"),
+          this.patch
+        ]
+      },
+      {
+        verb: 'delete', path: "/:id", handlers: [
+          checkPermission("global-write-rights"),
+          this.delete
+        ]
+      },
+      {
+        verb: 'get', path: "/", handlers: [
+          checkPermission("global-read-show-rights"),
+          this.getAll
+        ]
+      },
+      {
+        verb: 'get', path: "/:id", handlers: [
+          checkPermission("global-read-show-rights"),
+          this.getById
+        ]
+      }
     );
     this.defineRouteBeforeSignature(
       { verb: 'get', path: '/:id' },

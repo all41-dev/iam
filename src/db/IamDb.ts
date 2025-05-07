@@ -9,7 +9,7 @@ import { AuthUserTable } from "./auth-user-table";
 import { RefreshTokenTable } from "./refresh-token-table";
 
 export class IamDb extends Db<IamDb> {
-  public async init() {
+  public async init(): Promise<void> {
     await this._init();
     IamDb.inst = this;
     this.sequelize.addModels([

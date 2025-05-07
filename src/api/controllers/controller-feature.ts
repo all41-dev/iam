@@ -1,6 +1,7 @@
 import { ControllerRepositoryReadWrite } from "@all41-dev/server.types";
 import { RepositoryFeature } from "../../repositories/feature-repository";
 import { Router, Request, Response } from "express";
+import { checkPermission } from "../../utils/check-permission";
 
 export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryFeature> {
   private repositoryFeature: RepositoryFeature;
@@ -13,16 +14,46 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
     this.repositoryFeature = repositoryFeature;
 
     this.defineRoutes(
-      { verb: 'post', path: '/set-parent-child', handlers: this.setParentChild.bind(this) },
-      { verb: 'post', path: '/remove-parent-child', handlers: this.removeParentChild.bind(this) },
-      { verb: 'get', path: '/:featureUuid/childrens', handlers: this.getChildrens.bind(this) },
-      { verb: 'get', path: '/:featureUuid/matrix', handlers: this.getFeatureMatrix.bind(this) },
-      { verb: 'get', path: '/scope/:scopeUuid/feature-matrix', handlers: this.getScopeFeatureMatrix.bind(this) },
-      { verb: 'get', path: '/feature-composition/all', handlers: this.getAllFeatureComposition.bind(this) },
+      { verb: 'post', path: '/set-parent-child', handlers: [checkPermission("global-write-rights"), this.setParentChild.bind(this)] },
+      { verb: 'post', path: '/remove-parent-child', handlers: [checkPermission("global-write-rights"), this.removeParentChild.bind(this)] },
+      { verb: 'get', path: '/:featureUuid/childrens', handlers: [checkPermission("global-read-show-rights"), this.getChildrens.bind(this)] },
+      { verb: 'get', path: '/:featureUuid/matrix', handlers: [checkPermission("global-read-show-rights"), this.getFeatureMatrix.bind(this)] },
+      { verb: 'get', path: '/scope/:scopeUuid/feature-matrix', handlers: [checkPermission("global-read-show-rights"), this.getScopeFeatureMatrix.bind(this)] },
+      { verb: 'get', path: '/feature-composition/all', handlers: [checkPermission("global-read-show-rights"), this.getAllFeatureComposition.bind(this)] },
+      {
+        verb: 'post', path: "/", handlers: [
+          checkPermission("global-write-rights"),
+          this.post
+        ]
+      },
+      {
+        verb: 'patch', path: "/:id", handlers: [
+          checkPermission("global-write-rights"),
+          this.patch
+        ]
+      },
+      {
+        verb: 'delete', path: "/:id", handlers: [
+          checkPermission("global-write-rights"),
+          this.delete
+        ]
+      },
+      {
+        verb: 'get', path: "/", handlers: [
+          checkPermission("global-read-show-rights"),
+          this.getAll
+        ]
+      },
+      {
+        verb: 'get', path: "/:id", handlers: [
+          checkPermission("global-read-show-rights"),
+          this.getById
+        ]
+      }
     );
     this.defineRouteBeforeSignature(
       { verb: 'get', path: '/:id' },
-      { verb: 'get', path: '/root-matrix', handlers: this.getRootFeatureMatrix.bind(this) },
+      { verb: 'get', path: '/root-matrix', handlers: [checkPermission("global-read-show-rights"), this.getRootFeatureMatrix.bind(this)] },
     );
 
   }

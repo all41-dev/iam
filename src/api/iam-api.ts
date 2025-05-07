@@ -3,8 +3,8 @@ import { ControllerUserGroup } from "./controllers/controller-user-group";
 import { ControllerScope } from "./controllers/controller-scope";
 import { ControllerFeature } from "./controllers/controller-feature";
 import { ControllerPermission } from "./controllers/controller-permission";
-import { Router } from "express";
 import { ControllerAuthUser } from "./controllers/controller-auth-user";
+import { Router } from "express";
 
 export class IamApi extends Api<IamApi> {
   public static inst: IamApi;

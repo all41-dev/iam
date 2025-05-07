@@ -1,8 +1,7 @@
 import { AuthUtils } from "../auth/auth-utils";
 import { Request, Response, NextFunction } from "express";
-import { Server } from "@all41-dev/server";
 
-export function checkPermission(
+export function checkRouteMiddleware(
   featureCode: string,
 ) {
   const authUtils = AuthUtils.getInstance();

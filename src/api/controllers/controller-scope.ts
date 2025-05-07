@@ -1,55 +1,33 @@
 import { ControllerRepositoryReadWrite } from "@all41-dev/server.types";
 import { RepositoryScope } from "../../repositories/scope-repository";
 import { Router, Request, Response } from "express";
-import { checkPermission } from "../../utils/check-permission";
+import { checkRouteMiddleware } from "../../utils/check-route-middleware";
 export class ControllerScope extends ControllerRepositoryReadWrite<RepositoryScope> {
   private repositoryScope: RepositoryScope;
 
   constructor() {
     const repositoryScope = new RepositoryScope();
 
-    super();
+    super({
+      checkRouteMiddleware,
+      baseRouteCheck: [
+        { verb: "get", path: '/', featureCode: "global-read-show-rights" },
+        { verb: "get", path: '/:id', featureCode: "global-read-show-rights" },
+        { verb: "post", path: '/', featureCode: "global-write-rights" },
+        { verb: "delete", path: '/:id', featureCode: "global-write-rights" },
+        { verb: "patch", path: '/:id', featureCode: "global-write-rights" },
+      ],
+    });
 
     this.repositoryScope = repositoryScope;
 
     this.defineRoutes(
-      { verb: 'get', path: '/:scopeUuid/children', handlers: [checkPermission("global-read-show-rights"), this.getChildren.bind(this)] },
-      { verb: 'get', path: '/:scopeUuid/groups', handlers: [checkPermission("global-read-show-rights"), this.getGroups.bind(this)] },
-      { verb: 'get', path: '/:scopeUuid/features', handlers: [checkPermission("global-read-show-rights"), this.getFeatures.bind(this)] },
-      { verb: 'get', path: '/:scopeUuid/children/features', handlers: [checkPermission("global-read-show-rights"), this.getChildrenFeatures.bind(this)] },
-      { verb: 'get', path: '/:scopeCode/element_hierarchy/:elementUuid?', handlers: [checkPermission("global-read-show-rights"), this.getElementHierarchy.bind(this)] },
-      { verb: 'get', path: '/:scopeCode/element_ancestor/:elementUuid', handlers: [checkPermission("global-read-show-rights"), this.getAllElementHierarchy.bind(this)] },
-      { verb: 'get', path: '/element_hierarchy/all', handlers: [checkPermission("global-read-show-rights"), this.getAllElementHierarchy.bind(this)] },
-      {
-        verb: 'post', path: "/", handlers: [
-          checkPermission("global-write-rights"),
-          this.post
-        ]
-      },
-      {
-        verb: 'patch', path: "/:id", handlers: [
-          checkPermission("global-write-rights"),
-          this.patch
-        ]
-      },
-      {
-        verb: 'delete', path: "/:id", handlers: [
-          checkPermission("global-write-rights"),
-          this.delete
-        ]
-      },
-      {
-        verb: 'get', path: "/", handlers: [
-          checkPermission("global-read-show-rights"),
-          this.getAll
-        ]
-      },
-      {
-        verb: 'get', path: "/:id", handlers: [
-          checkPermission("global-read-show-rights"),
-          this.getById
-        ]
-      }
+      { verb: 'get', path: '/:scopeUuid/children', featureCode: "global-read-show-rights", handlers: this.getChildren.bind(this) },
+      { verb: 'get', path: '/:scopeUuid/groups', featureCode: "global-read-show-rights", handlers: this.getGroups.bind(this) },
+      { verb: 'get', path: '/:scopeUuid/features', featureCode: "global-read-show-rights", handlers: this.getFeatures.bind(this) },
+      { verb: 'get', path: '/:scopeUuid/children/features', featureCode: "global-read-show-rights", handlers: this.getChildrenFeatures.bind(this) },
+      { verb: 'get', path: '/:scopeCode/element_hierarchy/:elementUuid', handlers: this.getElementHierarchy.bind(this) },
+      { verb: 'get', path: '/element_hierarchy/all', featureCode: "global-read-show-rights", handlers: this.getAllElementHierarchy.bind(this) },
     );
     this.defineRouteBeforeSignature(
       { verb: 'get', path: '/:id' },

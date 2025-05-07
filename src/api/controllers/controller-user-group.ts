@@ -1,7 +1,7 @@
 import { ControllerRepositoryReadWrite } from "@all41-dev/server.types";
 import { RepositoryUserGroup } from "../../repositories/user-group-repository";
 import { Router, Request, Response } from "express";
-import { checkPermission } from "../../utils/check-permission";
+import { checkRouteMiddleware } from "../../utils/check-route-middleware";
 
 export class ControllerUserGroup extends ControllerRepositoryReadWrite<RepositoryUserGroup> {
   private repositoryUserGroup: RepositoryUserGroup;
@@ -9,47 +9,26 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
   constructor() {
     const repositoryUserGroup = new RepositoryUserGroup();
 
-    super();
+    super({
+      checkRouteMiddleware,
+      baseRouteCheck: [
+        { verb: "get", path: '/', featureCode: "global-read-show-rights" },
+        { verb: "get", path: '/:id', featureCode: "global-read-show-rights" },
+        { verb: "post", path: '/', featureCode: "global-write-rights" },
+        { verb: "delete", path: '/:id', featureCode: "global-write-rights" },
+        { verb: "patch", path: '/:id', featureCode: "global-write-rights" },
+      ],
+    });
 
     this.repositoryUserGroup = repositoryUserGroup;
 
     this.defineRoutes(
-      { verb: 'post', path: '/:groupUuid/add-users', handlers: [checkPermission("global-write-rights"), this.addUsers.bind(this)] },
-      { verb: 'post', path: '/:groupUuid/remove-users', handlers: [checkPermission("global-write-rights"), this.removeUsers.bind(this)] },
-      { verb: 'post', path: '/:groupUuid/copy', handlers: [checkPermission("global-write-rights"), this.copyGroup.bind(this)] },
-      { verb: 'get', path: '/:groupUuid/users', handlers: [checkPermission("global-read-show-rights"), this.getUsers.bind(this)] },
-      { verb: 'get', path: '/:groupUuid/permissions', handlers: [checkPermission("global-read-show-rights"), this.getPermissions.bind(this)] },
-      { verb: 'get', path: '/:groupUuid/effective-permissions', handlers: [checkPermission("global-read-show-rights"), this.getEffectivePermissions.bind(this)] },
-      {
-        verb: 'post', path: "/", handlers: [
-          checkPermission("global-write-rights"),
-          this.post
-        ]
-      },
-      {
-        verb: 'patch', path: "/:id", handlers: [
-          checkPermission("global-write-rights"),
-          this.patch
-        ]
-      },
-      {
-        verb: 'delete', path: "/:id", handlers: [
-          checkPermission("global-write-rights"),
-          this.delete
-        ]
-      },
-      {
-        verb: 'get', path: "/", handlers: [
-          checkPermission("global-read-show-rights"),
-          this.getAll
-        ]
-      },
-      {
-        verb: 'get', path: "/:id", handlers: [
-          checkPermission("global-read-show-rights"),
-          this.getById
-        ]
-      }
+      { verb: 'post', path: '/:groupUuid/add-users', featureCode: "global-write-rights", handlers: this.addUsers.bind(this) },
+      { verb: 'post', path: '/:groupUuid/remove-users', featureCode: "global-write-rights", handlers: this.removeUsers.bind(this) },
+      { verb: 'post', path: '/:groupUuid/copy', featureCode: "global-write-rights", handlers: this.copyGroup.bind(this) },
+      { verb: 'get', path: '/:groupUuid/users', featureCode: "global-read-show-rights", handlers: this.getUsers.bind(this) },
+      { verb: 'get', path: '/:groupUuid/permissions', featureCode: "global-read-show-rights", handlers: this.getPermissions.bind(this) },
+      { verb: 'get', path: '/:groupUuid/effective-permissions', featureCode: "global-read-show-rights", handlers: this.getEffectivePermissions.bind(this) },
     );
   }
 

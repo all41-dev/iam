@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { ControllerRepositoryReadWrite } from "@all41-dev/server.types";
 import { RepositoryAuthUser } from "../../repositories/auth-user-repository";
-import { checkPermission } from "../../utils/check-permission";
+import { checkRouteMiddleware } from "../../utils/check-route-middleware";
 
 export class ControllerAuthUser extends ControllerRepositoryReadWrite<RepositoryAuthUser> {
   private repositoryAuthUser: RepositoryAuthUser;
@@ -9,77 +9,56 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
   constructor() {
     const repositoryAuthUser = new RepositoryAuthUser();
 
-    super();
+    super({
+      checkRouteMiddleware,
+      baseRouteCheck: [
+        { verb: "get", path: '/', featureCode: "global-read-show-rights" },
+        { verb: "get", path: '/:id', featureCode: "global-read-show-rights" },
+        { verb: "post", path: '/', featureCode: "global-write-rights" },
+        { verb: "delete", path: '/:id', featureCode: "global-write-rights" },
+        { verb: "patch", path: '/:id', featureCode: "global-write-rights" },
+      ],
+    });
 
     this.repositoryAuthUser = repositoryAuthUser;
 
     this.defineRoutes(
       {
-        verb: 'post', path: '/:userUuid/group-copy',
-        handlers: [checkPermission("global-write-rights"), this.copyUserGroups.bind(this)]
+        verb: 'post', path: '/:userUuid/group-copy', featureCode: "global-write-rights",
+        handlers: this.copyUserGroups.bind(this)
       },
       {
-        verb: 'patch', path: '/:userUuid/update-group',
-        handlers: [checkPermission("global-write-rights"), this.updateUserGroups.bind(this)]
+        verb: 'patch', path: '/:userUuid/update-group', featureCode: "global-write-rights",
+        handlers: this.updateUserGroups.bind(this)
       },
       {
-        verb: 'get', path: '/:userUuid/effective-permissions',
-        handlers: [checkPermission("global-read-show-rights"), this.getUserEffectivePermissions.bind(this)]
+        verb: 'get', path: '/:userUuid/effective-permissions', featureCode: "global-read-show-rights",
+        handlers: this.getUserEffectivePermissions.bind(this)
       },
       {
-        verb: 'get', path: '/:userUuid/check-feature-permissions/:featureUuid/:elementUuid',
-        handlers: [checkPermission("global-read-show-rights"), this.checkFeaturePermissions.bind(this)]
+        verb: 'get', path: '/:userUuid/check-feature-permissions/:featureUuid/:elementUuid', featureCode: "global-read-show-rights",
+        handlers: this.checkFeaturePermissions.bind(this)
       },
       {
-        verb: 'get', path: '/:userUuid/permissions',
-        handlers: [checkPermission("global-read-show-rights"), this.getPermissions.bind(this)]
+        verb: 'get', path: '/:userUuid/permissions', featureCode: "global-read-show-rights",
+        handlers: this.getPermissions.bind(this)
       },
       {
-        verb: 'get', path: '/:userUuid/groups',
-        handlers: [checkPermission("global-read-show-rights"), this.getUserGroups.bind(this)]
+        verb: 'get', path: '/:userUuid/groups', featureCode: "global-read-show-rights",
+        handlers: this.getUserGroups.bind(this)
       },
       {
-        verb: 'get', path: '/:userEmail/info',
-        handlers: [checkPermission("global-read-show-rights"), this.getUserInfo.bind(this)]
+        verb: 'get', path: '/:userEmail/info', featureCode: "global-read-show-rights",
+        handlers: this.getUserInfo.bind(this)
       },
       {
-        verb: 'get', path: '/:userEmail/permission-info',
-        handlers: [checkPermission("global-read-show-rights"), this.getUserPermissionInfo.bind(this)]
+        verb: 'get', path: '/:userEmail/permission-info', featureCode: "global-read-show-rights",
+        handlers: this.getUserPermissionInfo.bind(this)
       },
       {
-        verb: 'get', path: '/:userEmail/element-permission/:scopeCode/:elementUuid',
-        handlers: [checkPermission("global-read-show-rights"), this.getElementPermission.bind(this)]
+        verb: 'get', path: '/:userEmail/element-permission/:scopeCode/:elementUuid', featureCode: "global-read-show-rights",
+        handlers: this.getElementPermission.bind(this)
       },
-      {
-        verb: 'post', path: "/", handlers: [
-          checkPermission("global-write-rights"),
-          this.post
-        ]
-      },
-      {
-        verb: 'patch', path: "/:id", handlers: [
-          checkPermission("global-write-rights"),
-          this.patch
-        ]
-      },
-      {
-        verb: 'delete', path: "/:id", handlers: [
-          checkPermission("global-write-rights"),
-          this.delete
-        ]
-      },
-      {
-        verb: 'get', path: "/", handlers: [
-          checkPermission("global-read-show-rights"),
-          this.getAll
-        ]
-      },
-      {
-        verb: 'get', path: "/:id", handlers: [
-          checkPermission("global-read-show-rights"),
-          this.getById
-        ]
-      }
     );
   }
 

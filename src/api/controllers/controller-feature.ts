@@ -26,7 +26,7 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
       { verb: 'post', path: '/set-parent-child', featureCode: "global-write-rights", handlers: this.setParentChild.bind(this) },
       { verb: 'post', path: '/remove-parent-child', featureCode: "global-write-rights", handlers: this.removeParentChild.bind(this) },
       { verb: 'get', path: '/:featureUuid/childrens', featureCode: "global-read-show-rights", handlers: this.getChildrens.bind(this) },
-      { verb: 'get', path: '/:featureUuid/matrix', featureCode: "global-read-show-rights", handlers: this.getFeatureMatrix.bind(this) },
+      { verb: 'get', path: '/:featureUuid/matrix', handlers: this.getFeatureMatrix.bind(this) },
       { verb: 'get', path: '/scope/:scopeUuid/feature-matrix', featureCode: "global-read-show-rights", handlers: this.getScopeFeatureMatrix.bind(this) },
       { verb: 'get', path: '/feature-composition/all', featureCode: "global-read-show-rights", handlers: this.getAllFeatureComposition.bind(this) },
     );

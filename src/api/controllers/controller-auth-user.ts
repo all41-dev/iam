@@ -2,9 +2,11 @@ import { Router, Request, Response } from "express";
 import { ControllerRepositoryReadWrite } from "@all41-dev/server.types";
 import { RepositoryAuthUser } from "../../repositories/auth-user-repository";
 import { checkRouteMiddleware } from "../../utils/check-route-middleware";
+import { AuthUtils } from "../../auth/auth-utils";
 
 export class ControllerAuthUser extends ControllerRepositoryReadWrite<RepositoryAuthUser> {
   private repositoryAuthUser: RepositoryAuthUser;
+  private authUtils = AuthUtils.getInstance();
 
   constructor() {
     const repositoryAuthUser = new RepositoryAuthUser();
@@ -48,15 +50,15 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
         handlers: this.getUserGroups.bind(this)
       },
       {
-        verb: 'get', path: '/:userEmail/info', featureCode: "global-read-show-rights",
+        verb: 'get', path: '/:userEmail/info',
         handlers: this.getUserInfo.bind(this)
       },
       {
-        verb: 'get', path: '/:userEmail/permission-info', featureCode: "global-read-show-rights",
+        verb: 'get', path: '/:userEmail/permission-info',
         handlers: this.getUserPermissionInfo.bind(this)
       },
       {
-        verb: 'get', path: '/:userEmail/element-permission/:scopeCode/:elementUuid', featureCode: "global-read-show-rights",
+        verb: 'get', path: '/:userEmail/element-permission/:scopeCode/:elementUuid',
         handlers: this.getElementPermission.bind(this)
       },
     );
@@ -133,6 +135,8 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
 
   public async getUserInfo(req: Request, res: Response) {
     const userEmail = req.params.userEmail;
+    const hasGlobalAccess = await this.authUtils.checkAccess((req.user as any).user.email, "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant"
+    if ((req.user as any).user.email !== userEmail && !hasGlobalAccess) res.status(403).send("Forbidden")
     try {
       const response = await this.repositoryAuthUser.getUserInfo(userEmail);
       res.status(200).json(response);
@@ -142,6 +146,8 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
   }
   public async getUserPermissionInfo(req: Request, res: Response) {
     const userEmail = req.params.userEmail;
+    const hasGlobalAccess = await this.authUtils.checkAccess((req.user as any).user.email, "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant"
+    if ((req.user as any).user.email !== userEmail && !hasGlobalAccess) res.status(403).send("Forbidden")
     try {
       const response = await this.repositoryAuthUser.getUserPermissionInfo(userEmail);
       res.status(200).json(response);
@@ -152,6 +158,8 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
 
   public async getElementPermission(req: Request, res: Response) {
     const userEmail = req.params.userEmail;
+    const hasGlobalAccess = await this.authUtils.checkAccess((req.user as any).user.email, "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant"
+    if ((req.user as any).user.email !== userEmail && !hasGlobalAccess) res.status(403).send("Forbidden")
     const elementUuid = req.params.elementUuid;
     const scopeCode = req.params.scopeCode;
     try {

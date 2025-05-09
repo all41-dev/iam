@@ -26,7 +26,7 @@ export class ControllerScope extends ControllerRepositoryReadWrite<RepositorySco
       { verb: 'get', path: '/:scopeUuid/groups', featureCode: "global-read-show-rights", handlers: this.getGroups.bind(this) },
       { verb: 'get', path: '/:scopeUuid/features', featureCode: "global-read-show-rights", handlers: this.getFeatures.bind(this) },
       { verb: 'get', path: '/:scopeUuid/children/features', featureCode: "global-read-show-rights", handlers: this.getChildrenFeatures.bind(this) },
-      { verb: 'get', path: '/:scopeCode/element_hierarchy/:elementUuid', handlers: this.getElementHierarchy.bind(this) },
+      { verb: 'get', path: '/:scopeCode/element_hierarchy/:elementUuid?', handlers: this.getElementHierarchy.bind(this) },
       { verb: 'get', path: '/element_hierarchy/all', featureCode: "global-read-show-rights", handlers: this.getAllElementHierarchy.bind(this) },
     );
     this.defineRouteBeforeSignature(

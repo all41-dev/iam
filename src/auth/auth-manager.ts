@@ -9,7 +9,7 @@ import { AuthController } from "../api/controllers/controller-auth";
 import cookieParser from "cookie-parser";
 import { IAuthOptions } from "../interfaces";
 import bcrypt from 'bcrypt';
-import { AuthUserTable } from '../db/auth-user-table';
+import { UserTable } from '../db/user-table';
 import { RefreshTokenTable } from '../db/refresh-token-table';
 import { AuthUtils } from "./auth-utils";
 
@@ -171,8 +171,8 @@ export class AuthManager {
     return token;
   }
 
-  public saveRefreshToken = async (auth_user_uuid: string, refreshExpiry?: number) => {
-    const authUser = await AuthUserTable.findByPk(auth_user_uuid)
+  public saveRefreshToken = async (user_uuid: string, refreshExpiry?: number) => {
+    const authUser = await UserTable.findByPk(user_uuid)
     if (!authUser) throw new Error("User not found");
     if (!this.options.privateKey) {
       throw new Error("No private key provided for JWT generation");
@@ -189,7 +189,7 @@ export class AuthManager {
     bcrypt.hash(token, 10, async (err, hash) => {
       if (err) throw err;
       await RefreshTokenTable.create({
-        auth_user_uuid: authUser.uuid,
+        user_uuid: authUser.uuid,
         token: hash,
         expires: new Date(Date.now() + (refreshExpiry || 24 * 60 * 60 * 1000))
       });
@@ -198,11 +198,11 @@ export class AuthManager {
   };
 
   public generateAccessToken = async (refreshToken: string) => {
-    const auth_user_uuid = (jwt.verify(refreshToken, this.options.publicKey, { algorithms: ['RS256'] }) as { id: string }).id;
-    const token = await RefreshTokenTable.findAll({ where: { auth_user_uuid } })
+    const user_uuid = (jwt.verify(refreshToken, this.options.publicKey, { algorithms: ['RS256'] }) as { id: string }).id;
+    const token = await RefreshTokenTable.findAll({ where: { user_uuid } })
       .then((tokens) => tokens.find((t) => bcrypt.compareSync(refreshToken, t.token)));
     if (!token) return null;
-    const user = await AuthUserTable.findByPk(token.auth_user_uuid);
+    const user = await UserTable.findByPk(token.user_uuid);
     if (!user) return null;
     const permissions = await AuthUtils.getInstance().getUserPermissions(user.uuid);
     const safePayload = this.createSafeJwtPayload({
@@ -226,9 +226,9 @@ export class AuthManager {
 
   public revokeRefreshToken = async (refreshToken: string) => {
     const decodedToken = jwt.verify(refreshToken, this.options.publicKey, { algorithms: ['RS256'] }) as { id: string };
-    const auth_user_uuid = decodedToken.id;
+    const user_uuid = decodedToken.id;
 
-    const token = await RefreshTokenTable.findAll({ where: { auth_user_uuid } })
+    const token = await RefreshTokenTable.findAll({ where: { user_uuid } })
       .then((tokens) => tokens.find((t) => bcrypt.compareSync(refreshToken, t.token)));
     await RefreshTokenTable.destroy({ where: { uuid: token?.uuid } });
   };
@@ -245,7 +245,7 @@ export class AuthManager {
           ...originalUser,
           permissions: undefined,
           permissionWarning:
-            "Permissions omitted due to token size limit. See /api/auth-users/:id/permission for full list.",
+            "Permissions omitted due to token size limit. See /api/users/:id/permission for full list.",
         },
       };
     }

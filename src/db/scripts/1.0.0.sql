@@ -10,7 +10,7 @@ create table iam_scope
         foreign key (parent_uuid) references iam_scope(uuid)
 );
 
-create table iam_auth_user
+create table iam_user
 (
     uuid  char(36)     not null default uuid(),
     username varchar(100) not null,
@@ -19,7 +19,7 @@ create table iam_auth_user
     last_name varchar(50),
     provider varchar(50) default 'local',
     validated boolean DEFAULT false NOT NULL,
-    constraint auth_user_pk
+    constraint user_pk
         primary key (uuid)
 );
 
@@ -40,16 +40,16 @@ create table iam_user_group
 create table iam_user_group_member
 (
     uuid char(36)     not null default uuid(),
-    auth_user_uuid char(36) not null,
+    user_uuid char(36) not null,
     group_uuid char(36) not null,
     constraint user_group_member_user_uuid_fk
-        foreign key (auth_user_uuid) references iam_auth_user (uuid),
+        foreign key (user_uuid) references iam_user (uuid),
     constraint user_group_member_group_uuid_fk
         foreign key (group_uuid) references iam_user_group (uuid),
     constraint user_group_member_pk
         primary key (uuid),
     constraint unique_group_member
-        unique (auth_user_uuid, group_uuid)
+        unique (user_uuid, group_uuid)
 );
 
 create table iam_feature
@@ -98,13 +98,13 @@ create table iam_permission
         primary key (uuid)
 );
 
-CREATE TABLE iam_refreshToken (
+CREATE TABLE iam_refresh_token (
     uuid VARCHAR(36) PRIMARY KEY DEFAULT uuid() NOT NULL,
-    auth_user_uuid VARCHAR(36) NOT NULL,
+    user_uuid VARCHAR(36) NOT NULL,
     token TEXT NOT NULL,
     expires TIMESTAMP NOT NULL,
     createdAt TIMESTAMP NOT NULL DEFAULT current_timestamp(),
     updatedAt TIMESTAMP NOT NULL DEFAULT current_timestamp(),
 
-    CONSTRAINT fk_refreshToken_authUserUuid FOREIGN KEY (auth_user_uuid) REFERENCES iam_auth_user (uuid)
+    CONSTRAINT fk_refreshToken_authUserUuid FOREIGN KEY (user_uuid) REFERENCES iam_user (uuid)
 )

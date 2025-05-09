@@ -11,7 +11,7 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
 
     super({
       checkRouteMiddleware,
-      baseRouteCheck: [
+      baseRouteCheckAuth: [
         { verb: "get", path: '/', featureCode: "global-read-show-rights" },
         { verb: "get", path: '/:id', featureCode: "global-read-show-rights" },
         { verb: "post", path: '/', featureCode: "global-write-rights" },

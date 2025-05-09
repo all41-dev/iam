@@ -1,5 +1,5 @@
 import { AllowNull, BelongsTo, Column, DataType, Default, Model, PrimaryKey, Table } from "sequelize-typescript";
-import { AuthUserTable } from "./auth-user-table";
+import { UserTable } from "./user-table";
 import { UserGroupTable } from "./user-group-table";
 
 @Table({ tableName: "iam_user_group_member", timestamps: false })
@@ -12,14 +12,14 @@ export class UserGroupMemberTable extends Model {
 
   @AllowNull(false)
   @Column(DataType.UUID)
-  declare auth_user_uuid: string;
+  declare user_uuid: string;
 
   @AllowNull(false)
   @Column(DataType.UUID)
   declare group_uuid: string;
 
-  @BelongsTo(() => AuthUserTable, 'auth_user_uuid')
-  declare user: AuthUserTable;
+  @BelongsTo(() => UserTable, 'user_uuid')
+  declare user: UserTable;
 
   @BelongsTo(() => UserGroupTable, 'group_uuid')
   declare group: UserGroupTable;

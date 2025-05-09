@@ -1,4 +1,4 @@
-import { AuthUserTable } from "../db/auth-user-table";
+import { UserTable } from "../db/user-table";
 import { UserGroupMemberTable } from "../db/user-group-member-table";
 import { PermissionTable } from "../db/permission-table";
 import { FeatureTable } from "../db/feature-table";
@@ -41,9 +41,9 @@ export class AuthUtils {
     let lastName = profile.name?.familyName || displayName.split(' ')[1];
     if (!lastName) lastName = '';
 
-    return await AuthUserTable.findOne({ where: { email } }).then(async (user) => {
+    return await UserTable.findOne({ where: { email } }).then(async (user) => {
       if (!user) {
-        await AuthUserTable.create({
+        await UserTable.create({
           email,
           username: displayName,
           first_name: firstName,
@@ -71,7 +71,7 @@ export class AuthUtils {
 
   public async getUserPermissions(userUuid: string): Promise<any> {
     const groupMemberships = await UserGroupMemberTable.findAll({
-      where: { auth_user_uuid: userUuid },
+      where: { user_uuid: userUuid },
     });
     if (!groupMemberships.length) return {};
     const groupUUIDs = groupMemberships.map((group) => group.group_uuid);
@@ -161,15 +161,15 @@ export class AuthUtils {
     return { inherited: aggregatedPermissions.length > 0, permissions: aggregatedPermissions };
   }
 
-  public async checkEffectivePermissions(auth_user_uuid?: string, group_uuid?: string): Promise<{ [uuid: string]: { right: string; context: PermissionContext[] } }> {
+  public async checkEffectivePermissions(user_uuid?: string, group_uuid?: string): Promise<{ [uuid: string]: { right: string; context: PermissionContext[] } }> {
     let groupUUIDs: string[] = [];
-    if (!group_uuid && auth_user_uuid) {
-      const user = await AuthUserTable.findByPk(auth_user_uuid);
+    if (!group_uuid && user_uuid) {
+      const user = await UserTable.findByPk(user_uuid);
       if (!user) return {};
-      const groupMemberships = await UserGroupMemberTable.findAll({ where: { auth_user_uuid } });
+      const groupMemberships = await UserGroupMemberTable.findAll({ where: { user_uuid } });
       if (!groupMemberships.length) return {};
       groupUUIDs = groupMemberships.map(m => m.group_uuid);
-    } else if (group_uuid && !auth_user_uuid) {
+    } else if (group_uuid && !user_uuid) {
       const group = await UserGroupTable.findByPk(group_uuid);
       if (!group) return {};
       groupUUIDs = [group_uuid];
@@ -259,11 +259,11 @@ export class AuthUtils {
   }
 
   async checkAccess(userEmail: string, featureCode: string, elementUuid: string): Promise<"grant" | "deny"> {
-    const user = await AuthUserTable.findOne({ where: { email: userEmail } })
+    const user = await UserTable.findOne({ where: { email: userEmail } })
     if (!user) return "deny";
     const feature = await FeatureTable.findOne({ where: { code: featureCode } });
     if (!feature) return "deny";
-    const userGroupMemberships = await UserGroupMemberTable.findAll({ where: { auth_user_uuid: user.uuid } });
+    const userGroupMemberships = await UserGroupMemberTable.findAll({ where: { user_uuid: user.uuid } });
     if (!userGroupMemberships.length) return "deny";
     const groupUUIDs = userGroupMemberships.map((group) => group.group_uuid);
     const scope = await ScopeTable.findOne({ where: { uuid: feature.scope_uuid } });
@@ -376,9 +376,9 @@ export class AuthUtils {
   }
 
   async getSpecificElementDeny(userEmail: string, featureCode: string): Promise<string[]> {
-    const user = await AuthUserTable.findOne({ where: { email: userEmail } });
+    const user = await UserTable.findOne({ where: { email: userEmail } });
     if (!user) return [];
-    const groupMemberships = await UserGroupMemberTable.findAll({ where: { auth_user_uuid: user.uuid } });
+    const groupMemberships = await UserGroupMemberTable.findAll({ where: { user_uuid: user.uuid } });
     if (!groupMemberships.length) return [];
     const groupUUIDs = groupMemberships.map((group) => group.group_uuid);
     const feature = await FeatureTable.findOne({ where: { code: featureCode } });
@@ -402,13 +402,13 @@ export class AuthUtils {
   }
 
   async getPermissionsScopeElement(userEmail: string, scopeCode: string, scopeElementUuid: string): Promise<any[]> {
-    const user = await AuthUserTable.findOne({ where: { email: userEmail } });
+    const user = await UserTable.findOne({ where: { email: userEmail } });
     const scope = await ScopeTable.findOne({ where: { code: scopeCode } });
     if (!user || !scope) return [];
     const allScopeUuids = [scope.uuid, ...(await this.featureManager.getAllChildScopes(scope.uuid))];
     const features = await FeatureTable.findAll({ where: { scope_uuid: allScopeUuids } });
     const featureMap = new Map(features.map(f => [f.uuid, f]));
-    const groupMemberships = await UserGroupMemberTable.findAll({ where: { auth_user_uuid: user.uuid }, raw: true });
+    const groupMemberships = await UserGroupMemberTable.findAll({ where: { user_uuid: user.uuid }, raw: true });
     if (!groupMemberships.length) return [];
     const groupUUIDs = groupMemberships.map(g => g.group_uuid);
     const directPermissions = await PermissionTable.findAll({ where: { group_uuid: groupUUIDs }, raw: true });

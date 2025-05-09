@@ -1,19 +1,19 @@
 import { Router, Request, Response } from "express";
 import { ControllerRepositoryReadWrite } from "@all41-dev/server.types";
-import { RepositoryAuthUser } from "../../repositories/auth-user-repository";
+import { RepositoryUser } from "../../repositories/user-repository";
 import { checkRouteMiddleware } from "../../utils/check-route-middleware";
 import { AuthUtils } from "../../auth/auth-utils";
 
-export class ControllerAuthUser extends ControllerRepositoryReadWrite<RepositoryAuthUser> {
-  private repositoryAuthUser: RepositoryAuthUser;
+export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser> {
+  private repositoryUser: RepositoryUser;
   private authUtils = AuthUtils.getInstance();
 
   constructor() {
-    const repositoryAuthUser = new RepositoryAuthUser();
+    const repositoryUser = new RepositoryUser();
 
     super({
       checkRouteMiddleware,
-      baseRouteCheck: [
+      baseRouteCheckAuth: [
         { verb: "get", path: '/', featureCode: "global-read-show-rights" },
         { verb: "get", path: '/:id', featureCode: "global-read-show-rights" },
         { verb: "post", path: '/', featureCode: "global-write-rights" },
@@ -22,7 +22,7 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
       ],
     });
 
-    this.repositoryAuthUser = repositoryAuthUser;
+    this.repositoryUser = repositoryUser;
 
     this.defineRoutes(
       {
@@ -65,15 +65,15 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
   }
 
   public static create(): Router {
-    const controller = new ControllerAuthUser();
-    return controller.create(controller.repositoryAuthUser);
+    const controller = new ControllerUser();
+    return controller.create(controller.repositoryUser);
   }
 
   public async updateUserGroups(req: Request, res: Response) {
     const userUuid = req.params.userUuid;
     const groupUuids = req.body.groupUuids;
     try {
-      const response = await this.repositoryAuthUser.updateGroups(userUuid, groupUuids);
+      const response = await this.repositoryUser.updateGroups(userUuid, groupUuids);
       res.status(200).json(response ? response : {});
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
@@ -84,7 +84,7 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
     const userUuid = req.params.userUuid
     const userToCopyUuid = req.body.userToCopyUuid;
     try {
-      const response = await this.repositoryAuthUser.copyUserGroups(userUuid, userToCopyUuid);
+      const response = await this.repositoryUser.copyUserGroups(userUuid, userToCopyUuid);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
@@ -94,7 +94,7 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
   public async getUserEffectivePermissions(req: Request, res: Response) {
     const userUuid = req.params.userUuid;
     try {
-      const response = await this.repositoryAuthUser.getUserEffectivePermissions(userUuid);
+      const response = await this.repositoryUser.getUserEffectivePermissions(userUuid);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
@@ -106,7 +106,7 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
     const featureUuid = req.params.featureUuid;
     const elementUuid = req.params.elementUuid;
     try {
-      const response = await this.repositoryAuthUser.checkFeaturePermissions(userUuid, featureUuid, elementUuid);
+      const response = await this.repositoryUser.checkFeaturePermissions(userUuid, featureUuid, elementUuid);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
@@ -116,7 +116,7 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
   public async getPermissions(req: Request, res: Response) {
     const userUuid = req.params.userUuid;
     try {
-      const response = await this.repositoryAuthUser.getPermissions(userUuid);
+      const response = await this.repositoryUser.getPermissions(userUuid);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
@@ -126,7 +126,7 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
   public async getUserGroups(req: Request, res: Response) {
     const userUuid = req.params.userUuid;
     try {
-      const response = await this.repositoryAuthUser.getUserGroups(userUuid);
+      const response = await this.repositoryUser.getUserGroups(userUuid);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
@@ -138,7 +138,7 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
     const hasGlobalAccess = await this.authUtils.checkAccess((req.user as any).user.email, "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant"
     if ((req.user as any).user.email !== userEmail && !hasGlobalAccess) res.status(403).send("Forbidden")
     try {
-      const response = await this.repositoryAuthUser.getUserInfo(userEmail);
+      const response = await this.repositoryUser.getUserInfo(userEmail);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
@@ -149,7 +149,7 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
     const hasGlobalAccess = await this.authUtils.checkAccess((req.user as any).user.email, "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant"
     if ((req.user as any).user.email !== userEmail && !hasGlobalAccess) res.status(403).send("Forbidden")
     try {
-      const response = await this.repositoryAuthUser.getUserPermissionInfo(userEmail);
+      const response = await this.repositoryUser.getUserPermissionInfo(userEmail);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
@@ -163,7 +163,7 @@ export class ControllerAuthUser extends ControllerRepositoryReadWrite<Repository
     const elementUuid = req.params.elementUuid;
     const scopeCode = req.params.scopeCode;
     try {
-      const response = await this.repositoryAuthUser.getElementPermission(userEmail, scopeCode, elementUuid);
+      const response = await this.repositoryUser.getElementPermission(userEmail, scopeCode, elementUuid);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });

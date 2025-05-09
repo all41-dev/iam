@@ -9,7 +9,7 @@ import {
   ForeignKey,
   BelongsTo,
 } from "sequelize-typescript";
-import { AuthUserTable } from "./auth-user-table";
+import { UserTable } from "./user-table";
 
 @Table({ tableName: "iam_refresh_token", timestamps: true, })
 export class RefreshTokenTable extends Model {
@@ -20,11 +20,11 @@ export class RefreshTokenTable extends Model {
 
   @AllowNull(false)
   @Column(DataType.STRING)
-  @ForeignKey(() => AuthUserTable)
-  declare auth_user_uuid: string;
+  @ForeignKey(() => UserTable)
+  declare user_uuid: string;
 
-  @BelongsTo(() => AuthUserTable)
-  declare user: AuthUserTable;
+  @BelongsTo(() => UserTable)
+  declare user: UserTable;
 
   @Column(DataType.STRING)
   declare token: string;

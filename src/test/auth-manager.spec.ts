@@ -3,7 +3,7 @@ import sinon from 'sinon';
 import passport from 'passport';
 import { AuthManager } from '../auth/auth-manager';
 import bcrypt from 'bcrypt';
-import { AuthUserTable } from '../db/auth-user-table';
+import { UserTable } from '../db/user-table';
 import { RefreshTokenTable } from '../db/refresh-token-table';
 import { IAuthOptions } from '../interfaces';
 import jwt from 'jsonwebtoken';
@@ -317,7 +317,7 @@ YQIDAQAB
 
     beforeEach(() => {
       instance = AuthManager.getInstance(authOptions);
-      findByPkStub = sinon.stub(AuthUserTable, 'findByPk');
+      findByPkStub = sinon.stub(UserTable, 'findByPk');
       createStub = sinon.stub(RefreshTokenTable, 'create');
       hashStub = sinon.stub(bcrypt, 'hash');
       sinon.stub(jwt, 'sign').callsFake((payload) => {
@@ -354,7 +354,7 @@ YQIDAQAB
       expect(hashStub.calledOnce).to.be.true;
       expect(createStub.calledOnce).to.be.true;
       expect(createStub.firstCall.args[0]).to.include({
-        auth_user_uuid: 'user-uuid',
+        user_uuid: 'user-uuid',
         token: 'hashed-token'
       });
       expect(createStub.firstCall.args[0].expires).to.be.instanceOf(Date);
@@ -372,7 +372,7 @@ YQIDAQAB
     beforeEach(() => {
       instance = AuthManager.getInstance(authOptions);
 
-      findByPkStub = sinon.stub(AuthUserTable, 'findByPk');
+      findByPkStub = sinon.stub(UserTable, 'findByPk');
       findAllStub = sinon.stub(RefreshTokenTable, 'findAll');
       compareSyncStub = sinon.stub(bcrypt, 'compareSync');
       verifyStub = sinon.stub(jwt, 'verify');
@@ -395,7 +395,7 @@ YQIDAQAB
     });
 
     it('should return null if user is not found', async () => {
-      const mockToken = { auth_user_uuid: 'user-uuid', token: 'hashed-token' };
+      const mockToken = { user_uuid: 'user-uuid', token: 'hashed-token' };
       verifyStub.returns({ id: 'user-uuid' });
       findAllStub.resolves([mockToken]);
       compareSyncStub.returns(true);
@@ -407,7 +407,7 @@ YQIDAQAB
 
     it('should generate a new access token if refresh token is valid', async () => {
       const mockUser = { "dataValues": { uuid: 'user-uuid' } };
-      const mockToken = { auth_user_uuid: 'user-uuid', token: 'hashed-token' };
+      const mockToken = { user_uuid: 'user-uuid', token: 'hashed-token' };
       const mockPermissions = { 'feature.view': 'grant' };
 
       verifyStub.returns({ id: 'user-uuid' });
@@ -450,7 +450,7 @@ YQIDAQAB
     });
 
     it('should destroy the refresh token if it is valid', async () => {
-      const mockToken = { uuid: 'token-uuid', auth_user_uuid: 'user-uuid', token: 'hashed-token' };
+      const mockToken = { uuid: 'token-uuid', user_uuid: 'user-uuid', token: 'hashed-token' };
       verifyStub.returns({ id: 'user-uuid' });
       findAllStub.resolves([mockToken]);
       compareSyncStub.returns(true);

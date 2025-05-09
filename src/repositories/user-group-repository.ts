@@ -1,7 +1,7 @@
 import { RepositorySequelize } from "@all41-dev/server.types";
 import { UserGroupTable } from "../db/user-group-table";
 import { UserGroupMemberTable } from "../db/user-group-member-table";
-import { AuthUserTable } from "../db/auth-user-table";
+import { UserTable } from "../db/user-table";
 import { v4 as uuidv4 } from 'uuid';
 import { PermissionTable } from "../db/permission-table";
 import { FeatureTable } from "../db/feature-table";
@@ -25,7 +25,7 @@ export class RepositoryUserGroup extends RepositorySequelize<UserGroupTable> {
     if (!group) {
       throw new Error(`Group with id ${groupUuid} not found`);
     }
-    const users = await AuthUserTable.findAll({
+    const users = await UserTable.findAll({
       where: { uuid: userUuids },
     });
     if (users.length !== userUuids.length) {
@@ -33,7 +33,7 @@ export class RepositoryUserGroup extends RepositorySequelize<UserGroupTable> {
     }
     const userGroupMembers = users.map(user => ({
       uuid: uuidv4(),
-      auth_user_uuid: user.uuid,
+      user_uuid: user.uuid,
       group_uuid: group.uuid,
     }));
     await UserGroupMemberTable.bulkCreate(userGroupMembers);
@@ -45,7 +45,7 @@ export class RepositoryUserGroup extends RepositorySequelize<UserGroupTable> {
     if (!group) {
       throw new Error(`Group with id ${groupUuid} not found`);
     }
-    const users = await AuthUserTable.findAll({
+    const users = await UserTable.findAll({
       where: { uuid: userUuids },
     });
     if (users.length !== userUuids.length) {
@@ -54,13 +54,13 @@ export class RepositoryUserGroup extends RepositorySequelize<UserGroupTable> {
     const userUuidsToRemove = users.map(user => user.uuid);
     await UserGroupMemberTable.destroy({
       where: {
-        auth_user_uuid: userUuidsToRemove,
+        user_uuid: userUuidsToRemove,
         group_uuid: group.uuid,
       },
     });
   }
 
-  public async getUsers(groupUuid: string): Promise<AuthUserTable[]> {
+  public async getUsers(groupUuid: string): Promise<UserTable[]> {
     const group = await this.getByKey(groupUuid);
     if (!group) {
       throw new Error(`Group with id ${groupUuid} not found`);
@@ -68,8 +68,8 @@ export class RepositoryUserGroup extends RepositorySequelize<UserGroupTable> {
     const userGroupMembers = await UserGroupMemberTable.findAll({
       where: { group_uuid: group.uuid },
     });
-    const userUuids = userGroupMembers.map(member => member.auth_user_uuid);
-    const users = await AuthUserTable.findAll({
+    const userUuids = userGroupMembers.map(member => member.user_uuid);
+    const users = await UserTable.findAll({
       where: { uuid: userUuids },
     });
     return users;

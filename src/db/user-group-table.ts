@@ -1,7 +1,7 @@
 import { AllowNull, BelongsTo, BelongsToMany, Column, DataType, Default, HasMany, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { ScopeTable } from "./scope-table";
 import { PermissionTable } from "./permission-table";
-import { AuthUserTable } from "./auth-user-table";
+import { UserTable } from "./user-table";
 import { UserGroupMemberTable } from "./user-group-member-table";
 
 @Table({ tableName: "iam_user_group" })
@@ -30,8 +30,8 @@ export class UserGroupTable extends Model {
   @HasMany(() => PermissionTable, 'group_uuid')
   declare permissions: PermissionTable[];
 
-  @BelongsToMany(() => AuthUserTable, () => UserGroupMemberTable, 'group_uuid', 'auth_user_uuid')
-  declare users: AuthUserTable[];
+  @BelongsToMany(() => UserTable, () => UserGroupMemberTable, 'group_uuid', 'user_uuid')
+  declare users: UserTable[];
 
   public get pkName() { return 'uuid' as keyof UserGroupTable; }
 }

@@ -8,11 +8,15 @@ import { IAMUser } from '../../interfaces';
 export class AuthController {
 
   private _authManager: AuthManager;
-  private _authUtils: AuthUtils
+  private _authUtils: AuthUtils | undefined;
 
   constructor() {
     this._authManager = AuthManager.getInstance();
-    this._authUtils = AuthUtils.getInstance();
+    try {
+      this._authUtils = AuthUtils.getInstance();
+    } catch {
+      this._authUtils = undefined
+    }
   }
 
   public create(strategies: string[], router?: Router): Router {
@@ -74,7 +78,7 @@ export class AuthController {
     });
 
     r.get(`/impersonate/:email`, this._authManager.authMiddleware, async (req, res, next) => {
-      if (!req.user) return res.status(401).json({ message: 'Not Authorized' });
+      if (!req.user || !this._authUtils) return res.status(401).json({ message: 'Not Authorized' });
       if (await this._authUtils.checkAccess((req.user as IAMUser).email, "global-write-rights", process.env.GLOBAL_UUID || '') === "deny")
         return res.status(403).json({ message: 'Forbidden' });
       const impersonateUser = req.params.email;
@@ -90,7 +94,7 @@ export class AuthController {
     }, this._authManager.generateJWT(this._authManager.options.redirectAfterLogin));
 
     r.get(`/depersonate`, this._authManager.authMiddleware, async (req, res, next) => {
-      if (!req.user) return res.status(401).json({ message: 'Not Authorized' });
+      if (!req.user || !this._authUtils) return res.status(401).json({ message: 'Not Authorized' });
       const permissions = await this._authUtils.getUserPermissions((req.user as IAMUser).uuid)
       const user = {
         ...req.user,

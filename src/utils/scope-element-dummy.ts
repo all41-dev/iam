@@ -3,7 +3,7 @@ const mockData: { [key: string]: { [uuid: string]: string[] } } = {
     "2533b4d3-39d6-49bc-8f3a-207ba30b341a": ["2533b4d3-39d6-49bc-8f3a-207ba30b341a", "00000000-0000-0000-0000-000000000000"],
     "e687c796-8958-49fd-9db2-fba0eb130e2c": ["e687c796-8958-49fd-9db2-fba0eb130e2c", "00000000-0000-0000-0000-000000000000"],
   },
-  "client-3iam": {
+  "customer-3iam": {
     "3d420db4-9d2c-4f06-898e-9c650457caf1": ["3d420db4-9d2c-4f06-898e-9c650457caf1", "2533b4d3-39d6-49bc-8f3a-207ba30b341a", "00000000-0000-0000-0000-000000000000"],
     "9e486e79-a184-49b1-bbe6-deb658b8d4eb": ["9e486e79-a184-49b1-bbe6-deb658b8d4eb", "2533b4d3-39d6-49bc-8f3a-207ba30b341a", "00000000-0000-0000-0000-000000000000"],
     "e5ba4640-4686-4ba4-b75c-a818f533abec": ["e5ba4640-4686-4ba4-b75c-a818f533abec", "2533b4d3-39d6-49bc-8f3a-207ba30b341a", "00000000-0000-0000-0000-000000000000"],
@@ -43,7 +43,7 @@ export const dummyHierarchy = {
     {
       uuid: "2533b4d3-39d6-49bc-8f3a-207ba30b341a",
       name: "Harps",
-      client: [
+      customer: [
         {
           uuid: "3d420db4-9d2c-4f06-898e-9c650457caf1",
           name: "Gravières d'Epeisses SA",
@@ -70,7 +70,7 @@ export const dummyHierarchy = {
     {
       uuid: "e687c796-8958-49fd-9db2-fba0eb130e2c",
       name: "Arc Logiciels",
-      client: [
+      customer: [
         {
           uuid: "5d256ad1-9120-4ba7-98cb-49471add0997",
           name: "Phida Management SA",
@@ -97,7 +97,7 @@ export const dummyHierarchy = {
     {
       uuid: "287d0a58-fd98-4e7f-add1-504526a49cdc",
       name: "New partner",
-      client: [
+      customer: [
         {
           uuid: "0e6fcd15-a623-48d9-a276-2650cc353d68",
           name: "qwe",
@@ -120,17 +120,17 @@ export async function scopeElementHierarchy(code?: string, uuid?: string) {
       return [dummyHierarchy.partner.find(p => p.uuid === uuid)];
     }
     return dummyHierarchy.partner;
-  } else if (code.startsWith("client")) {
+  } else if (code.startsWith("customer")) {
     if (uuid) {
       for (const partner of dummyHierarchy.partner) {
-        const client = partner.client.find(c => c.uuid === uuid);
-        if (client) {
-          return [client];
+        const customer = partner.customer.find(c => c.uuid === uuid);
+        if (customer) {
+          return [customer];
         }
       }
       return [];
     } else {
-      return dummyHierarchy.partner.flatMap(partner => partner.client);
+      return dummyHierarchy.partner.flatMap(partner => partner.customer);
     }
   }
 

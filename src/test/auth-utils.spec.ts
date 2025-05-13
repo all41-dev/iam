@@ -49,6 +49,22 @@ describe('Auth Utils', () => {
       sandbox.restore();
     });
 
+    it('should throw an error if neither userUuid nor userEmail is provided', async () => {
+      try {
+        await authUtils.getUserPermissions(undefined, undefined);
+        throw new Error('Test failed: error was not thrown');
+      } catch (err: any) {
+        expect(err.message).to.equal("Must provide either userUuid or userEmail");
+      }
+    });
+
+    it('should return an empty object if no user found', async () => {
+      sandbox.stub(UserTable, 'findOne').resolves(null);
+
+      const result = await authUtils.getUserPermissions(undefined, 'user-email');
+      expect(result).to.deep.equal({});
+    });
+
     it('should return an empty object if no group memberships found', async () => {
       sandbox.stub(UserGroupMemberTable, 'findAll').resolves([]);
 
@@ -118,6 +134,42 @@ describe('Auth Utils', () => {
       sandbox.stub(authUtils, "getAllUniqueElement").resolves(["scope-2"]);
 
       const result = await authUtils.getUserPermissions('user-uuid');
+      expect(result).to.deep.equal([
+        { f: 'feature-1', e: 'scope-1', d: false, c: "top" },
+        { f: 'feature-2', e: 'scope-2', d: true, c: "uniq" }
+      ]);
+    });
+    it('should use email and return compact permissions if permissions exist', async () => {
+      sandbox.stub(UserTable, 'findOne')
+        .withArgs({ where: { email: "user-email" } })
+        .resolves({ uuid: 'user-uuid' } as UserTable);
+
+      sandbox.stub(UserGroupMemberTable, 'findAll')
+        .withArgs({ where: { user_uuid: 'user-uuid' } })
+        .resolves([
+          { group_uuid: 'group-1' },
+          { group_uuid: 'group-2' }
+        ] as UserGroupMemberTable[]);
+
+      sandbox.stub(PermissionTable, 'findAll')
+        .withArgs({ where: { group_uuid: ['group-1', 'group-2'] } })
+        .resolves([
+          {
+            feature_uuid: 'feature-1',
+            scope_element_uuid: 'scope-1',
+            is_deny: false
+          },
+          {
+            feature_uuid: 'feature-2',
+            scope_element_uuid: 'scope-2',
+            is_deny: true
+          }
+        ] as PermissionTable[]);
+
+      sandbox.stub(featureManager, "getHighestFeatures").resolves(["feature-1"]);
+      sandbox.stub(authUtils, "getAllUniqueElement").resolves(["scope-2"]);
+
+      const result = await authUtils.getUserPermissions(undefined, 'user-email');
       expect(result).to.deep.equal([
         { f: 'feature-1', e: 'scope-1', d: false, c: "top" },
         { f: 'feature-2', e: 'scope-2', d: true, c: "uniq" }
@@ -682,11 +734,17 @@ describe('Auth Utils', () => {
       sandbox.restore();
     });
 
-    it("should return an empty object if the user does not belong to any group", async () => {
+    it("should return an empty object if the user does not exist", async () => {
       sandbox.stub(UserTable, "findByPk").resolves(null);
+
+      const result = await authUtils.checkEffectivePermissions("userUuid");
+      expect(result).to.deep.equal({});
+    });
+    it("should return an empty object if the user does not belong to any group", async () => {
+      sandbox.stub(UserTable, "findByPk").resolves({ uuid: "userUuid" } as UserTable);
       sandbox.stub(UserGroupMemberTable, "findAll").resolves([]);
 
-      const result = await authUtils.checkEffectivePermissions("userUuid", "");
+      const result = await authUtils.checkEffectivePermissions("userUuid");
       expect(result).to.deep.equal({});
     });
     it("should return an empty object if the group does not exist", async () => {
@@ -698,6 +756,31 @@ describe('Auth Utils', () => {
     it("should return an empty object if both user and group are provided", async () => {
       const result = await authUtils.checkEffectivePermissions("userUuid", "groupUuid");
       expect(result).to.deep.equal({});
+    });
+    it("should return permissions for a user with granted permissions", async () => {
+      sandbox.stub(UserTable, "findByPk").resolves({ uuid: "userUuid" } as UserTable);
+      sandbox.stub(UserGroupMemberTable, "findAll")
+        .resolves([{ group_uuid: "groupUuid", user_uuid: "userUuid" }] as UserGroupMemberTable[]);
+      sandbox.stub(featureManager, "getGroupsScopeList").resolves(["scopeUuid"]);
+      sandbox.stub(FeatureTable, "findAll").resolves([{ uuid: "featureUuid", code: "featureCode", scope_uuid: "scopeUuid" }] as FeatureTable[]);
+      sandbox.stub(PermissionTable, "findAll").resolves([{ scope_element_uuid: "elementUuid", is_deny: false }] as PermissionTable[]);
+      sandbox.stub(authUtils, "checkAncestorEffectivePermissions").resolves({ inherited: false, permissions: [] });
+      sandbox.stub(ScopeTable, "findByPk").resolves({ name: "scopeName" } as ScopeTable);
+
+      const result = await authUtils.checkEffectivePermissions("userUuid");
+      expect(result).to.deep.equal({
+        featureCode: {
+          right: "grant",
+          context: [
+            {
+              uuid: "elementUuid",
+              scope: "scopeName",
+              status: "granted",
+              type: "direct",
+            },
+          ],
+        },
+      });
     });
     it("should return permissions for a group with granted permissions", async () => {
       sandbox.stub(UserGroupTable, "findByPk").resolves({ uuid: "groupUuid" } as UserGroupTable);
@@ -1209,6 +1292,24 @@ describe('Auth Utils', () => {
 
       const result = await authUtils.getAllUniqueElement(permissions);
       expect(result).to.deep.equal(['elementUuid2']);
+    });
+
+    it('should include elements that appears more than once', async () => {
+      const permissions = [
+        { scope_element_uuid: 'elementUuid1', feature_uuid: 'featureUuid1', is_deny: false },
+        { scope_element_uuid: 'elementUuid1', feature_uuid: 'featureUuid2', is_deny: false },
+      ] as PermissionTable[];
+
+      sandbox.stub(FeatureTable, 'findByPk').withArgs('featureUuid1').resolves({ scope_uuid: 'scope1' } as FeatureTable)
+        .withArgs('featureUuid2').resolves({ scope_uuid: 'scope2' } as FeatureTable);
+
+      sandbox.stub(ScopeTable, 'findByPk').withArgs('scope1').resolves({ uuid: 'scope1', code: 'scopeCode1' } as ScopeTable)
+        .withArgs('scope2').resolves({ uuid: 'scope2', code: 'scopeCode2' } as ScopeTable);
+
+      (authUtils.options.scopeElementAncestor as sinon.SinonStub).withArgs('elementUuid1').resolves(['elementUuid1'])
+
+      const result = await authUtils.getAllUniqueElement(permissions);
+      expect(result).to.deep.equal(['elementUuid1']);
     });
   });
   describe('getPermissionsScopeElement', () => {

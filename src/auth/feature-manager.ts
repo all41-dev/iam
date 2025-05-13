@@ -165,34 +165,27 @@ export class FeatureManager {
   public async getHighestFeatures(featureUuids: string[]): Promise<string[]> {
     const highestFeatures: string[] = [];
     const parentMap = new Map<string, string[]>();
-    const loadParents = async (uuid: string): Promise<string[]> => {
-      if (parentMap.has(uuid)) return parentMap.get(uuid)!;
-      const parents = await FeatureCompositionTable.findAll({
-        where: { child_uuid: uuid },
-      });
-      const parentUuids = parents.map(p => p.parent_uuid);
-      parentMap.set(uuid, parentUuids);
-      return parentUuids;
-    };
-    const hasAncestorInList = async (
-      featureUuid: string,
-      allUuids: Set<string>,
-      visited: Set<string>
-    ): Promise<boolean> => {
+    const hasAncestorInList = async (featureUuid: string, allUuids: Set<string>, visited: Set<string>): Promise<boolean> => {
       if (visited.has(featureUuid)) return false;
       visited.add(featureUuid);
-      const parents = await loadParents(featureUuid);
+      let parents;
+      if (parentMap.has(featureUuid)) parents = parentMap.get(featureUuid)!;
+      parents = await FeatureCompositionTable.findAll({
+        where: { child_uuid: featureUuid },
+      });
+      const parentUuids = parents.map(p => p.parent_uuid);
+      parentMap.set(featureUuid, parentUuids);
+      parents = parentUuids;
       for (const parentUuid of parents) {
         if (allUuids.has(parentUuid)) return true;
         if (await hasAncestorInList(parentUuid, allUuids, visited)) return true;
       }
-
       return false;
     };
-    const uuidSet = new Set(featureUuids);
+    const uniqueFeatureUuid = new Set(featureUuids);
     for (const featureUuid of featureUuids) {
       const visited = new Set<string>();
-      const isHighest = !(await hasAncestorInList(featureUuid, uuidSet, visited));
+      const isHighest = !(await hasAncestorInList(featureUuid, uniqueFeatureUuid, visited));
       if (isHighest) highestFeatures.push(featureUuid);
     }
     return highestFeatures;

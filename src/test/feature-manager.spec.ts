@@ -170,14 +170,93 @@ describe("FeatureManager", () => {
         .withArgs("scope-3").resolves(scope3);
 
       const visited = new Set<string>();
-      const validScopes = new Set<string>(["scope-1", "scope-2", "scope-3"]);
+
+      const result = await featureManager.buildFeatureMatrix(featureUuid, visited);
+
+      expect(result).to.deep.equal({
+        uuid: "feature-1",
+        name: "Feature 1",
+        scope_code: "S1",
+        code: "F1",
+        parents: [],
+        children: [
+          {
+            uuid: "feature-2",
+            name: "Feature 2",
+            scope_code: "S2",
+            code: "F2",
+            parents: [
+              {
+                uuid: "feature-1",
+                code: "F1",
+                cyclic: true,
+              }
+            ],
+            children: [
+              {
+                uuid: "feature-3",
+                name: "Feature 3",
+                scope_code: "S3",
+                code: "F3",
+                parents: [
+                  {
+                    uuid: "feature-2",
+                    code: "F2",
+                    cyclic: true,
+                  }
+                ],
+                children: []
+              }
+            ]
+          }
+        ]
+      });
+    });
+    it("should build the feature matrix structure by filtering valid Scopes", async () => {
+      const featureUuid = "feature-1";
+
+      const feature1 = { uuid: "feature-1", name: "Feature 1", code: "F1", scope_uuid: "scope-2" } as FeatureTable;
+      const feature2 = { uuid: "feature-2", name: "Feature 2", code: "F2", scope_uuid: "scope-2" } as FeatureTable;
+      const feature3 = { uuid: "feature-3", name: "Feature 3", code: "F3", scope_uuid: "scope-3" } as FeatureTable;
+      const feature4 = { uuid: "feature-3", name: "Feature 3", code: "F4", scope_uuid: "scope-1" } as FeatureTable;
+
+      const ancestorFeatureRelation = { parent_uuid: "feature-4", child_uuid: "feature-1" } as FeatureCompositionTable;
+      const parentFeatureRelation = { parent_uuid: "feature-1", child_uuid: "feature-2" } as FeatureCompositionTable;
+      const childFeatureRelation = { parent_uuid: "feature-2", child_uuid: "feature-3" } as FeatureCompositionTable;
+
+      const scope1 = { uuid: "scope-1", code: "S1" } as ScopeTable;
+      const scope2 = { uuid: "scope-2", code: "S2" } as ScopeTable;
+      const scope3 = { uuid: "scope-3", code: "S3" } as ScopeTable;
+
+      sandbox.stub(FeatureTable, "findByPk")
+        .withArgs("feature-1").resolves(feature1)
+        .withArgs("feature-2").resolves(feature2)
+        .withArgs("feature-3").resolves(feature3)
+        .withArgs("feature-4").resolves(feature4);
+
+      sandbox.stub(FeatureCompositionTable, "findAll")
+        .withArgs({ where: { child_uuid: "feature-1" } }).resolves([ancestorFeatureRelation])
+        .withArgs({ where: { parent_uuid: "feature-1" } }).resolves([parentFeatureRelation])
+        .withArgs({ where: { child_uuid: "feature-2" } }).resolves([parentFeatureRelation])
+        .withArgs({ where: { parent_uuid: "feature-2" } }).resolves([childFeatureRelation])
+        .withArgs({ where: { child_uuid: "feature-3" } }).resolves([childFeatureRelation])
+        .withArgs({ where: { parent_uuid: "feature-3" } }).resolves([])
+        .withArgs({ where: { parent_uuid: "feature-4" } }).resolves([ancestorFeatureRelation]);
+
+      sandbox.stub(ScopeTable, "findByPk")
+        .withArgs("scope-1").resolves(scope1)
+        .withArgs("scope-2").resolves(scope2)
+        .withArgs("scope-3").resolves(scope3);
+
+      const visited = new Set<string>();
+      const validScopes = new Set<string>(["scope-2", "scope-3"]);
 
       const result = await featureManager.buildFeatureMatrix(featureUuid, visited, validScopes);
 
       expect(result).to.deep.equal({
         uuid: "feature-1",
         name: "Feature 1",
-        scope_code: "S1",
+        scope_code: "S2",
         code: "F1",
         parents: [],
         children: [
@@ -479,6 +558,16 @@ describe("FeatureManager", () => {
 
       const result = await featureManager.getHighestFeatures(['feature1', 'feature2', 'feature3', 'feature4']);
       expect(result).to.deep.equal(['feature1', 'feature2', 'feature4']);
+    });
+    it('should correctly handle recursive ancestor checks', async () => {
+      findAllStub.withArgs({ where: { child_uuid: 'feature1' } }).resolves([{ parent_uuid: 'feature2' }]);
+      findAllStub.withArgs({ where: { child_uuid: 'feature2' } }).resolves([{ parent_uuid: 'feature3' }]);
+      findAllStub.withArgs({ where: { child_uuid: 'feature3' } }).resolves([{ parent_uuid: 'feature4' }]);
+      findAllStub.withArgs({ where: { child_uuid: 'feature4' } }).resolves([]);
+
+      const result = await featureManager.getHighestFeatures(['feature1', 'feature4']);
+
+      expect(result).to.deep.equal(['feature4']);
     });
   });
 });

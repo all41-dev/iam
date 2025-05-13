@@ -128,7 +128,7 @@ export class AuthUtils {
       );
       const otherPermissions = permissions.filter(p => p !== permission);
       const isUnique = !otherPermissions.some(p =>
-        hierarchyUUIDs.includes(p.scope_element_uuid)
+        hierarchyUUIDs.includes(p.scope_element_uuid) && p.scope_element_uuid !== permission.scope_element_uuid
       );
 
       if (isUnique) uniqueElements.add(permission.scope_element_uuid);

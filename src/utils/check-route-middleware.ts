@@ -1,5 +1,6 @@
 import { AuthUtils } from "../auth/auth-utils";
 import { Request, Response, NextFunction } from "express";
+import { IAMUser } from "../interfaces";
 
 export function checkRouteMiddleware(
   featureCode: string,
@@ -10,7 +11,7 @@ export function checkRouteMiddleware(
     if (
       (!req.user ||
         !elementUuid ||
-        await authUtils.checkAccess((req.user as any).user.email, featureCode, elementUuid) === "deny")
+        await authUtils.checkAccess((req.user as IAMUser).email, featureCode, elementUuid) === "deny")
       && !(process.env.DISABLE_AUTH === 'true')
     ) {
       res.status(403).send("Forbidden");

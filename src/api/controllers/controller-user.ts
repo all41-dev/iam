@@ -3,6 +3,7 @@ import { ControllerRepositoryReadWrite } from "@all41-dev/server.types";
 import { RepositoryUser } from "../../repositories/user-repository";
 import { checkRouteMiddleware } from "../../utils/check-route-middleware";
 import { AuthUtils } from "../../auth/auth-utils";
+import { IAMUser } from "../../interfaces";
 
 export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser> {
   private repositoryUser: RepositoryUser;
@@ -135,8 +136,8 @@ export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser
 
   public async getUserInfo(req: Request, res: Response) {
     const userEmail = req.params.userEmail;
-    const hasGlobalAccess = await this.authUtils.checkAccess((req.user as any).user.email, "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant"
-    if ((req.user as any).user.email !== userEmail && !hasGlobalAccess) res.status(403).send("Forbidden")
+    const hasGlobalAccess = await this.authUtils.checkAccess((req.user as IAMUser).email, "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant"
+    if ((req.user as IAMUser).email !== userEmail && !hasGlobalAccess) res.status(403).send("Forbidden")
     try {
       const response = await this.repositoryUser.getUserInfo(userEmail);
       res.status(200).json(response);
@@ -146,8 +147,8 @@ export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser
   }
   public async getUserPermissionInfo(req: Request, res: Response) {
     const userEmail = req.params.userEmail;
-    const hasGlobalAccess = await this.authUtils.checkAccess((req.user as any).user.email, "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant"
-    if ((req.user as any).user.email !== userEmail && !hasGlobalAccess) res.status(403).send("Forbidden")
+    const hasGlobalAccess = await this.authUtils.checkAccess((req.user as IAMUser).email, "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant"
+    if ((req.user as IAMUser).email !== userEmail && !hasGlobalAccess) res.status(403).send("Forbidden")
     try {
       const response = await this.repositoryUser.getUserPermissionInfo(userEmail);
       res.status(200).json(response);
@@ -158,8 +159,8 @@ export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser
 
   public async getElementPermission(req: Request, res: Response) {
     const userEmail = req.params.userEmail;
-    const hasGlobalAccess = await this.authUtils.checkAccess((req.user as any).user.email, "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant"
-    if ((req.user as any).user.email !== userEmail && !hasGlobalAccess) res.status(403).send("Forbidden")
+    const hasGlobalAccess = await this.authUtils.checkAccess((req.user as IAMUser).email, "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant"
+    if ((req.user as IAMUser).email !== userEmail && !hasGlobalAccess) res.status(403).send("Forbidden")
     const elementUuid = req.params.elementUuid;
     const scopeCode = req.params.scopeCode;
     try {

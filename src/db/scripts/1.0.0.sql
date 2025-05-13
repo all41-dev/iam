@@ -106,5 +106,5 @@ CREATE TABLE iam_refresh_token (
     createdAt TIMESTAMP NOT NULL DEFAULT current_timestamp(),
     updatedAt TIMESTAMP NOT NULL DEFAULT current_timestamp(),
 
-    CONSTRAINT fk_refreshToken_authUserUuid FOREIGN KEY (user_uuid) REFERENCES iam_user (uuid)
+    CONSTRAINT fk_refreshToken_userUuid FOREIGN KEY (user_uuid) REFERENCES iam_user (uuid)
 )

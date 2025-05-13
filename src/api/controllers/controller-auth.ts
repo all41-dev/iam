@@ -2,13 +2,17 @@ import { Router } from 'express';
 import passport from 'passport';
 import { AuthManager } from '../../auth/auth-manager';
 import querystring from 'querystring';
+import { AuthUtils } from '../../auth/auth-utils';
+import { IAMUser } from '../../interfaces';
 
 export class AuthController {
 
   private _authManager: AuthManager;
+  private _authUtils: AuthUtils
 
   constructor() {
     this._authManager = AuthManager.getInstance();
+    this._authUtils = AuthUtils.getInstance();
   }
 
   public create(strategies: string[], router?: Router): Router {
@@ -58,15 +62,45 @@ export class AuthController {
       }
     }, (req, res) => {
       res.json({
-        username: (req.user as any).user.username,
-        email: (req.user as any).user.email,
-        firstName: (req.user as any).user.first_name,
-        lastName: (req.user as any).user.last_name,
-        permissions: (req.user as any).user.permissions
-          ? JSON.parse(Buffer.from((req.user as any).user.permissions, 'base64').toString('utf8'))
-          : (req.user as any).user.permissionWarning,
+        username: (req.user as IAMUser).username,
+        email: (req.user as IAMUser).email,
+        firstName: (req.user as IAMUser).first_name,
+        lastName: (req.user as IAMUser).last_name,
+        impersonateUser: (req.user as IAMUser).impersonateUser,
+        permissions: (req.user as IAMUser).permissions
+          ? JSON.parse(Buffer.from((req.user as IAMUser).permissions, 'base64').toString('utf8'))
+          : (req.user as IAMUser).permissionWarning,
       });
     });
+
+    r.get(`/impersonate/:email`, this._authManager.authMiddleware, async (req, res, next) => {
+      if (!req.user) return res.status(401).json({ message: 'Not Authorized' });
+      if (await this._authUtils.checkAccess((req.user as IAMUser).email, "global-write-rights", process.env.GLOBAL_UUID || '') === "deny")
+        return res.status(403).json({ message: 'Forbidden' });
+      const impersonateUser = req.params.email;
+      const permissions = await this._authUtils.getUserPermissions(undefined, impersonateUser);
+      const user = {
+        ...req.user,
+        impersonateUser: impersonateUser,
+        permissions: permissions && Object.keys(permissions).length > 0 ? Buffer.from(JSON.stringify(permissions)).toString('base64') : undefined,
+        permissionWarning: permissions && Object.keys(permissions).length > 0 ? undefined : 'no permissions',
+      }
+      req.user = user;
+      next();
+    }, this._authManager.generateJWT(this._authManager.options.redirectAfterLogin));
+
+    r.get(`/depersonate`, this._authManager.authMiddleware, async (req, res, next) => {
+      if (!req.user) return res.status(401).json({ message: 'Not Authorized' });
+      const permissions = await this._authUtils.getUserPermissions((req.user as IAMUser).uuid)
+      const user = {
+        ...req.user,
+        impersonateUser: undefined,
+        permissions: permissions && Object.keys(permissions).length > 0 ? Buffer.from(JSON.stringify(permissions)).toString('base64') : undefined,
+        permissionWarning: permissions && Object.keys(permissions).length > 0 ? undefined : 'no permissions',
+      }
+      req.user = user;
+      next();
+    }, this._authManager.generateJWT(this._authManager.options.redirectAfterLogin));
 
     return r;
   }

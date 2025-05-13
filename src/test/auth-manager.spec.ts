@@ -82,19 +82,11 @@ YQIDAQAB
     expect(instance.options).to.deep.equal(authOptions);
   });
 
-  it('should call passport.use with jwtAuth strategy', () => {
-    const passportStub = sinon.stub(passport, 'use');
-    const instance = AuthManager.getInstance(authOptions);
-    instance.init();
-    expect(passportStub.calledWith('jwtAuth')).to.be.true;
-  });
-
   describe('authMiddleware', () => {
     let instance: AuthManager;
     let req: Request;
     let res: Response;
     let next: sinon.SinonStub;
-    let refreshTokenStub: sinon.SinonStub;
     let passportAuthenticateStub: sinon.SinonStub;
 
     beforeEach(() => {
@@ -107,7 +99,6 @@ YQIDAQAB
         sendStatus: sinon.stub(),
       } as unknown as Response;
       next = sinon.stub();
-      refreshTokenStub = sinon.stub(instance, 'refreshToken').resolves(undefined);
 
       passportAuthenticateStub = sinon.stub(passport, 'authenticate').callsFake(
         (strategy, options, callback) => {
@@ -150,14 +141,14 @@ YQIDAQAB
     });
 
     it('should return 401 if token refresh fails', async () => {
-      req.cookies = { auth: 'auth-token', refresh: 'refresh-token' };
+      req.cookies = { auth: undefined, refresh: 'refresh-token' };
       passportAuthenticateStub.callsFake((strategy, options, callback) => {
         return (req: Request, res: Response, next: any) => {
           callback(null, null);
           next();
         };
       });
-      refreshTokenStub.resolves(null);
+      sinon.stub(instance, 'refreshToken').resolves(undefined);
       await instance.authMiddleware(req, res, next);
       expect((res.sendStatus as sinon.SinonStub).calledWith(401)).to.be.true;
     });
@@ -325,6 +316,10 @@ YQIDAQAB
         const body = Buffer.from(JSON.stringify(payload)).toString('base64');
         return `${header}.${body}.signature`;
       });
+      sinon.stub(jwt, 'decode').callsFake((token) => {
+        const [header, body] = token.split('.');
+        return JSON.parse(Buffer.from(body, 'base64').toString('utf8'));
+      });
     });
 
     afterEach(() => {
@@ -338,24 +333,24 @@ YQIDAQAB
       } catch (error) {
         expect((error as Error).message).to.equal('User not found');
       }
+      expect(createStub.notCalled).to.be.true;
+      expect(hashStub.notCalled).to.be.true;
     });
 
     it('should create a refresh token and save it to the database', async () => {
-      const mockUser = { uuid: 'user-uuid' };
-      findByPkStub.resolves(mockUser);
+      findByPkStub.resolves({ uuid: 'user-uuid' } as UserTable);
       hashStub.yields(null, 'hashed-token');
       createStub.resolves();
 
       const token = await instance.saveRefreshToken('user-uuid');
-
       const decodedToken = jwt.decode(token) as any;
-      expect(decodedToken.id).to.equal('user-uuid');
 
+      expect(decodedToken.user_uuid).to.equal('user-uuid');
       expect(hashStub.calledOnce).to.be.true;
       expect(createStub.calledOnce).to.be.true;
       expect(createStub.firstCall.args[0]).to.include({
         user_uuid: 'user-uuid',
-        token: 'hashed-token'
+        token: 'hashed-token',
       });
       expect(createStub.firstCall.args[0].expires).to.be.instanceOf(Date);
     });
@@ -406,7 +401,7 @@ YQIDAQAB
     });
 
     it('should generate a new access token if refresh token is valid', async () => {
-      const mockUser = { "dataValues": { uuid: 'user-uuid' } };
+      const mockUser = { uuid: "user-uuid", "dataValues": { uuid: 'user-uuid' } };
       const mockToken = { user_uuid: 'user-uuid', token: 'hashed-token' };
       const mockPermissions = { 'feature.view': 'grant' };
 

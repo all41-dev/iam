@@ -1,5 +1,5 @@
 import passport from "passport";
-import { Request, Response, Router } from "express";
+import { NextFunction, Request, Response, Router } from "express";
 import jwt from "jsonwebtoken";
 import querystring from "querystring";
 import express from "express";
@@ -7,7 +7,7 @@ import { Strategy as JWTStrategy } from "passport-jwt";
 import Cors from "cors";
 import { AuthController } from "../api/controllers/controller-auth";
 import cookieParser from "cookie-parser";
-import { IAuthOptions } from "../interfaces";
+import { IAMUser, IAuthOptions } from "../interfaces";
 import bcrypt from 'bcrypt';
 import { UserTable } from '../db/user-table';
 import { RefreshTokenTable } from '../db/refresh-token-table';
@@ -48,14 +48,13 @@ export class AuthManager {
     );
 
     passport.use(
-      "jwtAuth",
       new JWTStrategy(
         {
           jwtFromRequest: this.cookieExtractor,
-          secretOrKey: this.authOptions.publicKey,
+          secretOrKey: this.authOptions.privateKey ? this.authOptions.privateKey : this.authOptions.publicKey,
           algorithms: ["RS256"],
-          issuer: process.env.AUTH_ISSUER || "all41",
-          audience: process.env.AUTH_AUDIENCE || "all41",
+          issuer: this.options.authIssuer || "all41",
+          audience: this.options.authAudience || "all41",
         },
         async (payload, done) => {
           done(null, payload);
@@ -72,7 +71,7 @@ export class AuthManager {
     return new AuthController().create(strategyNames, router);
   }
 
-  public authMiddleware = (req: Request, res: Response, next: any) => {
+  public authMiddleware = (req: Request, res: Response, next: NextFunction) => {
     if (req.headers.authorization && this.authOptions.masterApiKey) {
       const bearer = req.headers.authorization.split(" ");
       if (bearer.length === 2 && bearer[0] === "Bearer") {
@@ -83,17 +82,18 @@ export class AuthManager {
       }
     }
     passport.authenticate(
-      "jwtAuth",
+      "jwt",
       { session: false },
       async (error: any, token: any) => {
-        if (error || !token) {
+        if (error) return res.sendStatus(401);
+        if (!token) {
           if (!req.cookies["auth"] && !req.cookies["refresh"]) {
             return res.sendStatus(401);
           }
           token = await this.refreshToken(req, res);
         }
         if (!token) return res.sendStatus(401);
-        req.user = { user: token.user };
+        req.user = token.user;
         next();
       }
     )(req, res, next);
@@ -126,9 +126,7 @@ export class AuthManager {
     return token;
   };
 
-  public generateJWT(
-    redirectUri?: string
-  ): (req: Request, res: Response) => Promise<any> {
+  public generateJWT(redirectUri?: string): (req: Request, res: Response) => Promise<any> {
     return async (req: Request, res: Response) => {
       if (!this.options.privateKey) {
         throw new Error("No private key provided for JWT generation");
@@ -136,19 +134,20 @@ export class AuthManager {
       if (!req.user) {
         throw new Error("No user found in request");
       }
-      const safePayload = this.createSafeJwtPayload(req.user);
+      const safePayload = this.createSafeJwtPayload(req.user as IAMUser);
       const token = jwt.sign(safePayload, this.options.privateKey, {
         algorithm: "RS256",
         expiresIn: "5m",
         issuer: process.env.AUTH_ISSUER || "all41",
         audience: process.env.AUTH_AUDIENCE || "all41",
-        subject: (req.user as any).uuid,
+        subject: (req.user as IAMUser).uuid,
       });
 
       const refreshExpiry = 24 * 60 * 60 * 1000;
       const refreshToken = await this.saveRefreshToken(
-        (req.user as { uuid: string }).uuid,
-        refreshExpiry
+        (req.user as IAMUser).uuid,
+        refreshExpiry,
+        (req.user as IAMUser).impersonateUser
       );
       let redirectAfter = redirectUri || "/";
       if (req.cookies["redirect"]) {
@@ -166,47 +165,52 @@ export class AuthManager {
   }
 
   public cookieExtractor(req: Request) {
-    let token = null;
-    if (req && req.cookies) token = req.cookies["auth"];
+    const token = (req && req.cookies) ? req.cookies["auth"] : null;
     return token;
   }
 
-  public saveRefreshToken = async (user_uuid: string, refreshExpiry?: number) => {
-    const authUser = await UserTable.findByPk(user_uuid)
-    if (!authUser) throw new Error("User not found");
+  public saveRefreshToken = async (user_uuid: string, refreshExpiry?: number, impersonate_user_email?: string) => {
+    const user = await UserTable.findByPk(user_uuid)
+    if (!user) throw new Error("User not found");
     if (!this.options.privateKey) {
       throw new Error("No private key provided for JWT generation");
     }
     const token = jwt.sign(
-      { id: authUser.uuid },
+      {
+        user_uuid: user.uuid,
+        impersonate_user_email: impersonate_user_email ? impersonate_user_email : undefined
+      },
       this.options.privateKey,
       {
         algorithm: 'RS256',
         expiresIn: refreshExpiry ? refreshExpiry / 1000 : '1d',
         issuer: process.env.AUTH_ISSUER,
-        audience: process.env.AUTH_AUDIENCE, subject: authUser.uuid
+        audience: process.env.AUTH_AUDIENCE,
+        subject: user.uuid
       });
     bcrypt.hash(token, 10, async (err, hash) => {
       if (err) throw err;
       await RefreshTokenTable.create({
-        user_uuid: authUser.uuid,
+        user_uuid: user.uuid,
         token: hash,
         expires: new Date(Date.now() + (refreshExpiry || 24 * 60 * 60 * 1000))
       });
     });
     return token;
   };
-
   public generateAccessToken = async (refreshToken: string) => {
-    const user_uuid = (jwt.verify(refreshToken, this.options.publicKey, { algorithms: ['RS256'] }) as { id: string }).id;
-    const token = await RefreshTokenTable.findAll({ where: { user_uuid } })
+    const decodedToken = (jwt.verify(refreshToken, this.options.publicKey, { algorithms: ['RS256'] }) as { user_uuid: string, impersonate_user_email?: string });
+    const token = await RefreshTokenTable.findAll({ where: { user_uuid: decodedToken.user_uuid } })
       .then((tokens) => tokens.find((t) => bcrypt.compareSync(refreshToken, t.token)));
     if (!token) return null;
     const user = await UserTable.findByPk(token.user_uuid);
     if (!user) return null;
-    const permissions = await AuthUtils.getInstance().getUserPermissions(user.uuid);
+    const permissions = decodedToken.impersonate_user_email
+      ? await AuthUtils.getInstance().getUserPermissions(undefined, decodedToken.impersonate_user_email)
+      : await AuthUtils.getInstance().getUserPermissions(user.uuid);
     const safePayload = this.createSafeJwtPayload({
       ...user.dataValues,
+      impersonateUser: decodedToken.impersonate_user_email,
       permissions: permissions && Object.keys(permissions).length > 0 ? Buffer.from(JSON.stringify(permissions)).toString('base64') : undefined,
       permissionWarning: permissions && Object.keys(permissions).length > 0 ? undefined : 'no permissions',
     });
@@ -214,11 +218,11 @@ export class AuthManager {
       throw new Error("No private key provided for JWT generation");
     }
     const newToken = jwt.sign(safePayload, this.options.privateKey, {
-      algorithm: 'RS256',
-      expiresIn: '1m',
+      algorithm: "RS256",
+      expiresIn: "5m",
       issuer: this.options.authIssuer || "all41",
       audience: this.options.authAudience || "all41",
-      subject: user.dataValues.uuid,
+      subject: user.uuid,
     }
     );
     return { user: safePayload.user, token: newToken };
@@ -233,7 +237,7 @@ export class AuthManager {
     await RefreshTokenTable.destroy({ where: { uuid: token?.uuid } });
   };
 
-  private createSafeJwtPayload(user: any) {
+  private createSafeJwtPayload(user: IAMUser) {
     const MAX_JWT_PAYLOAD_SIZE = 2 * 1024;
     const estimatePayloadSize = (payload: object) =>
       Buffer.byteLength(JSON.stringify(payload), "utf8");

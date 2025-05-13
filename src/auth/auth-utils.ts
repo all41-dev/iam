@@ -69,7 +69,15 @@ export class AuthUtils {
     });
   }
 
-  public async getUserPermissions(userUuid: string): Promise<any> {
+  public async getUserPermissions(userUuid?: string, userEmail?: string): Promise<any> {
+    if (!userUuid && userEmail) {
+      const user = await UserTable.findOne({ where: { email: userEmail } });
+      if (!user) return {};
+      userUuid = user.uuid;
+    }
+    if (!userUuid) {
+      throw new Error("Must provide either userUuid or userEmail");
+    }
     const groupMemberships = await UserGroupMemberTable.findAll({
       where: { user_uuid: userUuid },
     });
@@ -259,6 +267,7 @@ export class AuthUtils {
   }
 
   async checkAccess(userEmail: string, featureCode: string, elementUuid: string): Promise<"grant" | "deny"> {
+    if (!userEmail) return "deny";
     const user = await UserTable.findOne({ where: { email: userEmail } })
     if (!user) return "deny";
     const feature = await FeatureTable.findOne({ where: { code: featureCode } });

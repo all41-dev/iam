@@ -150,9 +150,6 @@ export class RepositoryUser extends RepositorySequelize<UserTable> {
       throw new Error(`User with id ${userUuid} not found`);
     }
     const groups = await UserGroupMemberTable.findAll({ where: { user_uuid: userUuid } });
-    if (!groups.length) {
-      throw new Error(`No Groups for User with id ${userToCopyUuid}`);
-    }
     const groupsToCopy = await UserGroupMemberTable.findAll({ where: { user_uuid: userToCopyUuid } });
     if (!groupsToCopy.length) {
       throw new Error(`No Groups for User with id ${userToCopyUuid}`);

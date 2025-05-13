@@ -1,6 +1,8 @@
 import { Strategy } from "passport";
 import { NextFunction, Request, Response } from "express";
 
+
+
 export interface IAuthOptions {
   trustProxy?: boolean;
   redirectAfterLogin?: string;
@@ -30,4 +32,15 @@ export interface PermissionContext {
   status: string;
   type: "direct" | "ancestor";
   feature_code?: string
+}
+
+export interface IAMUser {
+  uuid: string;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  permissions?: any;
+  permissionWarning?: string;
+  impersonateUser?: string;
 }

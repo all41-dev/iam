@@ -6,18 +6,18 @@ import { UserGroupTable } from "../db/user-group-table";
 import { FeatureCompositionTable } from "../db/feature-composition-table";
 import { IUtilsOptions, PermissionContext } from "../interfaces";
 import { ScopeTable } from "../db/scope-table";
-import { FeatureManager } from "./feature-manager";
+import { FeatureUtils } from "./feature-utils";
 
 
 export class AuthUtils {
 
   private static instance: AuthUtils | undefined;
   private utilsOptions: IUtilsOptions;
-  private featureManager: FeatureManager;
+  private featureUtils: FeatureUtils;
 
   private constructor(options: IUtilsOptions) {
     this.utilsOptions = options;
-    this.featureManager = FeatureManager.getInstance();
+    this.featureUtils = FeatureUtils.getInstance();
   }
 
   public get options() {
@@ -88,7 +88,7 @@ export class AuthUtils {
     });
     if (!permissions.length) return {};
     const featureUUIDs = permissions.map((permission) => permission.feature_uuid);
-    const highestFeatures = await this.featureManager.getHighestFeatures(featureUUIDs);
+    const highestFeatures = await this.featureUtils.getHighestFeatures(featureUUIDs);
     const uniqueElements = await this.getAllUniqueElement(permissions);
     const compactPermissions: Array<{ f: string; e: string; d: boolean; c?: string }> = [];
     for (const permission of permissions) {
@@ -185,7 +185,7 @@ export class AuthUtils {
       return {};
     }
     const permissionsMap: Record<string, { right: string; context: PermissionContext[] }> = {};
-    const scopeUUIDs = await this.featureManager.getGroupsScopeList(groupUUIDs);
+    const scopeUUIDs = await this.featureUtils.getGroupsScopeList(groupUUIDs);
     const features = await FeatureTable.findAll({ where: { scope_uuid: scopeUUIDs } });
     for (const feature of features) {
       const featureUuid = feature.uuid;
@@ -414,7 +414,7 @@ export class AuthUtils {
     const user = await UserTable.findOne({ where: { email: userEmail } });
     const scope = await ScopeTable.findOne({ where: { code: scopeCode } });
     if (!user || !scope) return [];
-    const allScopeUuids = [scope.uuid, ...(await this.featureManager.getAllChildScopes(scope.uuid))];
+    const allScopeUuids = [scope.uuid, ...(await this.featureUtils.getAllChildScopes(scope.uuid))];
     const features = await FeatureTable.findAll({ where: { scope_uuid: allScopeUuids } });
     const featureMap = new Map(features.map(f => [f.uuid, f]));
     const groupMemberships = await UserGroupMemberTable.findAll({ where: { user_uuid: user.uuid }, raw: true });

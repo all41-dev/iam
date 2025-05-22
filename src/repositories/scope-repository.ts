@@ -1,17 +1,17 @@
 import { RepositorySequelize } from "@all41-dev/server.types";
 import { ScopeTable } from "../db/scope-table";
-import { FeatureManager } from "../auth/feature-manager";
+import { FeatureUtils } from "../auth/feature-utils";
 import { UserGroupTable } from "../db/user-group-table";
 import { FeatureTable } from "../db/feature-table";
 import { AuthUtils } from "../auth/auth-utils";
 
 export class RepositoryScope extends RepositorySequelize<ScopeTable> {
-  private featureManager: FeatureManager;
+  private featureUtils: FeatureUtils;
   private authUtils: AuthUtils;
 
   constructor() {
     super(ScopeTable);
-    this.featureManager = FeatureManager.getInstance();
+    this.featureUtils = FeatureUtils.getInstance();
     this.authUtils = AuthUtils.getInstance();
   }
 
@@ -20,11 +20,11 @@ export class RepositoryScope extends RepositorySequelize<ScopeTable> {
   }
 
   public async getChildScopes(scopeUuid: string): Promise<string[]> {
-    return await this.featureManager.getAllChildScopes(scopeUuid);
+    return await this.featureUtils.getAllChildScopes(scopeUuid);
   }
 
   public async getTreeScopes(): Promise<any> {
-    return await this.featureManager.buildScopesTree(new Set());
+    return await this.featureUtils.buildScopesTree(new Set());
   }
 
   public async getScopeGroups(scopeUuid: string): Promise<UserGroupTable[]> {
@@ -52,7 +52,7 @@ export class RepositoryScope extends RepositorySequelize<ScopeTable> {
     if (!scope) {
       throw new Error(`Scope with id ${scopeUuid} not found`);
     }
-    const allChildUuids = await this.featureManager.getAllChildScopes(scopeUuid);
+    const allChildUuids = await this.featureUtils.getAllChildScopes(scopeUuid);
     const allScopeUuids = [scopeUuid, ...allChildUuids];
     const features = await FeatureTable.findAll({
       where: { scope_uuid: allScopeUuids },

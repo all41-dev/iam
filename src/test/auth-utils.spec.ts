@@ -8,13 +8,13 @@ import { ScopeTable } from '../db/scope-table';
 import { PermissionTable } from '../db/permission-table';
 import { UserGroupTable } from '../db/user-group-table';
 import { FeatureCompositionTable } from '../db/feature-composition-table';
-import { FeatureManager } from '../auth/feature-manager';
+import { FeatureUtils } from '../auth/feature-utils';
 import { IUtilsOptions } from '../interfaces';
 describe('Auth Utils', () => {
   let sandbox: sinon.SinonSandbox;
   let mockOptions: IUtilsOptions;
   let authUtils: AuthUtils;
-  let featureManager: FeatureManager
+  let featureUtils: FeatureUtils
 
   beforeEach(() => {
     sandbox = sinon.createSandbox();
@@ -24,7 +24,7 @@ describe('Auth Utils', () => {
     };
 
     authUtils = AuthUtils.getInstance(mockOptions);
-    featureManager = FeatureManager.getInstance();
+    featureUtils = FeatureUtils.getInstance();
   });
 
   afterEach(() => {
@@ -102,7 +102,7 @@ describe('Auth Utils', () => {
         }
       ] as PermissionTable[]);
 
-      sandbox.stub(featureManager, "getHighestFeatures").resolves(["feature-1"]);
+      sandbox.stub(featureUtils, "getHighestFeatures").resolves(["feature-1"]);
       sandbox.stub(authUtils, "getAllUniqueElement").resolves(["scope-1"]);
 
       const result = await authUtils.getUserPermissions('user-uuid');
@@ -130,7 +130,7 @@ describe('Auth Utils', () => {
         }
       ] as PermissionTable[]);
 
-      sandbox.stub(featureManager, "getHighestFeatures").resolves(["feature-1"]);
+      sandbox.stub(featureUtils, "getHighestFeatures").resolves(["feature-1"]);
       sandbox.stub(authUtils, "getAllUniqueElement").resolves(["scope-2"]);
 
       const result = await authUtils.getUserPermissions('user-uuid');
@@ -166,7 +166,7 @@ describe('Auth Utils', () => {
           }
         ] as PermissionTable[]);
 
-      sandbox.stub(featureManager, "getHighestFeatures").resolves(["feature-1"]);
+      sandbox.stub(featureUtils, "getHighestFeatures").resolves(["feature-1"]);
       sandbox.stub(authUtils, "getAllUniqueElement").resolves(["scope-2"]);
 
       const result = await authUtils.getUserPermissions(undefined, 'user-email');
@@ -761,7 +761,7 @@ describe('Auth Utils', () => {
       sandbox.stub(UserTable, "findByPk").resolves({ uuid: "userUuid" } as UserTable);
       sandbox.stub(UserGroupMemberTable, "findAll")
         .resolves([{ group_uuid: "groupUuid", user_uuid: "userUuid" }] as UserGroupMemberTable[]);
-      sandbox.stub(featureManager, "getGroupsScopeList").resolves(["scopeUuid"]);
+      sandbox.stub(featureUtils, "getGroupsScopeList").resolves(["scopeUuid"]);
       sandbox.stub(FeatureTable, "findAll").resolves([{ uuid: "featureUuid", code: "featureCode", scope_uuid: "scopeUuid" }] as FeatureTable[]);
       sandbox.stub(PermissionTable, "findAll").resolves([{ scope_element_uuid: "elementUuid", is_deny: false }] as PermissionTable[]);
       sandbox.stub(authUtils, "checkAncestorEffectivePermissions").resolves({ inherited: false, permissions: [] });
@@ -784,7 +784,7 @@ describe('Auth Utils', () => {
     });
     it("should return permissions for a group with granted permissions", async () => {
       sandbox.stub(UserGroupTable, "findByPk").resolves({ uuid: "groupUuid" } as UserGroupTable);
-      sandbox.stub(featureManager, "getGroupsScopeList").resolves(["scopeUuid"]);
+      sandbox.stub(featureUtils, "getGroupsScopeList").resolves(["scopeUuid"]);
       sandbox.stub(FeatureTable, "findAll").resolves([{ uuid: "featureUuid", code: "featureCode", scope_uuid: "scopeUuid" }] as FeatureTable[]);
       sandbox.stub(PermissionTable, "findAll").resolves([{ scope_element_uuid: "elementUuid", is_deny: false }] as PermissionTable[]);
       sandbox.stub(authUtils, "checkAncestorEffectivePermissions").resolves({ inherited: false, permissions: [] });
@@ -807,7 +807,7 @@ describe('Auth Utils', () => {
     });
     it("should return permissions for a group with granted permissions without scopeName if Scope not found", async () => {
       sandbox.stub(UserGroupTable, "findByPk").resolves({ uuid: "groupUuid" } as UserGroupTable);
-      sandbox.stub(featureManager, "getGroupsScopeList").resolves(["scopeUuid"]);
+      sandbox.stub(featureUtils, "getGroupsScopeList").resolves(["scopeUuid"]);
       sandbox.stub(FeatureTable, "findAll").resolves([{ uuid: "featureUuid", code: "featureCode", scope_uuid: "scopeUuid" }] as FeatureTable[]);
       sandbox.stub(PermissionTable, "findAll").resolves([{ scope_element_uuid: "elementUuid", is_deny: false }] as PermissionTable[]);
       sandbox.stub(authUtils, "checkAncestorEffectivePermissions").resolves({ inherited: false, permissions: [] });
@@ -833,7 +833,7 @@ describe('Auth Utils', () => {
       sandbox.stub(UserTable, "findByPk").resolves({ uuid: "userUuid" } as any);
       sandbox.stub(UserGroupMemberTable, "findAll").resolves([userGroupMembership] as UserGroupMemberTable[]);
       sandbox.stub(UserGroupTable, "findByPk").resolves({ uuid: "groupUuid" } as UserGroupTable);
-      sandbox.stub(featureManager, "getGroupsScopeList").resolves(["scopeUuid"]);
+      sandbox.stub(featureUtils, "getGroupsScopeList").resolves(["scopeUuid"]);
       sandbox.stub(FeatureTable, "findAll").resolves([{ uuid: "featureUuid", code: "featureCode", scope_uuid: "scopeUuid" }] as FeatureTable[]);
       sandbox.stub(PermissionTable, "findAll").resolves([{ scope_element_uuid: "elementUuid", is_deny: false }] as PermissionTable[]);
       sandbox.stub(authUtils, "checkAncestorEffectivePermissions").resolves({ inherited: false, permissions: [] });
@@ -858,7 +858,7 @@ describe('Auth Utils', () => {
       sandbox.stub(UserTable, "findByPk").resolves({ uuid: "userUuid" } as UserTable);
       sandbox.stub(UserGroupMemberTable, "findAll").resolves([{ group_uuid: "groupUuid" }] as UserGroupMemberTable[]);
       sandbox.stub(UserGroupTable, "findByPk").resolves({ uuid: "groupUuid" } as UserGroupTable);
-      sandbox.stub(featureManager, "getGroupsScopeList").resolves(["scopeUuid"]);
+      sandbox.stub(featureUtils, "getGroupsScopeList").resolves(["scopeUuid"]);
       sandbox.stub(FeatureTable, "findAll").resolves([{ uuid: "featureUuid", code: "featureCode", scope_uuid: "scopeUuid" }] as FeatureTable[]);
       sandbox.stub(PermissionTable, "findAll").resolves([{ scope_element_uuid: "elementUuid", is_deny: true }] as PermissionTable[]);
       sandbox.stub(authUtils, "checkAncestorEffectivePermissions").resolves({ inherited: false, permissions: [] });
@@ -883,7 +883,7 @@ describe('Auth Utils', () => {
       sandbox.stub(UserTable, "findByPk").resolves({ uuid: "userUuid" } as UserTable);
       sandbox.stub(UserGroupMemberTable, "findAll").resolves([{ group_uuid: "groupUuid" }] as UserGroupMemberTable[]);
       sandbox.stub(UserGroupTable, "findByPk").resolves({ uuid: "groupUuid" } as UserGroupTable);
-      sandbox.stub(featureManager, "getGroupsScopeList").resolves(["scopeUuid"]);
+      sandbox.stub(featureUtils, "getGroupsScopeList").resolves(["scopeUuid"]);
       sandbox.stub(FeatureTable, "findAll").resolves([{ uuid: "featureUuid", code: "featureCode", scope_uuid: "scopeUuid" }] as FeatureTable[]);
       sandbox.stub(PermissionTable, "findAll").resolves([] as PermissionTable[]);
       sandbox.stub(authUtils, "checkAncestorEffectivePermissions").resolves({
@@ -925,7 +925,7 @@ describe('Auth Utils', () => {
       sandbox.stub(UserTable, "findByPk").resolves({ uuid: "userUuid" } as any);
       sandbox.stub(UserGroupMemberTable, "findAll").resolves([{ group_uuid: "groupUuid" }] as UserGroupMemberTable[]);
       sandbox.stub(UserGroupTable, "findByPk").resolves({ uuid: "groupUuid" } as UserGroupTable);
-      sandbox.stub(featureManager, "getGroupsScopeList").resolves(["scopeUuid"]);
+      sandbox.stub(featureUtils, "getGroupsScopeList").resolves(["scopeUuid"]);
       sandbox.stub(FeatureTable, "findAll").resolves([{ uuid: "featureUuid", code: "featureCode", scope_uuid: "scopeUuid" }] as FeatureTable[]);
       sandbox.stub(PermissionTable, "findAll").resolves([{ scope_element_uuid: "elementUuid", is_deny: false }] as PermissionTable[]);
       sandbox.stub(authUtils, "checkAncestorEffectivePermissions").resolves({ inherited: true, permissions: [{ scope_element_uuid: "elementUuid", is_deny: true, feature_code: "featureCode1", scope_uuid: "scopeUuid" }] });
@@ -958,7 +958,7 @@ describe('Auth Utils', () => {
       sandbox.stub(UserTable, "findByPk").resolves({ uuid: "userUuid" } as any);
       sandbox.stub(UserGroupMemberTable, "findAll").resolves([{ group_uuid: "groupUuid" }] as UserGroupMemberTable[]);
       sandbox.stub(UserGroupTable, "findByPk").resolves({ uuid: "groupUuid" } as UserGroupTable);
-      sandbox.stub(featureManager, "getGroupsScopeList").resolves(["scopeUuid"]);
+      sandbox.stub(featureUtils, "getGroupsScopeList").resolves(["scopeUuid"]);
       sandbox.stub(FeatureTable, "findAll").resolves([{ uuid: "featureUuid", code: "featureCode", scope_uuid: "scopeUuid" }] as FeatureTable[]);
       sandbox.stub(PermissionTable, "findAll").resolves([] as PermissionTable[]);
       sandbox.stub(authUtils, "checkAncestorEffectivePermissions").resolves({ inherited: true, permissions: [] });
@@ -1343,7 +1343,7 @@ describe('Auth Utils', () => {
       sandbox.stub(FeatureTable, 'findAll').withArgs({ where: { scope_uuid: ['scope1'] } }).resolves([{ uuid: 'feature1', code: 'featureCode' }] as FeatureTable[]);
       sandbox.stub(UserGroupMemberTable, 'findAll').withArgs({ where: { user_uuid: 'user1' }, raw: true }).resolves([]);
 
-      sandbox.stub(featureManager, 'getAllChildScopes').resolves([]);
+      sandbox.stub(featureUtils, 'getAllChildScopes').resolves([]);
       const result = await authUtils.getPermissionsScopeElement('test@example.com', 'scopeCode', 'scopeElement');
       expect(result).to.deep.equal([]);
     });
@@ -1357,7 +1357,7 @@ describe('Auth Utils', () => {
 
       sandbox.stub(authUtils, 'checkAncestorEffectivePermissions').resolves({ inherited: false, permissions: [] });
 
-      sandbox.stub(featureManager, 'getAllChildScopes').resolves([]);
+      sandbox.stub(featureUtils, 'getAllChildScopes').resolves([]);
       (authUtils.options.scopeElementAncestor as sinon.SinonStub)
         .resolves([]);
 
@@ -1376,7 +1376,7 @@ describe('Auth Utils', () => {
 
       sandbox.stub(authUtils, 'checkAncestorEffectivePermissions').resolves({ inherited: false, permissions: [] });
 
-      sandbox.stub(featureManager, 'getAllChildScopes').resolves([]);
+      sandbox.stub(featureUtils, 'getAllChildScopes').resolves([]);
       (authUtils.options.scopeElementAncestor as sinon.SinonStub)
         .resolves([]);
 
@@ -1408,7 +1408,7 @@ describe('Auth Utils', () => {
         ]
       });
 
-      sandbox.stub(featureManager, 'getAllChildScopes').resolves([]);
+      sandbox.stub(featureUtils, 'getAllChildScopes').resolves([]);
       (authUtils.options.scopeElementAncestor as sinon.SinonStub)
         .withArgs('ancestor1', 'scopeCodeAncestor').resolves(['ancestor1'])
         .withArgs('scopeElement', 'scopeCode').resolves(['ancestor1', 'scopeElement']);
@@ -1440,7 +1440,7 @@ describe('Auth Utils', () => {
         ]
       });
 
-      sandbox.stub(featureManager, 'getAllChildScopes').resolves([]);
+      sandbox.stub(featureUtils, 'getAllChildScopes').resolves([]);
       (authUtils.options.scopeElementAncestor as sinon.SinonStub)
         .withArgs('descendant1', 'scopeCodeDescendant').resolves(['scopeElement', 'descendant1'])
         .withArgs('scopeElement', 'scopeCode').resolves(['scopeElement']);
@@ -1472,7 +1472,7 @@ describe('Auth Utils', () => {
         ]
       });
 
-      sandbox.stub(featureManager, 'getAllChildScopes').resolves([]);
+      sandbox.stub(featureUtils, 'getAllChildScopes').resolves([]);
       (authUtils.options.scopeElementAncestor as sinon.SinonStub)
         .withArgs('unknown1', 'scopeCodeUnknown').resolves(['unknown1'])
         .withArgs('scopeElement', 'scopeCode').resolves(['scopeElement']);

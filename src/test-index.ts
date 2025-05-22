@@ -1,6 +1,6 @@
 import { IDbOptions } from "@all41-dev/db-tools";
 import { IServerOptions } from "@all41-dev/server";
-import { IamDb } from "./db/IamDb";
+import { IamDb } from "./db/iam-db";
 import path from "path";
 import { TestServer } from "./test-server";
 import { IamApi } from "./api/iam-api";

@@ -184,8 +184,8 @@ export class AuthManager {
       {
         algorithm: 'RS256',
         expiresIn: refreshExpiry ? refreshExpiry / 1000 : '1d',
-        issuer: process.env.AUTH_ISSUER,
-        audience: process.env.AUTH_AUDIENCE,
+        issuer: process.env.AUTH_ISSUER || "all41",
+        audience: process.env.AUTH_AUDIENCE || "all41",
         subject: user.uuid
       });
     bcrypt.hash(token, 10, async (err, hash) => {

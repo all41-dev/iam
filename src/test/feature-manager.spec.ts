@@ -1,17 +1,17 @@
 import { assert, expect } from "chai";
 import sinon from "sinon";
-import { FeatureManager } from "../auth/feature-manager";
+import { FeatureUtils } from "../auth/feature-utils";
 import { ScopeTable } from "../db/scope-table";
 import { FeatureTable } from "../db/feature-table";
 import { FeatureCompositionTable } from "../db/feature-composition-table";
 import { UserGroupTable } from "../db/user-group-table";
 
-describe("FeatureManager", () => {
-  let featureManager: FeatureManager;
+describe("FeatureUtils", () => {
+  let featureUtils: FeatureUtils;
   let sandbox: sinon.SinonSandbox;
 
   beforeEach(() => {
-    featureManager = FeatureManager.getInstance();
+    featureUtils = FeatureUtils.getInstance();
     sandbox = sinon.createSandbox();
   });
 
@@ -28,7 +28,7 @@ describe("FeatureManager", () => {
         .onSecondCall().resolves([{ uuid: "scope-3", parent_uuid: "scope-2" }] as ScopeTable[])
         .onThirdCall().resolves([]);
 
-      const result = await featureManager.getAllChildScopes(scopeUuid);
+      const result = await featureUtils.getAllChildScopes(scopeUuid);
 
       expect(result).to.have.members(["scope-2", "scope-3"]);
     });
@@ -39,7 +39,7 @@ describe("FeatureManager", () => {
 
       sandbox.stub(ScopeTable, "findAll").resolves([]);
 
-      const result = await featureManager.getAllChildScopes(scopeUuid, visited);
+      const result = await featureUtils.getAllChildScopes(scopeUuid, visited);
 
       expect(result).to.be.an("array").that.is.empty;
     });
@@ -54,7 +54,7 @@ describe("FeatureManager", () => {
         .onCall(2).resolves([{ uuid: "scope-4", parent_uuid: "scope-2" }] as ScopeTable[])
         .onCall(3).resolves([]);
 
-      const result = await featureManager.getAllChildScopes(scopeUuid);
+      const result = await featureUtils.getAllChildScopes(scopeUuid);
 
       expect(result).to.have.members(["scope-2", "scope-3", "scope-4"]);
     });
@@ -66,7 +66,7 @@ describe("FeatureManager", () => {
         .onFirstCall().resolves([{ uuid: "scope-2", parent_uuid: "scope-1" }] as ScopeTable[])
         .onSecondCall().resolves([{ uuid: "scope-1", parent_uuid: "scope-2" }] as ScopeTable[]);
 
-      const result = await featureManager.getAllChildScopes(scopeUuid);
+      const result = await featureUtils.getAllChildScopes(scopeUuid);
 
       expect(result).to.have.members(["scope-2"]);
     });
@@ -80,7 +80,7 @@ describe("FeatureManager", () => {
       sandbox.stub(ScopeTable, "findOne").resolves(undefined);
 
       try {
-        await featureManager.buildScopesTree(visited);
+        await featureUtils.buildScopesTree(visited);
         assert.fail("Expected error was not thrown");
       } catch (error) {
         const err = error as Error;
@@ -102,7 +102,7 @@ describe("FeatureManager", () => {
 
       const visited = new Set<string>();
 
-      const result = await featureManager.buildScopesTree(visited);
+      const result = await featureUtils.buildScopesTree(visited);
 
       expect(result).to.deep.equal({
         uuid: "scope-1",
@@ -129,7 +129,7 @@ describe("FeatureManager", () => {
         .withArgs("feature-1").resolves(undefined);
 
       try {
-        await featureManager.buildFeatureMatrix(featureUuid, visited);
+        await featureUtils.buildFeatureMatrix(featureUuid, visited);
         assert.fail("Expected error was not thrown");
       } catch (error) {
         const err = error as Error;
@@ -171,7 +171,7 @@ describe("FeatureManager", () => {
 
       const visited = new Set<string>();
 
-      const result = await featureManager.buildFeatureMatrix(featureUuid, visited);
+      const result = await featureUtils.buildFeatureMatrix(featureUuid, visited);
 
       expect(result).to.deep.equal({
         uuid: "feature-1",
@@ -251,7 +251,7 @@ describe("FeatureManager", () => {
       const visited = new Set<string>();
       const validScopes = new Set<string>(["scope-2", "scope-3"]);
 
-      const result = await featureManager.buildFeatureMatrix(featureUuid, visited, validScopes);
+      const result = await featureUtils.buildFeatureMatrix(featureUuid, visited, validScopes);
 
       expect(result).to.deep.equal({
         uuid: "feature-1",
@@ -311,7 +311,7 @@ describe("FeatureManager", () => {
     it('should return an empty array if no parent relations are found', async () => {
       findAllStub.withArgs({ where: { child_uuid: 'feature1' } }).resolves([]);
 
-      const result = await featureManager.getDirectParentFeatures('feature1');
+      const result = await featureUtils.getDirectParentFeatures('feature1');
       expect(result).to.deep.equal([]);
     });
 
@@ -325,7 +325,7 @@ describe("FeatureManager", () => {
         { uuid: 'parent2', name: 'Parent Feature 2' },
       ]);
 
-      const result = await featureManager.getDirectParentFeatures('feature1');
+      const result = await featureUtils.getDirectParentFeatures('feature1');
       expect(result).to.deep.equal([
         { uuid: 'parent1', name: 'Parent Feature 1' },
         { uuid: 'parent2', name: 'Parent Feature 2' },
@@ -341,7 +341,7 @@ describe("FeatureManager", () => {
       findByPkStub = sinon.stub();
       getDirectParentFeaturesStub = sinon.stub();
       sinon.replace(FeatureTable, 'findByPk', findByPkStub);
-      sinon.replace(featureManager, 'getDirectParentFeatures', getDirectParentFeaturesStub);
+      sinon.replace(featureUtils, 'getDirectParentFeatures', getDirectParentFeaturesStub);
     });
 
     afterEach(() => {
@@ -352,7 +352,7 @@ describe("FeatureManager", () => {
       getDirectParentFeaturesStub.withArgs('feature1').resolves([]);
       findByPkStub.resolves(null);
 
-      const result = await featureManager.getHighestFeatureInScope('feature1', new Set(['scope1']));
+      const result = await featureUtils.getHighestFeatureInScope('feature1', new Set(['scope1']));
       expect(result).to.be.null;
     });
 
@@ -360,7 +360,7 @@ describe("FeatureManager", () => {
       getDirectParentFeaturesStub.withArgs('feature1').resolves([]);
       findByPkStub.withArgs('feature1').resolves({ uuid: 'feature1', scope_uuid: 'scope1' });
 
-      const result = await featureManager.getHighestFeatureInScope('feature1', new Set(['scope1']));
+      const result = await featureUtils.getHighestFeatureInScope('feature1', new Set(['scope1']));
       expect(result).to.deep.equal({ uuid: 'feature1', scope_uuid: 'scope1' });
     });
 
@@ -375,7 +375,7 @@ describe("FeatureManager", () => {
 
       findByPkStub.withArgs('parent2').resolves({ uuid: 'parent2', scope_uuid: 'scope1' });
 
-      const result = await featureManager.getHighestFeatureInScope('feature1', new Set(['scope1', 'scope2']));
+      const result = await featureUtils.getHighestFeatureInScope('feature1', new Set(['scope1', 'scope2']));
       expect(result).to.deep.equal({ uuid: 'parent2', scope_uuid: 'scope1' });
     });
   });
@@ -388,7 +388,7 @@ describe("FeatureManager", () => {
       findAllStub = sinon.stub();
       getAllChildScopesStub = sinon.stub();
       sinon.replace(UserGroupTable, 'findAll', findAllStub);
-      sinon.replace(featureManager, 'getAllChildScopes', getAllChildScopesStub);
+      sinon.replace(featureUtils, 'getAllChildScopes', getAllChildScopesStub);
     });
 
     afterEach(() => {
@@ -397,7 +397,7 @@ describe("FeatureManager", () => {
 
     it('should return an empty array if no groups are found', async () => {
       findAllStub.resolves([]);
-      const result = await featureManager.getGroupsScopeList(['group1', 'group2']);
+      const result = await featureUtils.getGroupsScopeList(['group1', 'group2']);
       expect(result).to.deep.equal([]);
     });
 
@@ -410,7 +410,7 @@ describe("FeatureManager", () => {
       getAllChildScopesStub.withArgs('scope1').resolves(['childScope1', 'childScope2']);
       getAllChildScopesStub.withArgs('scope2').resolves(['childScope3']);
 
-      const result = await featureManager.getGroupsScopeList(['group1', 'group2']);
+      const result = await featureUtils.getGroupsScopeList(['group1', 'group2']);
       expect(result).to.deep.equal(['scope1', 'scope2', 'childScope1', 'childScope2', 'childScope3']);
     });
 
@@ -418,7 +418,7 @@ describe("FeatureManager", () => {
       findAllStub.resolves([{ dataValues: { scope_uuid: 'scope1' } }]);
       getAllChildScopesStub.withArgs('scope1').resolves([]);
 
-      const result = await featureManager.getGroupsScopeList(['group1']);
+      const result = await featureUtils.getGroupsScopeList(['group1']);
       expect(result).to.deep.equal(['scope1']);
     });
   });
@@ -435,13 +435,13 @@ describe("FeatureManager", () => {
     });
 
     it('should return true for direct circular dependency', async () => {
-      const result = await featureManager.checkForCircularDependency('feature1', 'feature1');
+      const result = await featureUtils.checkForCircularDependency('feature1', 'feature1');
       expect(result).to.be.true;
     });
 
     it('should return false if there are no child dependencies', async () => {
       findAllStub.resolves([]);
-      const result = await featureManager.checkForCircularDependency('feature1', 'feature2');
+      const result = await featureUtils.checkForCircularDependency('feature1', 'feature2');
       expect(result).to.be.false;
     });
 
@@ -456,7 +456,7 @@ describe("FeatureManager", () => {
         { parent_uuid: 'feature1' },
       ]);
 
-      const result = await featureManager.checkForCircularDependency('feature1', 'feature3');
+      const result = await featureUtils.checkForCircularDependency('feature1', 'feature3');
       expect(result).to.be.true;
     });
 
@@ -469,7 +469,7 @@ describe("FeatureManager", () => {
       ]);
       findAllStub.withArgs({ where: { child_uuid: 'feature3' } }).resolves([]);
 
-      const result = await featureManager.checkForCircularDependency('feature1', 'feature3');
+      const result = await featureUtils.checkForCircularDependency('feature1', 'feature3');
       expect(result).to.be.true;
     });
     it('should return false if no circular dependency exists', async () => {
@@ -481,7 +481,7 @@ describe("FeatureManager", () => {
       ]);
       findAllStub.withArgs({ where: { child_uuid: 'feature3' } }).resolves([]);
 
-      const result = await featureManager.checkForCircularDependency('feature1', 'feature4');
+      const result = await featureUtils.checkForCircularDependency('feature1', 'feature4');
       expect(result).to.be.false;
     });
   });
@@ -499,14 +499,14 @@ describe("FeatureManager", () => {
     });
 
     it('should return an empty array if no feature UUIDs are provided', async () => {
-      const result = await featureManager.getHighestFeatures([]);
+      const result = await featureUtils.getHighestFeatures([]);
       expect(result).to.deep.equal([]);
     });
 
     it('should return the feature itself if it has no parents', async () => {
       findAllStub.withArgs({ where: { child_uuid: 'feature1' } }).resolves([]);
 
-      const result = await featureManager.getHighestFeatures(['feature1']);
+      const result = await featureUtils.getHighestFeatures(['feature1']);
       expect(result).to.deep.equal(['feature1']);
     });
 
@@ -516,7 +516,7 @@ describe("FeatureManager", () => {
       ]);
       findAllStub.withArgs({ where: { child_uuid: 'feature2' } }).resolves([]);
 
-      const result = await featureManager.getHighestFeatures(['feature1', 'feature2']);
+      const result = await featureUtils.getHighestFeatures(['feature1', 'feature2']);
       expect(result).to.deep.equal(['feature2']);
     });
 
@@ -529,7 +529,7 @@ describe("FeatureManager", () => {
       ]);
       findAllStub.withArgs({ where: { child_uuid: 'feature3' } }).resolves([]);
 
-      const result = await featureManager.getHighestFeatures(['feature1', 'feature2', 'feature3']);
+      const result = await featureUtils.getHighestFeatures(['feature1', 'feature2', 'feature3']);
       expect(result).to.deep.equal(['feature3']);
     });
 
@@ -544,7 +544,7 @@ describe("FeatureManager", () => {
         { parent_uuid: 'feature1' },
       ]);
 
-      const result = await featureManager.getHighestFeatures(['feature1', 'feature2', 'feature3']);
+      const result = await featureUtils.getHighestFeatures(['feature1', 'feature2', 'feature3']);
       expect(result).to.deep.equal([]);
     });
 
@@ -556,7 +556,7 @@ describe("FeatureManager", () => {
       ]);
       findAllStub.withArgs({ where: { child_uuid: 'feature4' } }).resolves([]);
 
-      const result = await featureManager.getHighestFeatures(['feature1', 'feature2', 'feature3', 'feature4']);
+      const result = await featureUtils.getHighestFeatures(['feature1', 'feature2', 'feature3', 'feature4']);
       expect(result).to.deep.equal(['feature1', 'feature2', 'feature4']);
     });
     it('should correctly handle recursive ancestor checks', async () => {
@@ -565,7 +565,7 @@ describe("FeatureManager", () => {
       findAllStub.withArgs({ where: { child_uuid: 'feature3' } }).resolves([{ parent_uuid: 'feature4' }]);
       findAllStub.withArgs({ where: { child_uuid: 'feature4' } }).resolves([]);
 
-      const result = await featureManager.getHighestFeatures(['feature1', 'feature4']);
+      const result = await featureUtils.getHighestFeatures(['feature1', 'feature4']);
 
       expect(result).to.deep.equal(['feature4']);
     });

@@ -3,14 +3,14 @@ import { FeatureCompositionTable } from "../db/feature-composition-table";
 import { FeatureTable } from "../db/feature-table";
 import { UserGroupTable } from "../db/user-group-table";
 
-export class FeatureManager {
-  private static instance: FeatureManager;
+export class FeatureUtils {
+  private static instance: FeatureUtils;
 
-  public static getInstance(): FeatureManager {
-    if (!FeatureManager.instance) {
-      FeatureManager.instance = new FeatureManager();
+  public static getInstance(): FeatureUtils {
+    if (!FeatureUtils.instance) {
+      FeatureUtils.instance = new FeatureUtils();
     }
-    return FeatureManager.instance;
+    return FeatureUtils.instance;
   }
 
   public async getHighestFeatureInScope(featureUuid: string, allScopeUuids: Set<string>): Promise<FeatureTable | null> {

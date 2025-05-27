@@ -224,8 +224,14 @@ YQIDAQAB
     beforeEach(() => {
       instance = AuthManager.getInstance(authOptions);
       req = {
-        user: { uuid: 'user-uuid' },
+        user: { uuid: 'user-uuid', provider: 'local' },
         cookies: {},
+        protocol: 'http',
+        hostname: 'localhost',
+        get: (header: string) => {
+          if (header === 'host') return 'localhost:3000';
+          return '';
+        },
       } as unknown as Request;
       res = {
         cookie: sinon.stub().returnsThis(),
@@ -243,14 +249,16 @@ YQIDAQAB
       const generateJWT = instance.generateJWT();
       await generateJWT(req, res);
 
-      expect((res.cookie as sinon.SinonStub).calledTwice).to.be.true;
-      expect((res.cookie as sinon.SinonStub).firstCall.args[0]).to.equal('auth');
-      expect((res.cookie as sinon.SinonStub).secondCall.args[0]).to.equal('refresh');
+      expect((res.cookie as sinon.SinonStub).calledThrice).to.be.true;
+      expect((res.cookie as sinon.SinonStub).getCall(0).args[0]).to.equal('auth');
+      expect((res.cookie as sinon.SinonStub).getCall(1).args[0]).to.equal('refresh');
+      expect((res.cookie as sinon.SinonStub).getCall(2).args[0]).to.equal('provider');
 
       expect((res.redirect as sinon.SinonStub).calledOnce).to.be.true;
       expect((res.redirect as sinon.SinonStub).firstCall.args[0]).to.equal('/');
 
-      expect((res.clearCookie as sinon.SinonStub).notCalled).to.be.true;
+      expect((res.clearCookie as sinon.SinonStub).calledOnce).to.be.true;
+      expect((res.clearCookie as sinon.SinonStub).firstCall.args[0]).to.equal('redirect');
 
       expect(saveRefreshTokenStub.calledOnce).to.be.true;
       expect(saveRefreshTokenStub.firstCall.args[0]).to.equal('user-uuid');
@@ -266,17 +274,16 @@ YQIDAQAB
       }
     });
 
-    it('should handle redirect URI correctly', async () => {
+    it('should handle redirect URL correctly', async () => {
       req.cookies = { redirect: '/target' };
       const generateJWT = instance.generateJWT();
       await generateJWT(req, res);
 
-      expect((res.clearCookie as sinon.SinonStub).calledTwice).to.be.true;
+      expect((res.clearCookie as sinon.SinonStub).calledOnce).to.be.true;
       expect((res.clearCookie as sinon.SinonStub).firstCall.args[0]).to.equal('redirect');
-      expect((res.clearCookie as sinon.SinonStub).secondCall.args[0]).to.equal('failureRedirect');
 
       expect((res.redirect as sinon.SinonStub).calledOnce).to.be.true;
-      expect((res.redirect as sinon.SinonStub).firstCall.args[0]).to.include('/target');
+      expect((res.redirect as sinon.SinonStub).firstCall.args[0]).to.equal('/target');
     });
   });
 

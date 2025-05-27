@@ -24,10 +24,10 @@ export class AuthController {
 
     strategies.forEach((strategy) => {
       r.get(`/${strategy}`, async (req, res, next) => {
-        const redirectUri = req.query.redirectUrl;
+        const redirectUrl = req.query.redirectUrl;
         const failureRedirect = req.query.failureRedirect;
         if (this._authManager.options.additionalParams) await this._authManager.options.additionalParams(req, res);
-        if (redirectUri) res.cookie('redirect', redirectUri, { maxAge: 5 * 60 * 1000 });
+        if (redirectUrl) res.cookie('redirect', redirectUrl, { maxAge: 5 * 60 * 1000 });
         if (failureRedirect) res.cookie('failureRedirect', failureRedirect, { maxAge: 5 * 60 * 1000 });
 
         next();
@@ -40,7 +40,6 @@ export class AuthController {
           if (!user) {
             const query = querystring.stringify({ message: info.message });
             res.clearCookie('failureRedirect');
-            res.clearCookie('redirect');
             return res.redirect(`${failureRedirect}?${query}`);
           }
           req.user = user;

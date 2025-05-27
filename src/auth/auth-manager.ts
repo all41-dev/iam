@@ -12,6 +12,7 @@ import bcrypt from 'bcrypt';
 import { UserTable } from '../db/user-table';
 import { RefreshTokenTable } from '../db/refresh-token-table';
 import { AuthUtils } from "./auth-utils";
+import { Server } from "@all41-dev/server";
 
 export class AuthManager {
   private static instance: AuthManager;
@@ -126,7 +127,7 @@ export class AuthManager {
     return token;
   };
 
-  public generateJWT(redirectUri?: string): (req: Request, res: Response) => Promise<any> {
+  public generateJWT(redirectUrl?: string): (req: Request, res: Response) => Promise<any> {
     return async (req: Request, res: Response) => {
       if (!this.options.privateKey) {
         throw new Error("No private key provided for JWT generation");
@@ -149,18 +150,19 @@ export class AuthManager {
         refreshExpiry,
         (req.user as IAMUser).impersonateUser
       );
-      let redirectAfter = redirectUri || "/";
-      if (req.cookies["redirect"]) {
-        redirectAfter = req.cookies["redirect"];
-        res.clearCookie("redirect");
-        res.clearCookie("failureRedirect");
+      let redirectAfter = req.cookies["redirect"] || redirectUrl || "/";
+      const redirect = req.cookies["redirect"] || redirectUrl || "/";
+      const base = `${req.protocol}://${req.get("host")}`;
+      const isExternalHost = new URL(redirect, base).hostname !== req.hostname;
+      if (isExternalHost && req.cookies["redirect"]) {
         redirectAfter +=
           "?" + querystring.stringify({ accessToken: token, refreshToken });
-      } else {
-        res.cookie("auth", token, { maxAge: 5 * 60 * 1000 });
-        res.cookie("refresh", refreshToken, { maxAge: refreshExpiry });
       }
-      res.redirect(redirectAfter || "/");
+      res.clearCookie("redirect");
+      res.cookie("auth", token, { maxAge: 5 * 60 * 1000 });
+      res.cookie("refresh", refreshToken, { maxAge: refreshExpiry });
+      res.cookie("provider", (req.user as IAMUser).provider, { maxAge: refreshExpiry + 15 * 60 * 1000 });
+      res.redirect(redirectAfter);
     };
   }
 

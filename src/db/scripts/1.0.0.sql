@@ -20,7 +20,8 @@ create table iam_user
     provider varchar(50) default 'local',
     validated boolean DEFAULT false NOT NULL,
     constraint user_pk
-        primary key (uuid)
+        primary key (uuid),
+    constraint unique_email unique (email)
 );
 
 create table iam_user_group

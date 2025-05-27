@@ -40,6 +40,7 @@ export interface IAMUser {
   email: string;
   first_name: string;
   last_name: string;
+  provider: string;
   permissions?: any;
   permissionWarning?: string;
   impersonateUser?: string;

@@ -216,10 +216,10 @@ export class AuthUtils {
         }
         const hierarchyUUIDs = await this.utilsOptions.scopeElementAncestor(permission.scope_element_uuid, scopeFeature ? scopeFeature.code : "");
         grantOverride = ancestorPermissions.permissions.some((p) => {
-          return !p.is_deny && permission.is_deny && hierarchyUUIDs.includes(p.scope_element_uuid);
+          return !p.is_deny && permission.is_deny && p.scope_element_uuid === permission.scope_element_uuid;
         });
         rightConflict = ancestorPermissions.permissions.some(p => p.is_deny && !permission.is_deny && (hierarchyUUIDs.includes(p.scope_element_uuid)))
-          || directPermissions.some(p => p.is_deny && !permission.is_deny && (hierarchyUUIDs.includes(p.scope_element_uuid)));
+          || directPermissions.some(p => (p.is_deny !== permission.is_deny) && (hierarchyUUIDs.includes(p.scope_element_uuid)));
         ancestorGrant = ancestorPermissions.permissions.some(p => !p.is_deny && permission.is_deny && (hierarchyUUIDs.includes(p.scope_element_uuid)))
       }
       const ancestorContext: PermissionContext[] = [];
@@ -267,7 +267,6 @@ export class AuthUtils {
   }
 
   async checkAccess(userEmail: string, featureCode: string, elementUuid: string): Promise<"grant" | "deny"> {
-    if (!userEmail) return "deny";
     const user = await UserTable.findOne({ where: { email: userEmail } })
     if (!user) return "deny";
     const feature = await FeatureTable.findOne({ where: { code: featureCode } });
@@ -352,7 +351,7 @@ export class AuthUtils {
     return foundGrant ? "grant" : null;
   }
 
-  async verifyGroupCollision(groupUUIDs: string[]): Promise<{ conflictType: string; permissions: any[] }[]> {
+  async verifyGroupCollision(groupUUIDs: string[]): Promise<{ conflictType: string; permissions: PermissionTable[] }[]> {
     const conflicts: { conflictType: string; permissions: any[] }[] = [];
     const permissions = await PermissionTable.findAll({ where: { group_uuid: groupUUIDs } });
 
@@ -428,13 +427,13 @@ export class AuthUtils {
       if (!entityPerms.has(elementUuid)) entityPerms.set(elementUuid, new Set());
       entityPerms.get(elementUuid)!.add(status);
     };
-
-    for (const permission of directPermissions) {
-      const feature = featureMap.get(permission.feature_uuid);
-      if (!feature) continue;
-      insertPermission(permission.feature_uuid, permission.scope_element_uuid, permission.is_deny ? "deny" : "grant");
-    }
-
+    directPermissions.forEach(permission =>
+      insertPermission(
+        permission.feature_uuid,
+        permission.scope_element_uuid,
+        permission.is_deny ? "deny" : "grant"
+      )
+    );
     for (const feature of features) {
       const { permissions: inherited } = await this.checkAncestorEffectivePermissions(feature.uuid, groupUUIDs);
 

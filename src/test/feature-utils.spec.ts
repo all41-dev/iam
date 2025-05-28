@@ -74,7 +74,6 @@ describe("FeatureUtils", () => {
 
   describe("buildScopesTree", () => {
     it("should throw an error if scope is not found", async () => {
-      const scopeUuid = "scope-1";
       const visited = new Set<string>();
 
       sandbox.stub(ScopeTable, "findOne").resolves(undefined);
@@ -87,6 +86,42 @@ describe("FeatureUtils", () => {
         expect(err.message).to.equal(`Scope not found`);
       }
     });
+
+    it("should return a cyclic marker if a scope has already been visited", async () => {
+      const scope1 = { uuid: "scope-1", name: "Scope 1", code: "S1", parent_uuid: null } as unknown as ScopeTable;
+      const scope2 = { uuid: "scope-2", name: "Scope 2", code: "S2", parent_uuid: "scope-1" } as unknown as ScopeTable;
+
+      sandbox.stub(ScopeTable, "findOne").resolves(scope1);
+
+      sandbox.stub(ScopeTable, "findByPk")
+        .withArgs("scope-2").resolves(scope2)
+        .withArgs("scope-1").resolves(scope1);
+
+      const findAllStub = sandbox.stub(ScopeTable, "findAll");
+      findAllStub.withArgs({ where: { parent_uuid: "scope-1" } }).resolves([scope2]);
+      findAllStub.withArgs({ where: { parent_uuid: "scope-2" } }).resolves([scope1]);
+
+      const visited = new Set<string>();
+
+      const result = await featureUtils.buildScopesTree(visited);
+
+      expect(result).to.deep.equal({
+        uuid: "scope-1",
+        name: "Scope 1",
+        code: "S1",
+        children: [
+          {
+            uuid: "scope-2",
+            name: "Scope 2",
+            code: "S2",
+            children: [
+              [{ uuid: "scope-1", cyclic: true }]
+            ]
+          }
+        ]
+      });
+    });
+
 
     it("should build the scope tree structure", async () => {
       const scope1 = { uuid: "scope-1", name: "Scope 1", code: "S1", parent_uuid: null } as unknown as ScopeTable;
@@ -134,6 +169,32 @@ describe("FeatureUtils", () => {
       } catch (error) {
         const err = error as Error;
         expect(err.message).to.equal(`Feature with UUID ${featureUuid} not found`);
+      }
+    });
+
+    it("should throw an error if scope is not found", async () => {
+      const featureUuid = "feature-1";
+
+      const feature1 = { uuid: "feature-1", name: "Feature 1", code: "F1", scope_uuid: "scope-1" } as FeatureTable;
+
+      sandbox.stub(FeatureTable, "findByPk")
+        .withArgs("feature-1").resolves(feature1);
+
+      sandbox.stub(FeatureCompositionTable, "findAll")
+        .withArgs({ where: { child_uuid: "feature-1" } }).resolves([])
+        .withArgs({ where: { parent_uuid: "feature-1" } }).resolves([]);
+
+      sandbox.stub(ScopeTable, "findByPk")
+        .withArgs("scope-1").resolves(null)
+
+      const visited = new Set<string>();
+
+      try {
+        await featureUtils.buildFeatureMatrix(featureUuid, visited);
+        assert.fail("Expected error was not thrown");
+      } catch (error) {
+        const err = error as Error;
+        expect(err.message).to.equal(`Scope with UUID ${feature1.scope_uuid} not found`);
       }
     });
 
@@ -364,6 +425,18 @@ describe("FeatureUtils", () => {
       expect(result).to.deep.equal({ uuid: 'feature1', scope_uuid: 'scope1' });
     });
 
+    it('should return null if valid parent features exist but no highest feature found recursively', async () => {
+      getDirectParentFeaturesStub.withArgs('feature1').resolves([
+        { uuid: 'parent1', scope_uuid: 'scope1' },
+      ]);
+
+      getDirectParentFeaturesStub.withArgs('parent1').resolves([]);
+      findByPkStub.withArgs('parent1').resolves(null);
+
+      const result = await featureUtils.getHighestFeatureInScope('feature1', new Set(['scope1']));
+      expect(result).to.equal(null);
+    });
+
     it('should recursively find the highest feature in the allowed scopes', async () => {
       getDirectParentFeaturesStub.withArgs('feature1').resolves([
         { uuid: 'parent1', scope_uuid: 'scope2' },
@@ -559,6 +632,38 @@ describe("FeatureUtils", () => {
       const result = await featureUtils.getHighestFeatures(['feature1', 'feature2', 'feature3', 'feature4']);
       expect(result).to.deep.equal(['feature1', 'feature2', 'feature4']);
     });
+
+    it('should handle direct cycles correctly', async () => {
+      findAllStub.withArgs({ where: { child_uuid: 'feature1' } }).resolves([{ parent_uuid: 'feature2' }]);
+      findAllStub.withArgs({ where: { child_uuid: 'feature2' } }).resolves([{ parent_uuid: 'feature1' }]);
+
+      const result = await featureUtils.getHighestFeatures(['feature1', 'feature2']);
+      expect(result).to.deep.equal([]);
+    });
+
+    it('should handle parentMap with prepopulated data', async () => {
+      findAllStub.withArgs({ where: { child_uuid: 'feature1' } }).resolves([{ parent_uuid: 'feature2' }]);
+      findAllStub.withArgs({ where: { child_uuid: 'feature2' } }).resolves([]);
+
+      const parentMap = new Map<string, string[]>([['feature1', ['feature2']]]);
+      const visited = new Set<string>();
+      const result = await featureUtils.hasAncestorInList('feature1', new Set(['feature1', 'feature2']), visited, parentMap);
+
+      expect(result).to.be.true;
+    });
+
+    it('should ensure visited set prevents redundant recursion', async () => {
+      findAllStub.withArgs({ where: { child_uuid: 'feature1' } }).resolves([{ parent_uuid: 'feature2' }]);
+      findAllStub.withArgs({ where: { child_uuid: 'feature2' } }).resolves([{ parent_uuid: 'feature3' }]);
+      findAllStub.withArgs({ where: { child_uuid: 'feature3' } }).resolves([{ parent_uuid: 'feature1' }]);
+
+      const visited = new Set<string>();
+      const result = await featureUtils.hasAncestorInList('feature1', new Set(['feature4']), visited, new Map());
+
+      expect(result).to.be.false;
+    });
+
+
     it('should correctly handle recursive ancestor checks', async () => {
       findAllStub.withArgs({ where: { child_uuid: 'feature1' } }).resolves([{ parent_uuid: 'feature2' }]);
       findAllStub.withArgs({ where: { child_uuid: 'feature2' } }).resolves([{ parent_uuid: 'feature3' }]);

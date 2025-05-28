@@ -165,30 +165,31 @@ export class FeatureUtils {
   public async getHighestFeatures(featureUuids: string[]): Promise<string[]> {
     const highestFeatures: string[] = [];
     const parentMap = new Map<string, string[]>();
-    const hasAncestorInList = async (featureUuid: string, allUuids: Set<string>, visited: Set<string>): Promise<boolean> => {
-      if (visited.has(featureUuid)) return false;
-      visited.add(featureUuid);
-      let parents;
-      if (parentMap.has(featureUuid)) parents = parentMap.get(featureUuid)!;
-      parents = await FeatureCompositionTable.findAll({
-        where: { child_uuid: featureUuid },
-      });
-      const parentUuids = parents.map(p => p.parent_uuid);
-      parentMap.set(featureUuid, parentUuids);
-      parents = parentUuids;
-      for (const parentUuid of parents) {
-        if (allUuids.has(parentUuid)) return true;
-        if (await hasAncestorInList(parentUuid, allUuids, visited)) return true;
-      }
-      return false;
-    };
     const uniqueFeatureUuid = new Set(featureUuids);
     for (const featureUuid of featureUuids) {
       const visited = new Set<string>();
-      const isHighest = !(await hasAncestorInList(featureUuid, uniqueFeatureUuid, visited));
+      const isHighest = !(await this.hasAncestorInList(featureUuid, uniqueFeatureUuid, visited, parentMap));
       if (isHighest) highestFeatures.push(featureUuid);
     }
     return highestFeatures;
+  }
+
+  public async hasAncestorInList(featureUuid: string, allUuids: Set<string>, visited: Set<string>, parentMap: Map<string, string[]>): Promise<boolean> {
+    if (visited.has(featureUuid)) return false;
+    visited.add(featureUuid);
+    let parents;
+    if (parentMap.has(featureUuid)) parents = parentMap.get(featureUuid)!;
+    parents = await FeatureCompositionTable.findAll({
+      where: { child_uuid: featureUuid },
+    });
+    const parentUuids = parents.map(p => p.parent_uuid);
+    parentMap.set(featureUuid, parentUuids);
+    parents = parentUuids;
+    for (const parentUuid of parents) {
+      if (allUuids.has(parentUuid)) return true;
+      if (await this.hasAncestorInList(parentUuid, allUuids, visited, parentMap)) return true;
+    }
+    return false;
   }
 }
 

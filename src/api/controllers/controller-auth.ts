@@ -52,6 +52,7 @@ export class AuthController {
     r.get('/logout', (req, res) => {
       res.clearCookie('auth');
       res.clearCookie('refresh');
+      res.clearCookie('provider');
       res.redirect(this._authManager.options.redirectAfterLogin || '/');
     });
 

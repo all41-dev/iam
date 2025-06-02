@@ -12,7 +12,6 @@ import bcrypt from 'bcrypt';
 import { UserTable } from '../db/user-table';
 import { RefreshTokenTable } from '../db/refresh-token-table';
 import { AuthUtils } from "./auth-utils";
-import { Server } from "@all41-dev/server";
 
 export class AuthManager {
   private static instance: AuthManager;
@@ -156,7 +155,7 @@ export class AuthManager {
       const isExternalHost = new URL(redirect, base).hostname !== req.hostname;
       if (isExternalHost && req.cookies["redirect"]) {
         redirectAfter +=
-          "?" + querystring.stringify({ accessToken: token, refreshToken });
+          "?" + querystring.stringify({ accessToken: token, refreshToken, provider: (req.user as IAMUser).provider });
       }
       res.clearCookie("redirect");
       res.cookie("auth", token, { maxAge: 5 * 60 * 1000 });
@@ -172,11 +171,11 @@ export class AuthManager {
   }
 
   public saveRefreshToken = async (user_uuid: string, refreshExpiry?: number, impersonate_user_email?: string) => {
-    const user = await UserTable.findByPk(user_uuid)
-    if (!user) throw new Error("User not found");
     if (!this.options.privateKey) {
       throw new Error("No private key provided for JWT generation");
     }
+    const user = await UserTable.findByPk(user_uuid)
+    if (!user) throw new Error("User not found");
     const token = jwt.sign(
       {
         user_uuid: user.uuid,
@@ -190,17 +189,24 @@ export class AuthManager {
         audience: process.env.AUTH_AUDIENCE || "all41",
         subject: user.uuid
       });
-    bcrypt.hash(token, 10, async (err, hash) => {
-      if (err) throw err;
-      await RefreshTokenTable.create({
-        user_uuid: user.uuid,
-        token: hash,
-        expires: new Date(Date.now() + (refreshExpiry || 24 * 60 * 60 * 1000))
+
+    const hash = await new Promise<string>((resolve, reject) => {
+      bcrypt.hash(token, 10, (err, hashed) => {
+        if (err) return reject(err);
+        resolve(hashed);
       });
+    });
+    await RefreshTokenTable.create({
+      user_uuid: user.uuid,
+      token: hash,
+      expires: new Date(Date.now() + (refreshExpiry || 24 * 60 * 60 * 1000))
     });
     return token;
   };
   public generateAccessToken = async (refreshToken: string) => {
+    if (!this.options.privateKey) {
+      throw new Error("No private key provided for JWT generation");
+    }
     const decodedToken = (jwt.verify(refreshToken, this.options.publicKey, { algorithms: ['RS256'] }) as { user_uuid: string, impersonate_user_email?: string });
     const token = await RefreshTokenTable.findAll({ where: { user_uuid: decodedToken.user_uuid } })
       .then((tokens) => tokens.find((t) => bcrypt.compareSync(refreshToken, t.token)));
@@ -216,9 +222,6 @@ export class AuthManager {
       permissions: permissions && Object.keys(permissions).length > 0 ? Buffer.from(JSON.stringify(permissions)).toString('base64') : undefined,
       permissionWarning: permissions && Object.keys(permissions).length > 0 ? undefined : 'no permissions',
     });
-    if (!this.options.privateKey) {
-      throw new Error("No private key provided for JWT generation");
-    }
     const newToken = jwt.sign(safePayload, this.options.privateKey, {
       algorithm: "RS256",
       expiresIn: "5m",

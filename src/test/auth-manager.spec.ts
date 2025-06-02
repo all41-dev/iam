@@ -7,8 +7,10 @@ import { UserTable } from '../db/user-table';
 import { RefreshTokenTable } from '../db/refresh-token-table';
 import { IAuthOptions } from '../interfaces';
 import jwt from 'jsonwebtoken';
-import { Request, Response } from "express";
+import express, { Request, Response, Router } from "express";
 import { AuthUtils } from '../auth/auth-utils';
+import { AuthController } from '../api/controllers/controller-auth';
+import { Strategy as JWTStrategy } from "passport-jwt";
 
 describe('AuthManager Tests', () => {
   const privateKey = `-----BEGIN RSA PRIVATE KEY-----
@@ -54,21 +56,34 @@ YQIDAQAB
     masterApiKey: 'masterApiKey',
     authIssuer: 'authIssuer',
     authAudience: 'authAudience',
-    strategies: {},
+    strategies: {
+      testStrategy: { authenticate: sinon.stub() } as any,
+      anotherStrategy: { authenticate: sinon.stub() } as any,
+    },
   };
-  let getInstanceStub: sinon.SinonStub;
+
+  let sandbox: sinon.SinonSandbox;
   let fakeAuthUtils: Partial<AuthUtils>;
 
   beforeEach(() => {
+    sandbox = sinon.createSandbox();
     fakeAuthUtils = {
-      checkAccess: sinon.stub().resolves("grant"),
-      getUserPermissions: sinon.stub(),
+      checkAccess: sandbox.stub().resolves("grant"),
+      getUserPermissions: sandbox.stub(),
     };
-    getInstanceStub = sinon.stub(AuthUtils, 'getInstance').returns(fakeAuthUtils as AuthUtils);
+    sandbox.stub(AuthUtils, 'getInstance').returns(fakeAuthUtils as AuthUtils);
+
+    AuthManager.getInstance(authOptions);
   });
 
   afterEach(() => {
-    sinon.restore();
+    sandbox.restore();
+  });
+
+
+  it('should throw an error if called without initializing options', () => {
+    (AuthManager as any).instance = undefined;
+    expect(() => AuthManager.getInstance()).to.throw("AuthManager not initialized");
   });
 
   it('should return the same instance when called multiple times', () => {
@@ -80,6 +95,112 @@ YQIDAQAB
   it('should initialize with the correct options', () => {
     const instance = AuthManager.getInstance(authOptions);
     expect(instance.options).to.deep.equal(authOptions);
+  });
+
+  describe('init', () => {
+    let routerStub: sinon.SinonStub;
+    let passportUseStub: sinon.SinonStub;
+    let authControllerStub: sinon.SinonStub;
+
+    beforeEach(() => {
+      const mockRouter = {
+        use: sandbox.stub(),
+        get: sandbox.stub(),
+      } as unknown as Router;
+
+      routerStub = sandbox.stub(express, 'Router').returns(mockRouter);
+      passportUseStub = sandbox.stub(passport, 'use');
+      authControllerStub = sandbox.stub(AuthController.prototype, 'create').returns(mockRouter);
+    })
+
+    afterEach(() => {
+      sandbox.restore();
+    });
+
+    it('should initialize the router and middleware correctly', () => {
+      const instance = AuthManager.getInstance(authOptions);
+      const router = instance.init();
+
+      sandbox.assert.calledOnce(routerStub);
+
+      sandbox.assert.calledWith(router.use as sinon.SinonStub, sinon.match.func);
+      sandbox.assert.calledWith(router.use as sinon.SinonStub, sinon.match.func);
+      sandbox.assert.calledWith(router.use as sinon.SinonStub, sinon.match.func);
+
+      expect(router.get).to.be.a('function');
+    });
+
+    it('should initialize the router and middleware correctly without all options', () => {
+      (AuthManager as any).instance = undefined;
+      const mockAuthOptions: IAuthOptions = {
+        publicKey,
+        masterApiKey: 'masterApiKey',
+        strategies: {
+          testStrategy: { authenticate: sinon.stub() } as any,
+          anotherStrategy: { authenticate: sinon.stub() } as any,
+        },
+      };
+      const mockInstance = AuthManager.getInstance(mockAuthOptions);
+      const router = mockInstance.init();
+
+      sandbox.assert.calledOnce(routerStub);
+
+      sandbox.assert.calledWith(router.use as sinon.SinonStub, sinon.match.func);
+      sandbox.assert.calledWith(router.use as sinon.SinonStub, sinon.match.func);
+      sandbox.assert.calledWith(router.use as sinon.SinonStub, sinon.match.func);
+
+      expect(router.get).to.be.a('function');
+      (AuthManager as any).instance = undefined;
+    });
+
+
+    it('should configure passport with JWTStrategy and strategies', () => {
+      AuthManager.getInstance(authOptions).init();
+
+      sandbox.assert.calledWith(
+        passportUseStub,
+        sandbox.match.instanceOf(passport.Strategy)
+      );
+
+      sandbox.assert.callCount(passportUseStub, Object.keys(authOptions.strategies).length + 1);
+    });
+
+    it('should call AuthController.create with correct arguments', () => {
+      const strategies = Object.keys(authOptions.strategies);
+      const router = AuthManager.getInstance(authOptions).init();
+
+      sandbox.assert.calledOnce(authControllerStub);
+      sandbox.assert.calledWith(authControllerStub, strategies, router);
+    });
+
+    it('should configure passport with each strategy in authOptions', () => {
+      AuthManager.getInstance(authOptions).init();
+      const strategies = Object.keys(authOptions.strategies);
+      strategies.forEach((strategy) => {
+        sinon.assert.calledWith(passportUseStub, strategy, authOptions.strategies[strategy]);
+      });
+    });
+
+    it('should invoke JWTStrategy callback and call done with payload', async () => {
+      AuthManager.getInstance(authOptions).init();
+
+      const jwtStrategyCall = passportUseStub.getCalls().find(call =>
+        call.args[0] instanceof JWTStrategy
+      );
+
+      expect(jwtStrategyCall).to.exist;
+      const strategy = jwtStrategyCall!.args[0] as JWTStrategy;
+
+      const verifyFn = (strategy as any)._verify;
+
+      const fakePayload = { userId: '123' };
+      const doneStub = sinon.stub();
+
+      await verifyFn(fakePayload, doneStub);
+
+      sinon.assert.calledOnceWithExactly(doneStub, null, fakePayload);
+    });
+
   });
 
   describe('authMiddleware', () => {
@@ -100,7 +221,7 @@ YQIDAQAB
       } as unknown as Response;
       next = sinon.stub();
 
-      passportAuthenticateStub = sinon.stub(passport, 'authenticate').callsFake(
+      passportAuthenticateStub = sandbox.stub(passport, 'authenticate').callsFake(
         (strategy, options, callback) => {
           return (req: Request, res: Response, next: any) => {
             if (callback) {
@@ -120,13 +241,44 @@ YQIDAQAB
     });
 
     afterEach(() => {
-      sinon.restore();
+      sandbox.restore();
+    });
+
+    it('should return 401 if passport authenticate returns an error', () => {
+      const error = new Error('Invalid token');
+
+      passportAuthenticateStub.callsFake((strategy, options, callback) => {
+        return (req: Request, res: Response, next: any) => {
+          callback(error, null);
+        };
+      });
+
+      instance.authMiddleware(req, res, next);
+
+      sinon.assert.calledOnce(res.sendStatus as sinon.SinonStub);
+      sinon.assert.calledWithExactly(res.sendStatus as sinon.SinonStub, 401);
+      sinon.assert.notCalled(next);
     });
 
     it('should call next() if master API key is provided', () => {
       req.headers.authorization = `Bearer ${authOptions.masterApiKey}`;
       instance.authMiddleware(req, res, next);
       expect(next.calledOnce).to.be.true;
+    });
+
+    it('should set req.user and call next() if token is valid', async () => {
+      const mockUser = { uuid: 'test-user' };
+      passportAuthenticateStub.callsFake((strategy, options, callback) => {
+        return (req: Request, res: Response, next: any) => {
+          if (callback) {
+            callback(null, { user: { uuid: 'test-user' } });
+          }
+          next();
+        };
+      });
+
+      instance.authMiddleware(req, res, next);
+      expect(req.user).to.deep.equal(mockUser);
     });
 
     it('should return 401 if no authorization header is present', async () => {
@@ -148,7 +300,7 @@ YQIDAQAB
           next();
         };
       });
-      sinon.stub(instance, 'refreshToken').resolves(undefined);
+      sandbox.stub(instance, 'refreshToken').resolves(undefined);
       await instance.authMiddleware(req, res, next);
       expect((res.sendStatus as sinon.SinonStub).calledWith(401)).to.be.true;
     });
@@ -168,15 +320,15 @@ YQIDAQAB
         body: {},
       } as Request;
       res = {
-        sendStatus: sinon.stub(),
-        cookie: sinon.stub().returnsThis(),
-        json: sinon.stub(),
+        sendStatus: sandbox.stub(),
+        cookie: sandbox.stub().returnsThis(),
+        json: sandbox.stub(),
       } as unknown as Response;
-      generateAccessTokenStub = sinon.stub(instance, 'generateAccessToken');
+      generateAccessTokenStub = sandbox.stub(instance, 'generateAccessToken');
     });
 
     afterEach(() => {
-      sinon.restore();
+      sandbox.restore();
     });
 
     it('should return 401 if no refresh token is provided', async () => {
@@ -234,15 +386,15 @@ YQIDAQAB
         },
       } as unknown as Request;
       res = {
-        cookie: sinon.stub().returnsThis(),
-        redirect: sinon.stub(),
-        clearCookie: sinon.stub(),
+        cookie: sandbox.stub().returnsThis(),
+        redirect: sandbox.stub(),
+        clearCookie: sandbox.stub(),
       } as unknown as Response;
-      saveRefreshTokenStub = sinon.stub(instance, 'saveRefreshToken').resolves('mocked-refresh-token');
+      saveRefreshTokenStub = sandbox.stub(instance, 'saveRefreshToken').resolves('mocked-refresh-token');
     });
 
     afterEach(() => {
-      sinon.restore();
+      sandbox.restore();
     });
 
     it('should generate a new JWT and set cookies', async () => {
@@ -264,6 +416,31 @@ YQIDAQAB
       expect(saveRefreshTokenStub.firstCall.args[0]).to.equal('user-uuid');
     });
 
+    it('should append accessToken, refreshToken, and provider to the redirect URL if isExternalHost and redirect cookie is set', async () => {
+      const generateJWT = instance.generateJWT();
+
+      req.cookies['redirect'] = 'http://externalhost.com/path';
+
+      await generateJWT(req, res);
+
+      const redirectUrl = (res.redirect as sinon.SinonStub).firstCall.args[0];
+      const parsedUrl = new URL(redirectUrl);
+
+      expect(parsedUrl.hostname).to.equal('externalhost.com');
+      expect(parsedUrl.searchParams.has('accessToken')).to.be.true;
+      expect(parsedUrl.searchParams.has('refreshToken')).to.be.true;
+      expect(parsedUrl.searchParams.has('provider')).to.be.true;
+
+      expect((res.clearCookie as sinon.SinonStub).calledOnce).to.be.true;
+      expect((res.clearCookie as sinon.SinonStub).firstCall.args[0]).to.equal('redirect');
+
+      expect((res.cookie as sinon.SinonStub).calledThrice).to.be.true;
+      expect((res.cookie as sinon.SinonStub).getCall(0).args[0]).to.equal('auth');
+      expect((res.cookie as sinon.SinonStub).getCall(1).args[0]).to.equal('refresh');
+      expect((res.cookie as sinon.SinonStub).getCall(2).args[0]).to.equal('provider');
+    });
+
+
     it('should throw an error if no user is found in request', async () => {
       const reqWithoutUser = { ...req, user: undefined } as Request;
       const generateJWT = instance.generateJWT();
@@ -271,6 +448,29 @@ YQIDAQAB
         await generateJWT(reqWithoutUser, res);
       } catch (error) {
         expect((error as Error).message).to.equal('No user found in request');
+      }
+    });
+
+    it('should throw an error if no privateKey is found in options', async () => {
+      (AuthManager as any).instance = undefined;
+      const mockAuthOptions: IAuthOptions = {
+        publicKey,
+        masterApiKey: 'masterApiKey',
+        authIssuer: 'authIssuer',
+        authAudience: 'authAudience',
+        strategies: {
+          testStrategy: { authenticate: sinon.stub() } as any,
+          anotherStrategy: { authenticate: sinon.stub() } as any,
+        },
+      };
+      const mockInstance = AuthManager.getInstance(mockAuthOptions);
+      const generateJWT = mockInstance.generateJWT();
+      try {
+        await generateJWT(req, res);
+      } catch (error) {
+        expect((error as Error).message).to.equal('No private key provided for JWT generation');
+      } finally {
+        (AuthManager as any).instance = undefined;
       }
     });
 
@@ -315,22 +515,22 @@ YQIDAQAB
 
     beforeEach(() => {
       instance = AuthManager.getInstance(authOptions);
-      findByPkStub = sinon.stub(UserTable, 'findByPk');
-      createStub = sinon.stub(RefreshTokenTable, 'create');
-      hashStub = sinon.stub(bcrypt, 'hash');
-      sinon.stub(jwt, 'sign').callsFake((payload) => {
+      findByPkStub = sandbox.stub(UserTable, 'findByPk');
+      createStub = sandbox.stub(RefreshTokenTable, 'create');
+      hashStub = sandbox.stub(bcrypt, 'hash');
+      sandbox.stub(jwt, 'sign').callsFake((payload) => {
         const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64');
         const body = Buffer.from(JSON.stringify(payload)).toString('base64');
         return `${header}.${body}.signature`;
       });
-      sinon.stub(jwt, 'decode').callsFake((token) => {
+      sandbox.stub(jwt, 'decode').callsFake((token) => {
         const [header, body] = token.split('.');
         return JSON.parse(Buffer.from(body, 'base64').toString('utf8'));
       });
     });
 
     afterEach(() => {
-      sinon.restore();
+      sandbox.restore();
     });
 
     it('should throw an error if user is not found', async () => {
@@ -342,6 +542,31 @@ YQIDAQAB
       }
       expect(createStub.notCalled).to.be.true;
       expect(hashStub.notCalled).to.be.true;
+    });
+
+    it('should throw an error if no privateKey is found in options', async () => {
+      (AuthManager as any).instance = undefined;
+      const mockAuthOptions: IAuthOptions = {
+        publicKey,
+        masterApiKey: 'masterApiKey',
+        authIssuer: 'authIssuer',
+        authAudience: 'authAudience',
+        strategies: {
+          testStrategy: { authenticate: sinon.stub() } as any,
+          anotherStrategy: { authenticate: sinon.stub() } as any,
+        },
+      };
+      const mockInstance = AuthManager.getInstance(mockAuthOptions);
+      try {
+        await mockInstance.saveRefreshToken('non-existent-uuid');
+      } catch (error) {
+        expect((error as Error).message).to.equal('No private key provided for JWT generation');
+      }
+      finally {
+        expect(createStub.notCalled).to.be.true;
+        expect(hashStub.notCalled).to.be.true;
+        (AuthManager as any).instance = undefined;
+      }
     });
 
     it('should create a refresh token and save it to the database', async () => {
@@ -361,6 +586,38 @@ YQIDAQAB
       });
       expect(createStub.firstCall.args[0].expires).to.be.instanceOf(Date);
     });
+
+    it('should create a refresh token to impersonate user and save it to the database', async () => {
+      findByPkStub.resolves({ uuid: 'user-uuid' } as UserTable);
+      hashStub.yields(null, 'hashed-token');
+      createStub.resolves();
+
+      const token = await instance.saveRefreshToken('user-uuid', 24 * 60 * 60 * 1000, 'impersonate@fake.com');
+      const decodedToken = jwt.decode(token) as any;
+
+      expect(decodedToken.user_uuid).to.equal('user-uuid');
+      expect(decodedToken.impersonate_user_email).to.equal('impersonate@fake.com');
+      expect(hashStub.calledOnce).to.be.true;
+      expect(createStub.calledOnce).to.be.true;
+      expect(createStub.firstCall.args[0]).to.include({
+        user_uuid: 'user-uuid',
+        token: 'hashed-token',
+      });
+      expect(createStub.firstCall.args[0].expires).to.be.instanceOf(Date);
+    });
+    it('should throw an error if bcrypt.hash fails', async () => {
+      findByPkStub.resolves({ uuid: 'user-uuid' } as UserTable);
+      const hashError = new Error('Hash failed');
+      hashStub.yields(hashError);
+
+      try {
+        await instance.saveRefreshToken('user-uuid', 24 * 60 * 60 * 1000);
+        throw new Error('Expected error was not thrown');
+      } catch (err) {
+        expect(err).to.equal(hashError);
+        expect(createStub.notCalled).to.be.true;
+      }
+    });
   });
 
   describe('generateAccessToken', () => {
@@ -374,16 +631,16 @@ YQIDAQAB
     beforeEach(() => {
       instance = AuthManager.getInstance(authOptions);
 
-      findByPkStub = sinon.stub(UserTable, 'findByPk');
-      findAllStub = sinon.stub(RefreshTokenTable, 'findAll');
-      compareSyncStub = sinon.stub(bcrypt, 'compareSync');
-      verifyStub = sinon.stub(jwt, 'verify');
+      findByPkStub = sandbox.stub(UserTable, 'findByPk');
+      findAllStub = sandbox.stub(RefreshTokenTable, 'findAll');
+      compareSyncStub = sandbox.stub(bcrypt, 'compareSync');
+      verifyStub = sandbox.stub(jwt, 'verify');
 
       getUserPermissionsStub = fakeAuthUtils.getUserPermissions as sinon.SinonStub;
     });
 
     afterEach(() => {
-      sinon.restore();
+      sandbox.restore();
     });
 
     it('should return null if refresh token is invalid', async () => {
@@ -398,7 +655,7 @@ YQIDAQAB
 
     it('should return null if user is not found', async () => {
       const mockToken = { user_uuid: 'user-uuid', token: 'hashed-token' };
-      verifyStub.returns({ id: 'user-uuid' });
+      verifyStub.returns({ user_uuid: 'user-uuid' });
       findAllStub.resolves([mockToken]);
       compareSyncStub.returns(true);
       findByPkStub.resolves(null);
@@ -406,13 +663,104 @@ YQIDAQAB
       const token = await instance.generateAccessToken('valid-token');
       expect(token).to.be.null;
     });
+    it('should return null if token is not found', async () => {
+      verifyStub.returns({ user_uuid: 'user-uuid' });
+      findAllStub.resolves([]);
+
+      const token = await instance.generateAccessToken('valid-token');
+      expect(token).to.be.null;
+    });
+
+    it('should throw an error if no privateKey is found in options', async () => {
+      (AuthManager as any).instance = undefined;
+      const mockAuthOptions: IAuthOptions = {
+        publicKey,
+        masterApiKey: 'masterApiKey',
+        authIssuer: 'authIssuer',
+        authAudience: 'authAudience',
+        strategies: {
+          testStrategy: { authenticate: sinon.stub() } as any,
+          anotherStrategy: { authenticate: sinon.stub() } as any,
+        },
+      };
+      const mockInstance = AuthManager.getInstance(mockAuthOptions);
+      try {
+        const token = await mockInstance.generateAccessToken('invalid-token');
+        expect(token).to.be.null;
+      } catch (error) {
+        expect((error as Error).message).to.equal('No private key provided for JWT generation');
+      }
+      finally {
+        (AuthManager as any).instance = undefined;
+      }
+    });
+
+    it('should generate a new access token if refresh token is valid without all options', async () => {
+      (AuthManager as any).instance = undefined;
+      const mockAuthOptions: IAuthOptions = {
+        publicKey,
+        privateKey,
+        masterApiKey: 'masterApiKey',
+        strategies: {
+          testStrategy: { authenticate: sinon.stub() } as any,
+          anotherStrategy: { authenticate: sinon.stub() } as any,
+        },
+      };
+      const mockInstance = AuthManager.getInstance(mockAuthOptions);
+      const mockUser = { uuid: "user-uuid", "dataValues": { uuid: 'user-uuid' } };
+      const mockToken = { user_uuid: 'user-uuid', token: 'hashed-token' };
+      const mockPermissions = { 'feature.view': 'grant' };
+
+      verifyStub.returns({ user_uuid: 'user-uuid' });
+      findAllStub.resolves([mockToken]);
+      compareSyncStub.returns(true);
+      findByPkStub.resolves(mockUser);
+      getUserPermissionsStub.resolves(mockPermissions);
+
+      const result = await mockInstance.generateAccessToken('valid-token');
+      if (!result) throw new Error('Result is null');
+
+      const decodedToken = jwt.decode(result.token) as any;
+      expect(decodedToken.user.uuid).to.equal('user-uuid');
+      expect(result.user.uuid).to.equal('user-uuid');
+
+      const decodedPermissions = JSON.parse(
+        Buffer.from(decodedToken.user.permissions, 'base64').toString()
+      );
+      expect(decodedPermissions).to.deep.equal(mockPermissions);
+      (AuthManager as any).instance = undefined;
+    });
+
+    it('should generate a new access token if refresh token is valid for impersonation without permission', async () => {
+      const mockUser = { uuid: "user-uuid", dataValues: { uuid: 'user-uuid' } };
+      const mockToken = { user_uuid: 'user-uuid', token: 'hashed-token' };
+
+      verifyStub.returns({ user_uuid: 'user-uuid', impersonate_user_email: 'impersonate@fake.com' });
+      findAllStub.resolves([mockToken]);
+      compareSyncStub.returns(true);
+      findByPkStub.resolves(mockUser);
+
+      getUserPermissionsStub.resolves({});
+
+      const result = await instance.generateAccessToken('valid-token');
+      if (!result) throw new Error('Result is null');
+
+      const decodedToken = jwt.decode(result.token) as any;
+
+      expect(decodedToken.user.uuid).to.equal('user-uuid');
+      expect(result.user.uuid).to.equal('user-uuid');
+      expect(decodedToken.user.impersonateUser).to.equal('impersonate@fake.com');
+      expect(decodedToken.user.permissions).to.be.undefined;
+      expect(decodedToken.user.permissionWarning).to.equal('no permissions');
+    });
+
 
     it('should generate a new access token if refresh token is valid', async () => {
       const mockUser = { uuid: "user-uuid", "dataValues": { uuid: 'user-uuid' } };
       const mockToken = { user_uuid: 'user-uuid', token: 'hashed-token' };
       const mockPermissions = { 'feature.view': 'grant' };
 
-      verifyStub.returns({ id: 'user-uuid' });
+      verifyStub.returns({ user_uuid: 'user-uuid' });
       findAllStub.resolves([mockToken]);
       compareSyncStub.returns(true);
       findByPkStub.resolves(mockUser);
@@ -441,19 +789,19 @@ YQIDAQAB
 
     beforeEach(() => {
       instance = AuthManager.getInstance(authOptions);
-      findAllStub = sinon.stub(RefreshTokenTable, 'findAll');
-      destroyStub = sinon.stub(RefreshTokenTable, 'destroy');
-      compareSyncStub = sinon.stub(bcrypt, 'compareSync');
-      verifyStub = sinon.stub(jwt, 'verify');
+      findAllStub = sandbox.stub(RefreshTokenTable, 'findAll');
+      destroyStub = sandbox.stub(RefreshTokenTable, 'destroy');
+      compareSyncStub = sandbox.stub(bcrypt, 'compareSync');
+      verifyStub = sandbox.stub(jwt, 'verify');
     });
 
     afterEach(() => {
-      sinon.restore();
+      sandbox.restore();
     });
 
     it('should destroy the refresh token if it is valid', async () => {
       const mockToken = { uuid: 'token-uuid', user_uuid: 'user-uuid', token: 'hashed-token' };
-      verifyStub.returns({ id: 'user-uuid' });
+      verifyStub.returns({ user_uuid: 'user-uuid' });
       findAllStub.resolves([mockToken]);
       compareSyncStub.returns(true);
       destroyStub.resolves();
@@ -473,6 +821,48 @@ YQIDAQAB
       }
 
       expect(destroyStub.notCalled).to.be.true;
+    });
+  });
+
+  describe('createSafeJwtPayload', () => {
+    let instance: AuthManager;
+
+    beforeEach(() => {
+      instance = AuthManager.getInstance(authOptions);
+    });
+
+    afterEach(() => {
+      sandbox.restore();
+    });
+
+    it('should include full user if payload is under 2KB', () => {
+      const smallUser = {
+        uuid: '123',
+        username: 'test',
+        permissions: ['read', 'write'],
+      };
+
+      const payload = (instance as any).createSafeJwtPayload(smallUser);
+
+      expect(payload).to.have.property('user');
+      expect(payload.user).to.deep.equal(smallUser);
+    });
+
+    it('should omit permissions and add warning if payload exceeds 2KB', () => {
+      const largePermissions = Array.from({ length: 500 }, (_, i) => `perm${i}`);
+      const largeUser = {
+        uuid: '456',
+        username: 'test',
+        permissions: largePermissions,
+      };
+
+      const payload = (instance as any).createSafeJwtPayload(largeUser);
+
+      expect(payload).to.have.property('user');
+      expect(payload.user.permissions).to.be.undefined;
+      expect(payload.user.permissionWarning).to.equal(
+        'Permissions omitted due to token size limit. See /api/users/:id/permission for full list.'
+      );
     });
   });
 });

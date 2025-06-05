@@ -81,6 +81,7 @@ export class AuthController {
       if (!req.user || !this._authUtils) return res.status(401).json({ message: 'Not Authorized' });
       if (await this._authUtils.checkAccess((req.user as IAMUser).email, "global-write-rights", process.env.GLOBAL_UUID || '') === "deny")
         return res.status(403).json({ message: 'Forbidden' });
+      const redirectUrl = req.query.redirectUrl || this._authManager.options.redirectAfterLogin;
       const impersonateUser = req.params.email;
       const permissions = await this._authUtils.getUserPermissions(undefined, impersonateUser);
       const user = {
@@ -90,11 +91,12 @@ export class AuthController {
         permissionWarning: permissions && Object.keys(permissions).length > 0 ? undefined : 'no permissions',
       }
       req.user = user;
-      next();
-    }, this._authManager.generateJWT(this._authManager.options.redirectAfterLogin));
+      return this._authManager.generateJWT(redirectUrl as string)(req, res);
+    });
 
     r.get(`/depersonate`, this._authManager.authMiddleware, async (req, res, next) => {
       if (!req.user || !this._authUtils) return res.status(401).json({ message: 'Not Authorized' });
+      const redirectUrl = req.query.redirectUrl || this._authManager.options.redirectAfterLogin;
       const permissions = await this._authUtils.getUserPermissions((req.user as IAMUser).uuid)
       const user = {
         ...req.user,
@@ -103,8 +105,8 @@ export class AuthController {
         permissionWarning: permissions && Object.keys(permissions).length > 0 ? undefined : 'no permissions',
       }
       req.user = user;
-      next();
-    }, this._authManager.generateJWT(this._authManager.options.redirectAfterLogin));
+      return this._authManager.generateJWT(redirectUrl as string)(req, res);
+    });
 
     return r;
   }

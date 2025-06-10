@@ -1,10 +1,10 @@
 import { assert, expect } from "chai";
 import sinon from "sinon";
 import { FeatureUtils } from "../auth/feature-utils";
-import { ScopeTable } from "../db/scope-table";
-import { FeatureTable } from "../db/feature-table";
-import { FeatureCompositionTable } from "../db/feature-composition-table";
-import { UserGroupTable } from "../db/user-group-table";
+import { DbScope } from "../db/db-scope";
+import { DbFeature } from "../db/db-feature";
+import { DbFeatureComposition } from "../db/db-feature-composition";
+import { DbUserGroup } from "../db/db-user-group";
 
 describe("FeatureUtils", () => {
   let featureUtils: FeatureUtils;
@@ -23,9 +23,9 @@ describe("FeatureUtils", () => {
     it("should return all child scopes recursively", async () => {
       const scopeUuid = "scope-1";
 
-      sandbox.stub(ScopeTable, "findAll")
-        .onFirstCall().resolves([{ uuid: "scope-2", parent_uuid: "scope-1" }] as ScopeTable[])
-        .onSecondCall().resolves([{ uuid: "scope-3", parent_uuid: "scope-2" }] as ScopeTable[])
+      sandbox.stub(DbScope, "findAll")
+        .onFirstCall().resolves([{ uuid: "scope-2", parent_uuid: "scope-1" }] as DbScope[])
+        .onSecondCall().resolves([{ uuid: "scope-3", parent_uuid: "scope-2" }] as DbScope[])
         .onThirdCall().resolves([]);
 
       const result = await featureUtils.getAllChildScopes(scopeUuid);
@@ -37,7 +37,7 @@ describe("FeatureUtils", () => {
       const scopeUuid = "scope-1";
       const visited = new Set<string>(["scope-1"]);
 
-      sandbox.stub(ScopeTable, "findAll").resolves([]);
+      sandbox.stub(DbScope, "findAll").resolves([]);
 
       const result = await featureUtils.getAllChildScopes(scopeUuid, visited);
 
@@ -48,10 +48,10 @@ describe("FeatureUtils", () => {
     it("should return all child scopes with multiple children", async () => {
       const scopeUuid = "scope-1";
 
-      sandbox.stub(ScopeTable, "findAll")
-        .onCall(0).resolves([{ uuid: "scope-2", parent_uuid: "scope-1" }] as ScopeTable[])
-        .onCall(1).resolves([{ uuid: "scope-3", parent_uuid: "scope-2" }] as ScopeTable[])
-        .onCall(2).resolves([{ uuid: "scope-4", parent_uuid: "scope-2" }] as ScopeTable[])
+      sandbox.stub(DbScope, "findAll")
+        .onCall(0).resolves([{ uuid: "scope-2", parent_uuid: "scope-1" }] as DbScope[])
+        .onCall(1).resolves([{ uuid: "scope-3", parent_uuid: "scope-2" }] as DbScope[])
+        .onCall(2).resolves([{ uuid: "scope-4", parent_uuid: "scope-2" }] as DbScope[])
         .onCall(3).resolves([]);
 
       const result = await featureUtils.getAllChildScopes(scopeUuid);
@@ -62,9 +62,9 @@ describe("FeatureUtils", () => {
     it("should handle cyclic dependencies", async () => {
       const scopeUuid = "scope-1";
 
-      sandbox.stub(ScopeTable, "findAll")
-        .onFirstCall().resolves([{ uuid: "scope-2", parent_uuid: "scope-1" }] as ScopeTable[])
-        .onSecondCall().resolves([{ uuid: "scope-1", parent_uuid: "scope-2" }] as ScopeTable[]);
+      sandbox.stub(DbScope, "findAll")
+        .onFirstCall().resolves([{ uuid: "scope-2", parent_uuid: "scope-1" }] as DbScope[])
+        .onSecondCall().resolves([{ uuid: "scope-1", parent_uuid: "scope-2" }] as DbScope[]);
 
       const result = await featureUtils.getAllChildScopes(scopeUuid);
 
@@ -76,7 +76,7 @@ describe("FeatureUtils", () => {
     it("should throw an error if scope is not found", async () => {
       const visited = new Set<string>();
 
-      sandbox.stub(ScopeTable, "findOne").resolves(undefined);
+      sandbox.stub(DbScope, "findOne").resolves(undefined);
 
       try {
         await featureUtils.buildScopesTree(visited);
@@ -88,16 +88,16 @@ describe("FeatureUtils", () => {
     });
 
     it("should return a cyclic marker if a scope has already been visited", async () => {
-      const scope1 = { uuid: "scope-1", name: "Scope 1", code: "S1", parent_uuid: null } as unknown as ScopeTable;
-      const scope2 = { uuid: "scope-2", name: "Scope 2", code: "S2", parent_uuid: "scope-1" } as unknown as ScopeTable;
+      const scope1 = { uuid: "scope-1", name: "Scope 1", code: "S1", parent_uuid: null } as unknown as DbScope;
+      const scope2 = { uuid: "scope-2", name: "Scope 2", code: "S2", parent_uuid: "scope-1" } as unknown as DbScope;
 
-      sandbox.stub(ScopeTable, "findOne").resolves(scope1);
+      sandbox.stub(DbScope, "findOne").resolves(scope1);
 
-      sandbox.stub(ScopeTable, "findByPk")
+      sandbox.stub(DbScope, "findByPk")
         .withArgs("scope-2").resolves(scope2)
         .withArgs("scope-1").resolves(scope1);
 
-      const findAllStub = sandbox.stub(ScopeTable, "findAll");
+      const findAllStub = sandbox.stub(DbScope, "findAll");
       findAllStub.withArgs({ where: { parent_uuid: "scope-1" } }).resolves([scope2]);
       findAllStub.withArgs({ where: { parent_uuid: "scope-2" } }).resolves([scope1]);
 
@@ -124,14 +124,14 @@ describe("FeatureUtils", () => {
 
 
     it("should build the scope tree structure", async () => {
-      const scope1 = { uuid: "scope-1", name: "Scope 1", code: "S1", parent_uuid: null } as unknown as ScopeTable;
-      const scope2 = { uuid: "scope-2", name: "Scope 2", code: "S2", parent_uuid: "scope-1" } as unknown as ScopeTable;
-      sandbox.stub(ScopeTable, "findOne").resolves(scope1)
+      const scope1 = { uuid: "scope-1", name: "Scope 1", code: "S1", parent_uuid: null } as unknown as DbScope;
+      const scope2 = { uuid: "scope-2", name: "Scope 2", code: "S2", parent_uuid: "scope-1" } as unknown as DbScope;
+      sandbox.stub(DbScope, "findOne").resolves(scope1)
 
-      sandbox.stub(ScopeTable, "findByPk")
+      sandbox.stub(DbScope, "findByPk")
         .withArgs("scope-2").resolves(scope2);
 
-      sandbox.stub(ScopeTable, "findAll")
+      sandbox.stub(DbScope, "findAll")
         .withArgs({ where: { parent_uuid: "scope-1" } }).resolves([scope2])
         .withArgs({ where: { parent_uuid: "scope-2" } }).resolves([]);
 
@@ -160,7 +160,7 @@ describe("FeatureUtils", () => {
       const featureUuid = "feature-1";
       const visited = new Set<string>();
 
-      sandbox.stub(FeatureTable, "findByPk")
+      sandbox.stub(DbFeature, "findByPk")
         .withArgs("feature-1").resolves(undefined);
 
       try {
@@ -175,16 +175,16 @@ describe("FeatureUtils", () => {
     it("should throw an error if scope is not found", async () => {
       const featureUuid = "feature-1";
 
-      const feature1 = { uuid: "feature-1", name: "Feature 1", code: "F1", scope_uuid: "scope-1" } as FeatureTable;
+      const feature1 = { uuid: "feature-1", name: "Feature 1", code: "F1", scope_uuid: "scope-1" } as DbFeature;
 
-      sandbox.stub(FeatureTable, "findByPk")
+      sandbox.stub(DbFeature, "findByPk")
         .withArgs("feature-1").resolves(feature1);
 
-      sandbox.stub(FeatureCompositionTable, "findAll")
+      sandbox.stub(DbFeatureComposition, "findAll")
         .withArgs({ where: { child_uuid: "feature-1" } }).resolves([])
         .withArgs({ where: { parent_uuid: "feature-1" } }).resolves([]);
 
-      sandbox.stub(ScopeTable, "findByPk")
+      sandbox.stub(DbScope, "findByPk")
         .withArgs("scope-1").resolves(null)
 
       const visited = new Set<string>();
@@ -201,23 +201,23 @@ describe("FeatureUtils", () => {
     it("should build the feature matrix structure", async () => {
       const featureUuid = "feature-1";
 
-      const feature1 = { uuid: "feature-1", name: "Feature 1", code: "F1", scope_uuid: "scope-1" } as FeatureTable;
-      const feature2 = { uuid: "feature-2", name: "Feature 2", code: "F2", scope_uuid: "scope-2" } as FeatureTable;
-      const feature3 = { uuid: "feature-3", name: "Feature 3", code: "F3", scope_uuid: "scope-3" } as FeatureTable;
+      const feature1 = { uuid: "feature-1", name: "Feature 1", code: "F1", scope_uuid: "scope-1" } as DbFeature;
+      const feature2 = { uuid: "feature-2", name: "Feature 2", code: "F2", scope_uuid: "scope-2" } as DbFeature;
+      const feature3 = { uuid: "feature-3", name: "Feature 3", code: "F3", scope_uuid: "scope-3" } as DbFeature;
 
-      const parentFeatureRelation = { parent_uuid: "feature-1", child_uuid: "feature-2" } as FeatureCompositionTable;
-      const childFeatureRelation = { parent_uuid: "feature-2", child_uuid: "feature-3" } as FeatureCompositionTable;
+      const parentFeatureRelation = { parent_uuid: "feature-1", child_uuid: "feature-2" } as DbFeatureComposition;
+      const childFeatureRelation = { parent_uuid: "feature-2", child_uuid: "feature-3" } as DbFeatureComposition;
 
-      const scope1 = { uuid: "scope-1", code: "S1" } as ScopeTable;
-      const scope2 = { uuid: "scope-2", code: "S2" } as ScopeTable;
-      const scope3 = { uuid: "scope-3", code: "S3" } as ScopeTable;
+      const scope1 = { uuid: "scope-1", code: "S1" } as DbScope;
+      const scope2 = { uuid: "scope-2", code: "S2" } as DbScope;
+      const scope3 = { uuid: "scope-3", code: "S3" } as DbScope;
 
-      sandbox.stub(FeatureTable, "findByPk")
+      sandbox.stub(DbFeature, "findByPk")
         .withArgs("feature-1").resolves(feature1)
         .withArgs("feature-2").resolves(feature2)
         .withArgs("feature-3").resolves(feature3);
 
-      sandbox.stub(FeatureCompositionTable, "findAll")
+      sandbox.stub(DbFeatureComposition, "findAll")
         .withArgs({ where: { child_uuid: "feature-1" } }).resolves([])
         .withArgs({ where: { parent_uuid: "feature-1" } }).resolves([parentFeatureRelation])
         .withArgs({ where: { child_uuid: "feature-2" } }).resolves([parentFeatureRelation])
@@ -225,7 +225,7 @@ describe("FeatureUtils", () => {
         .withArgs({ where: { child_uuid: "feature-3" } }).resolves([childFeatureRelation])
         .withArgs({ where: { parent_uuid: "feature-3" } }).resolves([]);
 
-      sandbox.stub(ScopeTable, "findByPk")
+      sandbox.stub(DbScope, "findByPk")
         .withArgs("scope-1").resolves(scope1)
         .withArgs("scope-2").resolves(scope2)
         .withArgs("scope-3").resolves(scope3);
@@ -276,26 +276,26 @@ describe("FeatureUtils", () => {
     it("should build the feature matrix structure by filtering valid Scopes", async () => {
       const featureUuid = "feature-1";
 
-      const feature1 = { uuid: "feature-1", name: "Feature 1", code: "F1", scope_uuid: "scope-2" } as FeatureTable;
-      const feature2 = { uuid: "feature-2", name: "Feature 2", code: "F2", scope_uuid: "scope-2" } as FeatureTable;
-      const feature3 = { uuid: "feature-3", name: "Feature 3", code: "F3", scope_uuid: "scope-3" } as FeatureTable;
-      const feature4 = { uuid: "feature-3", name: "Feature 3", code: "F4", scope_uuid: "scope-1" } as FeatureTable;
+      const feature1 = { uuid: "feature-1", name: "Feature 1", code: "F1", scope_uuid: "scope-2" } as DbFeature;
+      const feature2 = { uuid: "feature-2", name: "Feature 2", code: "F2", scope_uuid: "scope-2" } as DbFeature;
+      const feature3 = { uuid: "feature-3", name: "Feature 3", code: "F3", scope_uuid: "scope-3" } as DbFeature;
+      const feature4 = { uuid: "feature-3", name: "Feature 3", code: "F4", scope_uuid: "scope-1" } as DbFeature;
 
-      const ancestorFeatureRelation = { parent_uuid: "feature-4", child_uuid: "feature-1" } as FeatureCompositionTable;
-      const parentFeatureRelation = { parent_uuid: "feature-1", child_uuid: "feature-2" } as FeatureCompositionTable;
-      const childFeatureRelation = { parent_uuid: "feature-2", child_uuid: "feature-3" } as FeatureCompositionTable;
+      const ancestorFeatureRelation = { parent_uuid: "feature-4", child_uuid: "feature-1" } as DbFeatureComposition;
+      const parentFeatureRelation = { parent_uuid: "feature-1", child_uuid: "feature-2" } as DbFeatureComposition;
+      const childFeatureRelation = { parent_uuid: "feature-2", child_uuid: "feature-3" } as DbFeatureComposition;
 
-      const scope1 = { uuid: "scope-1", code: "S1" } as ScopeTable;
-      const scope2 = { uuid: "scope-2", code: "S2" } as ScopeTable;
-      const scope3 = { uuid: "scope-3", code: "S3" } as ScopeTable;
+      const scope1 = { uuid: "scope-1", code: "S1" } as DbScope;
+      const scope2 = { uuid: "scope-2", code: "S2" } as DbScope;
+      const scope3 = { uuid: "scope-3", code: "S3" } as DbScope;
 
-      sandbox.stub(FeatureTable, "findByPk")
+      sandbox.stub(DbFeature, "findByPk")
         .withArgs("feature-1").resolves(feature1)
         .withArgs("feature-2").resolves(feature2)
         .withArgs("feature-3").resolves(feature3)
         .withArgs("feature-4").resolves(feature4);
 
-      sandbox.stub(FeatureCompositionTable, "findAll")
+      sandbox.stub(DbFeatureComposition, "findAll")
         .withArgs({ where: { child_uuid: "feature-1" } }).resolves([ancestorFeatureRelation])
         .withArgs({ where: { parent_uuid: "feature-1" } }).resolves([parentFeatureRelation])
         .withArgs({ where: { child_uuid: "feature-2" } }).resolves([parentFeatureRelation])
@@ -304,7 +304,7 @@ describe("FeatureUtils", () => {
         .withArgs({ where: { parent_uuid: "feature-3" } }).resolves([])
         .withArgs({ where: { parent_uuid: "feature-4" } }).resolves([ancestorFeatureRelation]);
 
-      sandbox.stub(ScopeTable, "findByPk")
+      sandbox.stub(DbScope, "findByPk")
         .withArgs("scope-1").resolves(scope1)
         .withArgs("scope-2").resolves(scope2)
         .withArgs("scope-3").resolves(scope3);
@@ -361,8 +361,8 @@ describe("FeatureUtils", () => {
     beforeEach(() => {
       findAllStub = sinon.stub();
 
-      sinon.replace(FeatureCompositionTable, 'findAll', findAllStub);
-      sinon.replace(FeatureTable, 'findAll', findAllStub);
+      sinon.replace(DbFeatureComposition, 'findAll', findAllStub);
+      sinon.replace(DbFeature, 'findAll', findAllStub);
     });
 
     afterEach(() => {
@@ -401,7 +401,7 @@ describe("FeatureUtils", () => {
     beforeEach(() => {
       findByPkStub = sinon.stub();
       getDirectParentFeaturesStub = sinon.stub();
-      sinon.replace(FeatureTable, 'findByPk', findByPkStub);
+      sinon.replace(DbFeature, 'findByPk', findByPkStub);
       sinon.replace(featureUtils, 'getDirectParentFeatures', getDirectParentFeaturesStub);
     });
 
@@ -441,7 +441,7 @@ describe("FeatureUtils", () => {
       getDirectParentFeaturesStub.withArgs('feature1').resolves([
         { uuid: 'parent1', scope_uuid: 'scope2' },
         { uuid: 'parent2', scope_uuid: 'scope1' },
-      ] as FeatureTable[]);
+      ] as DbFeature[]);
 
       getDirectParentFeaturesStub.withArgs('parent1').resolves([]);
       getDirectParentFeaturesStub.withArgs('parent2').resolves([]);
@@ -460,7 +460,7 @@ describe("FeatureUtils", () => {
     beforeEach(() => {
       findAllStub = sinon.stub();
       getAllChildScopesStub = sinon.stub();
-      sinon.replace(UserGroupTable, 'findAll', findAllStub);
+      sinon.replace(DbUserGroup, 'findAll', findAllStub);
       sinon.replace(featureUtils, 'getAllChildScopes', getAllChildScopesStub);
     });
 
@@ -500,7 +500,7 @@ describe("FeatureUtils", () => {
 
     beforeEach(() => {
       findAllStub = sinon.stub();
-      sinon.replace(FeatureCompositionTable, 'findAll', findAllStub);
+      sinon.replace(DbFeatureComposition, 'findAll', findAllStub);
     });
 
     afterEach(() => {
@@ -564,7 +564,7 @@ describe("FeatureUtils", () => {
     beforeEach(() => {
       findAllStub = sinon.stub();
 
-      sinon.replace(FeatureCompositionTable, 'findAll', findAllStub);
+      sinon.replace(DbFeatureComposition, 'findAll', findAllStub);
     });
 
     afterEach(() => {

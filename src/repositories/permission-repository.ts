@@ -1,8 +1,8 @@
 import { RepositorySequelize } from "@all41-dev/server.types";
-import { PermissionTable } from "../db/permission-table";
-export class RepositoryPermission extends RepositorySequelize<PermissionTable> {
+import { DbPermission } from "../db/db-permission";
+export class RepositoryPermission extends RepositorySequelize<DbPermission> {
   constructor() {
-    super(PermissionTable);
+    super(DbPermission);
   }
 
   public async init() {

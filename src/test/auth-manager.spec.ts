@@ -3,8 +3,8 @@ import sinon from 'sinon';
 import passport from 'passport';
 import { AuthManager } from '../auth/auth-manager';
 import bcrypt from 'bcrypt';
-import { UserTable } from '../db/user-table';
-import { RefreshTokenTable } from '../db/refresh-token-table';
+import { DbUser } from '../db/db-user';
+import { DbRefreshToken } from '../db/db-refresh-token';
 import { IAuthOptions } from '../interfaces';
 import jwt from 'jsonwebtoken';
 import express, { Request, Response, Router } from "express";
@@ -515,8 +515,8 @@ YQIDAQAB
 
     beforeEach(() => {
       instance = AuthManager.getInstance(authOptions);
-      findByPkStub = sandbox.stub(UserTable, 'findByPk');
-      createStub = sandbox.stub(RefreshTokenTable, 'create');
+      findByPkStub = sandbox.stub(DbUser, 'findByPk');
+      createStub = sandbox.stub(DbRefreshToken, 'create');
       hashStub = sandbox.stub(bcrypt, 'hash');
       sandbox.stub(jwt, 'sign').callsFake((payload) => {
         const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64');
@@ -570,7 +570,7 @@ YQIDAQAB
     });
 
     it('should create a refresh token and save it to the database', async () => {
-      findByPkStub.resolves({ uuid: 'user-uuid' } as UserTable);
+      findByPkStub.resolves({ uuid: 'user-uuid' } as DbUser);
       hashStub.yields(null, 'hashed-token');
       createStub.resolves();
 
@@ -588,7 +588,7 @@ YQIDAQAB
     });
 
     it('should create a refresh token to impersonate user and save it to the database', async () => {
-      findByPkStub.resolves({ uuid: 'user-uuid' } as UserTable);
+      findByPkStub.resolves({ uuid: 'user-uuid' } as DbUser);
       hashStub.yields(null, 'hashed-token');
       createStub.resolves();
 
@@ -606,7 +606,7 @@ YQIDAQAB
       expect(createStub.firstCall.args[0].expires).to.be.instanceOf(Date);
     });
     it('should throw an error if bcrypt.hash fails', async () => {
-      findByPkStub.resolves({ uuid: 'user-uuid' } as UserTable);
+      findByPkStub.resolves({ uuid: 'user-uuid' } as DbUser);
       const hashError = new Error('Hash failed');
       hashStub.yields(hashError);
 
@@ -631,8 +631,8 @@ YQIDAQAB
     beforeEach(() => {
       instance = AuthManager.getInstance(authOptions);
 
-      findByPkStub = sandbox.stub(UserTable, 'findByPk');
-      findAllStub = sandbox.stub(RefreshTokenTable, 'findAll');
+      findByPkStub = sandbox.stub(DbUser, 'findByPk');
+      findAllStub = sandbox.stub(DbRefreshToken, 'findAll');
       compareSyncStub = sandbox.stub(bcrypt, 'compareSync');
       verifyStub = sandbox.stub(jwt, 'verify');
 
@@ -789,8 +789,8 @@ YQIDAQAB
 
     beforeEach(() => {
       instance = AuthManager.getInstance(authOptions);
-      findAllStub = sandbox.stub(RefreshTokenTable, 'findAll');
-      destroyStub = sandbox.stub(RefreshTokenTable, 'destroy');
+      findAllStub = sandbox.stub(DbRefreshToken, 'findAll');
+      destroyStub = sandbox.stub(DbRefreshToken, 'destroy');
       compareSyncStub = sandbox.stub(bcrypt, 'compareSync');
       verifyStub = sandbox.stub(jwt, 'verify');
     });

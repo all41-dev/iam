@@ -1,10 +1,9 @@
 import { AllowNull, BelongsTo, Column, DataType, Default, Model, PrimaryKey, Table } from "sequelize-typescript";
-import { UserTable } from "./user-table";
-import { UserGroupTable } from "./user-group-table";
+import { DbUser } from "./db-user";
+import { DbUserGroup } from "./db-user-group";
 
 @Table({ tableName: "iam_user_group_member", timestamps: false })
-export class UserGroupMemberTable extends Model {
-
+export class DbUserGroupMember extends Model {
   @PrimaryKey
   @Default(DataType.UUIDV4)
   @Column(DataType.UUID)
@@ -18,12 +17,12 @@ export class UserGroupMemberTable extends Model {
   @Column(DataType.UUID)
   declare group_uuid: string;
 
-  @BelongsTo(() => UserTable, 'user_uuid')
-  declare user: UserTable;
+  @BelongsTo(() => DbUser, 'user_uuid')
+  declare user: DbUser;
 
-  @BelongsTo(() => UserGroupTable, 'group_uuid')
-  declare group: UserGroupTable;
+  @BelongsTo(() => DbUserGroup, 'group_uuid')
+  declare group: DbUserGroup;
 
-  public get pkName() { return 'uuid' as keyof UserGroupMemberTable; }
+  public get pkName() { return 'uuid' as keyof DbUserGroupMember; }
 
 }

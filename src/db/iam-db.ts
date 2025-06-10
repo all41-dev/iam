@@ -1,26 +1,26 @@
 import { Db } from "@all41-dev/db-tools";
-import { FeatureCompositionTable } from "./feature-composition-table";
-import { FeatureTable } from "./feature-table";
-import { PermissionTable } from "./permission-table";
-import { ScopeTable } from "./scope-table";
-import { UserGroupMemberTable } from "./user-group-member-table";
-import { UserGroupTable } from "./user-group-table";
-import { UserTable } from "./user-table";
-import { RefreshTokenTable } from "./refresh-token-table";
+import { DbFeatureComposition } from "./db-feature-composition";
+import { DbFeature } from "./db-feature";
+import { DbPermission } from "./db-permission";
+import { DbScope } from "./db-scope";
+import { DbUserGroupMember } from "./db-user-group-member";
+import { DbUserGroup } from "./db-user-group";
+import { DbUser } from "./db-user";
+import { DbRefreshToken } from "./db-refresh-token";
 
 export class IamDb extends Db<IamDb> {
   public async init(): Promise<void> {
     await this._init();
     IamDb.inst = this;
     this.sequelize.addModels([
-      FeatureCompositionTable,
-      FeatureTable,
-      PermissionTable,
-      ScopeTable,
-      UserGroupMemberTable,
-      UserGroupTable,
-      UserTable,
-      RefreshTokenTable
+      DbFeatureComposition,
+      DbFeature,
+      DbPermission,
+      DbScope,
+      DbUserGroupMember,
+      DbUserGroup,
+      DbUser,
+      DbRefreshToken
     ]);
   }
 }

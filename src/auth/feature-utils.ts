@@ -1,7 +1,7 @@
-import { ScopeTable } from "../db/scope-table";
-import { FeatureCompositionTable } from "../db/feature-composition-table";
-import { FeatureTable } from "../db/feature-table";
-import { UserGroupTable } from "../db/user-group-table";
+import { DbScope } from "../db/db-scope";
+import { DbFeatureComposition } from "../db/db-feature-composition";
+import { DbFeature } from "../db/db-feature";
+import { DbUserGroup } from "../db/db-user-group";
 
 export class FeatureUtils {
   private static instance: FeatureUtils;
@@ -13,7 +13,7 @@ export class FeatureUtils {
     return FeatureUtils.instance;
   }
 
-  public async getHighestFeatureInScope(featureUuid: string, allScopeUuids: Set<string>): Promise<FeatureTable | null> {
+  public async getHighestFeatureInScope(featureUuid: string, allScopeUuids: Set<string>): Promise<DbFeature | null> {
     const parentFeatures = await this.getDirectParentFeatures(featureUuid);
 
     const validParentFeatures = parentFeatures.filter(parent =>
@@ -27,17 +27,17 @@ export class FeatureUtils {
       }
     }
 
-    return validParentFeatures.length === 0 ? await FeatureTable.findByPk(featureUuid) : null;
+    return validParentFeatures.length === 0 ? await DbFeature.findByPk(featureUuid) : null;
   }
 
-  async getDirectParentFeatures(featureUuid: string): Promise<FeatureTable[]> {
-    const parentRelations = await FeatureCompositionTable.findAll({
+  async getDirectParentFeatures(featureUuid: string): Promise<DbFeature[]> {
+    const parentRelations = await DbFeatureComposition.findAll({
       where: { child_uuid: featureUuid },
     });
 
     const parentUuids = parentRelations.map(relation => relation.parent_uuid);
     if (parentUuids.length === 0) return [];
-    return await FeatureTable.findAll({
+    return await DbFeature.findAll({
       where: { uuid: parentUuids },
     });
   }
@@ -46,7 +46,7 @@ export class FeatureUtils {
     if (visited.has(scopeUuid)) return [];
     visited.add(scopeUuid);
 
-    const childScopes = await ScopeTable.findAll({
+    const childScopes = await DbScope.findAll({
       where: { parent_uuid: scopeUuid },
     });
 
@@ -67,11 +67,11 @@ export class FeatureUtils {
   }
 
   public async buildScopesTree(visited: Set<string>, child_uuid?: string): Promise<any> {
-    const scope = child_uuid ? await ScopeTable.findByPk(child_uuid) : await ScopeTable.findOne({ where: { parent_uuid: null } });
+    const scope = child_uuid ? await DbScope.findByPk(child_uuid) : await DbScope.findOne({ where: { parent_uuid: null } });
     if (!scope) throw new Error(`Scope not found`);
     if (visited.has(scope.uuid)) return [{ uuid: scope.uuid, cyclic: true }];
     visited.add(scope.uuid);
-    const children = await ScopeTable.findAll({
+    const children = await DbScope.findAll({
       where: { parent_uuid: scope.uuid },
     });
     const childScopes = await Promise.all(
@@ -88,15 +88,15 @@ export class FeatureUtils {
   public async buildFeatureMatrix(featureUuid: string, visited: Set<string>, validScopes?: Set<string>): Promise<any> {
     if (visited.has(featureUuid)) return {
       uuid: featureUuid,
-      code: (await FeatureTable.findByPk(featureUuid))?.code,
+      code: (await DbFeature.findByPk(featureUuid))?.code,
       cyclic: true
     };
     visited.add(featureUuid);
 
-    const feature = await FeatureTable.findByPk(featureUuid);
+    const feature = await DbFeature.findByPk(featureUuid);
     if (!feature) throw new Error(`Feature with UUID ${featureUuid} not found`);
 
-    const children = await FeatureCompositionTable.findAll({
+    const children = await DbFeatureComposition.findAll({
       where: { parent_uuid: featureUuid },
     });
     const childFeatures = await Promise.all(
@@ -104,7 +104,7 @@ export class FeatureUtils {
         return await this.buildFeatureMatrix(child.child_uuid, visited, validScopes);
       })
     );
-    const parents = await FeatureCompositionTable.findAll({
+    const parents = await DbFeatureComposition.findAll({
       where: { child_uuid: featureUuid },
     });
     const validParents = [];
@@ -112,7 +112,7 @@ export class FeatureUtils {
       if (!validScopes) {
         validParents.push(parent);
       } else {
-        const parentFeature = await FeatureTable.findByPk(parent.parent_uuid);
+        const parentFeature = await DbFeature.findByPk(parent.parent_uuid);
         if (parentFeature && parentFeature.scope_uuid && validScopes.has(parentFeature.scope_uuid)) {
           validParents.push(parent);
         }
@@ -123,7 +123,7 @@ export class FeatureUtils {
         return await this.buildFeatureMatrix(parent.parent_uuid, visited, validScopes);
       })
     );
-    const scope = await ScopeTable.findByPk(feature.scope_uuid);
+    const scope = await DbScope.findByPk(feature.scope_uuid);
     if (!scope) throw new Error(`Scope with UUID ${feature.scope_uuid} not found`);
     return {
       uuid: feature.uuid,
@@ -136,7 +136,7 @@ export class FeatureUtils {
   }
 
   public async getGroupsScopeList(groupUUIDs: string[]): Promise<string[]> {
-    const groups = await UserGroupTable.findAll({ where: { uuid: groupUUIDs } });
+    const groups = await DbUserGroup.findAll({ where: { uuid: groupUUIDs } });
     const scopeUUIDs = groups.map((group) => group.dataValues.scope_uuid);
 
     const allChildScopes = await Promise.all(
@@ -150,7 +150,7 @@ export class FeatureUtils {
   }
   public async checkForCircularDependency(parentUuid: string, childUuid: string): Promise<boolean> {
     if (parentUuid === childUuid) return true
-    const children = await FeatureCompositionTable.findAll({
+    const children = await DbFeatureComposition.findAll({
       where: { child_uuid: parentUuid }
     });
     if (!children.length) return false
@@ -179,7 +179,7 @@ export class FeatureUtils {
     visited.add(featureUuid);
     let parents;
     if (parentMap.has(featureUuid)) parents = parentMap.get(featureUuid)!;
-    parents = await FeatureCompositionTable.findAll({
+    parents = await DbFeatureComposition.findAll({
       where: { child_uuid: featureUuid },
     });
     const parentUuids = parents.map(p => p.parent_uuid);

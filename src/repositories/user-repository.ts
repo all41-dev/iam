@@ -1,18 +1,18 @@
 import { RepositorySequelize } from '@all41-dev/server.types';
-import { UserTable } from '../db/user-table';
-import { UserGroupTable } from "../db/user-group-table";
-import { UserGroupMemberTable } from "../db/user-group-member-table";
+import { DbUser } from '../db/db-user';
+import { DbUserGroup } from "../db/db-user-group";
+import { DbUserGroupMember } from "../db/db-user-group-member";
 import { v4 as uuidv4 } from 'uuid';
 import { AuthUtils } from '../auth/auth-utils';
-import { PermissionTable } from '../db/permission-table';
-import { FeatureTable } from '../db/feature-table';
+import { DbPermission } from '../db/db-permission';
+import { DbFeature } from '../db/db-feature';
 
 
-export class RepositoryUser extends RepositorySequelize<UserTable> {
+export class RepositoryUser extends RepositorySequelize<DbUser> {
   private authUtils: AuthUtils;
 
   constructor() {
-    super(UserTable);
+    super(DbUser);
     this.authUtils = AuthUtils.getInstance();
   }
 
@@ -25,7 +25,7 @@ export class RepositoryUser extends RepositorySequelize<UserTable> {
     if (!user) {
       throw new Error(`User with id ${userUuid} not found`);
     }
-    const groups = await UserGroupTable.findAll({
+    const groups = await DbUserGroup.findAll({
       where: { uuid: groupUuids },
     });
     if (groups.length !== groupUuids.length) {
@@ -36,7 +36,7 @@ export class RepositoryUser extends RepositorySequelize<UserTable> {
       user_uuid: user.uuid,
       group_uuid: group.uuid,
     }));
-    await UserGroupMemberTable.bulkCreate(userGroupMembers);
+    await DbUserGroupMember.bulkCreate(userGroupMembers);
   }
 
   public async removeGroups(userUuid: string, groupUuids: string[]) {
@@ -44,14 +44,14 @@ export class RepositoryUser extends RepositorySequelize<UserTable> {
     if (!user) {
       throw new Error(`User with id ${userUuid} not found`);
     }
-    const groups = await UserGroupTable.findAll({
+    const groups = await DbUserGroup.findAll({
       where: { uuid: groupUuids },
     });
     if (groups.length !== groupUuids.length) {
       throw new Error(`Some groups not found`);
     }
     const groupUuidsToRemove = groups.map(group => group.uuid);
-    await UserGroupMemberTable.destroy({
+    await DbUserGroupMember.destroy({
       where: {
         user_uuid: user.uuid,
         group_uuid: groupUuidsToRemove,
@@ -64,7 +64,7 @@ export class RepositoryUser extends RepositorySequelize<UserTable> {
       throw new Error(`User with id ${userUuid} not found`);
     }
 
-    const currentUserGroups = await UserGroupMemberTable.findAll({
+    const currentUserGroups = await DbUserGroupMember.findAll({
       where: { user_uuid: user.uuid },
       attributes: ['group_uuid'],
     });
@@ -84,7 +84,7 @@ export class RepositoryUser extends RepositorySequelize<UserTable> {
   }
 
   public async getUserPermissionInfo(userEmail: string): Promise<any> {
-    const user = await UserTable.findOne({ where: { email: userEmail } });
+    const user = await DbUser.findOne({ where: { email: userEmail } });
     if (!user) {
       throw new Error(`User with email "${userEmail}" not found`);
     }
@@ -100,25 +100,25 @@ export class RepositoryUser extends RepositorySequelize<UserTable> {
   }
 
   public async checkFeaturePermissions(userUuid: string, featureUuid: string, elementUuid: string) {
-    const user = await UserTable.findByPk(userUuid)
-    const feature = await FeatureTable.findByPk(featureUuid)
+    const user = await DbUser.findByPk(userUuid)
+    const feature = await DbFeature.findByPk(featureUuid)
     if (!user) throw new Error(`User with uuid: ${userUuid} not found`);
     if (!feature) throw new Error(`Feature with uuid: ${featureUuid} not found`);
     return await this.authUtils.checkAccess(user.email, feature.code, elementUuid);
   }
 
-  public async getPermissions(userUuid: string): Promise<PermissionTable[]> {
-    const user = await UserTable.findByPk(userUuid);
+  public async getPermissions(userUuid: string): Promise<DbPermission[]> {
+    const user = await DbUser.findByPk(userUuid);
     if (!user) {
       throw new Error(`
         User with uuid: ${userUuid} not found`);
     }
-    const groups = await UserGroupMemberTable.findAll({ where: { user_uuid: userUuid } });
+    const groups = await DbUserGroupMember.findAll({ where: { user_uuid: userUuid } });
     if (!groups.length) {
       return []
     }
     const groupUUIDs = groups.map((group) => group.group_uuid);
-    const permissions = await PermissionTable.findAll({
+    const permissions = await DbPermission.findAll({
       where: { group_uuid: groupUUIDs },
     });
     if (!permissions.length) {
@@ -127,18 +127,18 @@ export class RepositoryUser extends RepositorySequelize<UserTable> {
     return permissions;
   }
 
-  public async getUserGroups(userUuid: string): Promise<UserGroupTable[] | null> {
+  public async getUserGroups(userUuid: string): Promise<DbUserGroup[] | null> {
     const user = await this.getByKey(userUuid);
     if (!user) {
       throw new Error(`
         User with uuid: ${userUuid} not found`);
     }
-    const groupsMember = await UserGroupMemberTable.findAll({ where: { user_uuid: user.uuid } });
+    const groupsMember = await DbUserGroupMember.findAll({ where: { user_uuid: user.uuid } });
     if (!groupsMember.length) {
       return null;
     }
     const groupUUIDs = groupsMember.map((group) => group.group_uuid);
-    const groups = await UserGroupTable.findAll({
+    const groups = await DbUserGroup.findAll({
       where: { uuid: groupUUIDs },
     });
     return groups;
@@ -149,8 +149,8 @@ export class RepositoryUser extends RepositorySequelize<UserTable> {
     if (!user) {
       throw new Error(`User with id ${userUuid} not found`);
     }
-    const groups = await UserGroupMemberTable.findAll({ where: { user_uuid: userUuid } });
-    const groupsToCopy = await UserGroupMemberTable.findAll({ where: { user_uuid: userToCopyUuid } });
+    const groups = await DbUserGroupMember.findAll({ where: { user_uuid: userUuid } });
+    const groupsToCopy = await DbUserGroupMember.findAll({ where: { user_uuid: userToCopyUuid } });
     if (!groupsToCopy.length) {
       throw new Error(`No Groups for User with id ${userToCopyUuid}`);
     }
@@ -160,12 +160,12 @@ export class RepositoryUser extends RepositorySequelize<UserTable> {
     const groupsToAdd = groupUuidsToCopy.filter(uuid => !currentGroupUuids.includes(uuid));
     if (groupsToAdd.length > 0) await this.addGroups(userUuid, groupsToAdd);
   }
-  public async getUserInfo(userEmail: string): Promise<{ groups: UserGroupTable[], permissions: PermissionTable[] } | null> {
-    const user = await UserTable.findOne({ where: { email: userEmail } });
+  public async getUserInfo(userEmail: string): Promise<{ groups: DbUserGroup[], permissions: DbPermission[] } | null> {
+    const user = await DbUser.findOne({ where: { email: userEmail } });
     if (!user) {
       throw new Error(`User with email "${userEmail}" not found`);
     }
-    const groupsMember = await UserGroupMemberTable.findAll({ where: { user_uuid: user.uuid } });
+    const groupsMember = await DbUserGroupMember.findAll({ where: { user_uuid: user.uuid } });
     if (!groupsMember.length) {
       return {
         ...user.get({ plain: true }),
@@ -175,8 +175,8 @@ export class RepositoryUser extends RepositorySequelize<UserTable> {
     }
     const groupUUIDs = groupsMember.map((group) => group.group_uuid);
     const [groups, permissions] = await Promise.all([
-      UserGroupTable.findAll({ where: { uuid: groupUUIDs } }),
-      PermissionTable.findAll({ where: { group_uuid: groupUUIDs } }),
+      DbUserGroup.findAll({ where: { uuid: groupUUIDs } }),
+      DbPermission.findAll({ where: { group_uuid: groupUUIDs } }),
     ]);
     return {
       ...user.get({ plain: true }),

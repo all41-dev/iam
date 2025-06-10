@@ -9,8 +9,8 @@ import { AuthController } from "../api/controllers/controller-auth";
 import cookieParser from "cookie-parser";
 import { IAMUser, IAuthOptions } from "../interfaces";
 import bcrypt from 'bcrypt';
-import { UserTable } from '../db/user-table';
-import { RefreshTokenTable } from '../db/refresh-token-table';
+import { DbUser } from '../db/db-user';
+import { DbRefreshToken } from '../db/db-refresh-token';
 import { AuthUtils } from "./auth-utils";
 
 export class AuthManager {
@@ -174,7 +174,7 @@ export class AuthManager {
     if (!this.options.privateKey) {
       throw new Error("No private key provided for JWT generation");
     }
-    const user = await UserTable.findByPk(user_uuid)
+    const user = await DbUser.findByPk(user_uuid)
     if (!user) throw new Error("User not found");
     const token = jwt.sign(
       {
@@ -196,7 +196,7 @@ export class AuthManager {
         resolve(hashed);
       });
     });
-    await RefreshTokenTable.create({
+    await DbRefreshToken.create({
       user_uuid: user.uuid,
       token: hash,
       expires: new Date(Date.now() + (refreshExpiry || 24 * 60 * 60 * 1000))
@@ -208,10 +208,10 @@ export class AuthManager {
       throw new Error("No private key provided for JWT generation");
     }
     const decodedToken = (jwt.verify(refreshToken, this.options.publicKey, { algorithms: ['RS256'] }) as { user_uuid: string, impersonate_user_email?: string });
-    const token = await RefreshTokenTable.findAll({ where: { user_uuid: decodedToken.user_uuid } })
+    const token = await DbRefreshToken.findAll({ where: { user_uuid: decodedToken.user_uuid } })
       .then((tokens) => tokens.find((t) => bcrypt.compareSync(refreshToken, t.token)));
     if (!token) return null;
-    const user = await UserTable.findByPk(token.user_uuid);
+    const user = await DbUser.findByPk(token.user_uuid);
     if (!user) return null;
     const permissions = decodedToken.impersonate_user_email
       ? await AuthUtils.getInstance().getUserPermissions(undefined, decodedToken.impersonate_user_email)
@@ -237,9 +237,9 @@ export class AuthManager {
     const decodedToken = jwt.verify(refreshToken, this.options.publicKey, { algorithms: ['RS256'] }) as { id: string };
     const user_uuid = decodedToken.id;
 
-    const token = await RefreshTokenTable.findAll({ where: { user_uuid } })
+    const token = await DbRefreshToken.findAll({ where: { user_uuid } })
       .then((tokens) => tokens.find((t) => bcrypt.compareSync(refreshToken, t.token)));
-    await RefreshTokenTable.destroy({ where: { uuid: token?.uuid } });
+    await DbRefreshToken.destroy({ where: { uuid: token?.uuid } });
   };
 
   private createSafeJwtPayload(user: IAMUser) {

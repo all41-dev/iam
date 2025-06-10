@@ -9,7 +9,7 @@ import {
 } from 'sequelize-typescript';
 
 @Table({ tableName: 'iam_user', timestamps: false })
-export class UserTable extends Model {
+export class DbUser extends Model {
   @PrimaryKey
   @Default(DataType.UUIDV4)
   @Column(DataType.UUID)
@@ -38,6 +38,6 @@ export class UserTable extends Model {
   @Column(DataType.BOOLEAN)
   declare validated: boolean;
 
-  public get pkName() { return 'uuid' as keyof UserTable; }
+  public get pkName() { return 'uuid' as keyof DbUser; }
 
 }

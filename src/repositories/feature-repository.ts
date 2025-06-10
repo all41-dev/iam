@@ -1,15 +1,15 @@
 import { RepositorySequelize } from "@all41-dev/server.types";
-import { FeatureTable } from "../db/feature-table";
-import { FeatureCompositionTable } from "../db/feature-composition-table";
+import { DbFeature } from "../db/db-feature";
+import { DbFeatureComposition } from "../db/db-feature-composition";
 import { Op, Sequelize } from "sequelize";
 import { FeatureUtils } from "../auth/feature-utils";
 
 
-export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
+export class RepositoryFeature extends RepositorySequelize<DbFeature> {
   private featureUtils: FeatureUtils
 
   constructor() {
-    super(FeatureTable);
+    super(DbFeature);
     this.featureUtils = FeatureUtils.getInstance();
   }
 
@@ -23,14 +23,14 @@ export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
     if (!parent) return { error: `Feature with uuid : ${parentId} not found` };
     const child = await this.getByKey(childId);
     if (!child) return { error: `Feature with uuid : ${parentId} not found` };
-    const existingComposition = await FeatureCompositionTable.findOne({
+    const existingComposition = await DbFeatureComposition.findOne({
       where: { parent_uuid: parentId, child_uuid: childId }
     });
     if (existingComposition) return { error: `Relation already exist` };
-    await FeatureCompositionTable.create({
+    await DbFeatureComposition.create({
       parent_uuid: parent.uuid,
       child_uuid: child.uuid
-    });
+    } as any);
   }
 
   public async removeParentChild(parentId: string, childId: string) {
@@ -38,11 +38,11 @@ export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
     if (!parent) return { error: `Feature with uuid : ${parentId} not found` };
     const child = await this.getByKey(childId);
     if (!child) return { error: `Feature with uuid : ${parentId} not found` };
-    const existingComposition = await FeatureCompositionTable.findOne({
+    const existingComposition = await DbFeatureComposition.findOne({
       where: { parent_uuid: parentId, child_uuid: childId }
     });
     if (!existingComposition) return { error: `Relation doesn't exist` };
-    await FeatureCompositionTable.destroy({
+    await DbFeatureComposition.destroy({
       where: {
         parent_uuid: parent.uuid,
         child_uuid: child.uuid
@@ -56,7 +56,7 @@ export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
     const recursiveGetChildren = async (uuid: string): Promise<void> => {
       if (childrenSet.has(uuid)) return;
       childrenSet.add(uuid);
-      const compositions = await FeatureCompositionTable.findAll({
+      const compositions = await DbFeatureComposition.findAll({
         where: { parent_uuid: uuid },
       });
       for (const { child_uuid } of compositions) {
@@ -72,7 +72,7 @@ export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
 
 
   public async getFeatureMatrix(featureUuid: string): Promise<any> {
-    const feature = await FeatureTable.findByPk(featureUuid)
+    const feature = await DbFeature.findByPk(featureUuid)
     if (!feature) return {}
     const allChildUuids = await this.featureUtils.getAllChildScopes(feature.scope_uuid);
     const allScopeUuids = new Set([feature.scope_uuid, ...allChildUuids]);
@@ -81,11 +81,11 @@ export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
   }
 
   public async getRootFeatureMatrix(): Promise<any> {
-    const rootFeatures = await FeatureTable.findAll({
+    const rootFeatures = await DbFeature.findAll({
       where: {
         uuid: {
           [Op.notIn]: Sequelize.literal(
-            `(SELECT DISTINCT child_uuid FROM ${FeatureCompositionTable.tableName})`
+            `(SELECT DISTINCT child_uuid FROM ${DbFeatureComposition.tableName})`
           ),
         },
       },
@@ -104,7 +104,7 @@ export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
     const allChildUuids = await this.featureUtils.getAllChildScopes(scopeUuid);
     const allScopeUuids = new Set([scopeUuid, ...allChildUuids]);
 
-    const features = await FeatureTable.findAll({
+    const features = await DbFeature.findAll({
       where: { scope_uuid: Array.from(allScopeUuids) },
     });
 
@@ -127,7 +127,7 @@ export class RepositoryFeature extends RepositorySequelize<FeatureTable> {
   }
 
   public async getAllFeatureComposition(): Promise<any> {
-    const compositions = await FeatureCompositionTable.findAll();
+    const compositions = await DbFeatureComposition.findAll();
     return compositions
   }
 }

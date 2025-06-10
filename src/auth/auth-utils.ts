@@ -1,11 +1,11 @@
-import { UserTable } from "../db/user-table";
-import { UserGroupMemberTable } from "../db/user-group-member-table";
-import { PermissionTable } from "../db/permission-table";
-import { FeatureTable } from "../db/feature-table";
-import { UserGroupTable } from "../db/user-group-table";
-import { FeatureCompositionTable } from "../db/feature-composition-table";
+import { DbUser } from "../db/db-user";
+import { DbUserGroupMember } from "../db/db-user-group-member";
+import { DbPermission } from "../db/db-permission";
+import { DbFeature } from "../db/db-feature";
+import { DbUserGroup } from "../db/db-user-group";
+import { DbFeatureComposition } from "../db/db-feature-composition";
 import { IUtilsOptions, PermissionContext } from "../interfaces";
-import { ScopeTable } from "../db/scope-table";
+import { DbScope } from "../db/db-scope";
 import { FeatureUtils } from "./feature-utils";
 
 
@@ -41,9 +41,9 @@ export class AuthUtils {
     let lastName = profile.name?.familyName || displayName.split(' ')[1];
     if (!lastName) lastName = '';
 
-    return await UserTable.findOne({ where: { email } }).then(async (user) => {
+    return await DbUser.findOne({ where: { email } }).then(async (user) => {
       if (!user) {
-        await UserTable.create({
+        await DbUser.create({
           email,
           username: displayName,
           first_name: firstName,
@@ -71,19 +71,19 @@ export class AuthUtils {
 
   public async getUserPermissions(userUuid?: string, userEmail?: string): Promise<any> {
     if (!userUuid && userEmail) {
-      const user = await UserTable.findOne({ where: { email: userEmail } });
+      const user = await DbUser.findOne({ where: { email: userEmail } });
       if (!user) return {};
       userUuid = user.uuid;
     }
     if (!userUuid) {
       throw new Error("Must provide either userUuid or userEmail");
     }
-    const groupMemberships = await UserGroupMemberTable.findAll({
+    const groupMemberships = await DbUserGroupMember.findAll({
       where: { user_uuid: userUuid },
     });
     if (!groupMemberships.length) return {};
     const groupUUIDs = groupMemberships.map((group) => group.group_uuid);
-    const permissions = await PermissionTable.findAll({
+    const permissions = await DbPermission.findAll({
       where: { group_uuid: groupUUIDs },
     });
     if (!permissions.length) return {};
@@ -112,15 +112,15 @@ export class AuthUtils {
   }
 
   public async getAllUniqueElement(
-    permissions: PermissionTable[],
+    permissions: DbPermission[],
   ): Promise<string[]> {
     const uniqueElements = new Set<string>();
 
     for (const permission of permissions) {
       if (!permission.scope_element_uuid || !permission.feature_uuid || permission.is_deny === true) continue;
-      const feature = await FeatureTable.findByPk(permission.feature_uuid);
+      const feature = await DbFeature.findByPk(permission.feature_uuid);
       if (!feature) continue;
-      const scope = await ScopeTable.findByPk(feature.scope_uuid);
+      const scope = await DbScope.findByPk(feature.scope_uuid);
       if (!scope) continue;
       const hierarchyUUIDs = await this.options.scopeElementAncestor(
         permission.scope_element_uuid,
@@ -141,7 +141,7 @@ export class AuthUtils {
     groupUUIDs: string[],
   ): Promise<{ inherited: boolean; permissions: { scope_element_uuid: string; scope_uuid: string; feature_code: string; is_deny: boolean }[] }> {
     const aggregatedPermissions: Array<{ scope_element_uuid: string; scope_uuid: string; feature_code: string; is_deny: boolean }> = [];
-    const compositions = await FeatureCompositionTable.findAll({ where: { child_uuid: featureUuid } });
+    const compositions = await DbFeatureComposition.findAll({ where: { child_uuid: featureUuid } });
     if (!compositions.length) return { inherited: false, permissions: [] };
     const processPermissions = (permissions: any[], feature_code: string, scope_uuid: string) => {
       for (const p of permissions) {
@@ -155,8 +155,8 @@ export class AuthUtils {
     };
     for (const c of compositions) {
       const [currentPermissions, feature, ancestorPermissions] = await Promise.all([
-        PermissionTable.findAll({ where: { feature_uuid: c.parent_uuid, group_uuid: groupUUIDs } }),
-        FeatureTable.findByPk(c.parent_uuid),
+        DbPermission.findAll({ where: { feature_uuid: c.parent_uuid, group_uuid: groupUUIDs } }),
+        DbFeature.findByPk(c.parent_uuid),
         this.checkAncestorEffectivePermissions(c.parent_uuid, groupUUIDs),
       ]);
       if (feature) {
@@ -172,13 +172,13 @@ export class AuthUtils {
   public async checkEffectivePermissions(user_uuid?: string, group_uuid?: string): Promise<{ [uuid: string]: { right: string; context: PermissionContext[] } }> {
     let groupUUIDs: string[] = [];
     if (!group_uuid && user_uuid) {
-      const user = await UserTable.findByPk(user_uuid);
+      const user = await DbUser.findByPk(user_uuid);
       if (!user) return {};
-      const groupMemberships = await UserGroupMemberTable.findAll({ where: { user_uuid } });
+      const groupMemberships = await DbUserGroupMember.findAll({ where: { user_uuid } });
       if (!groupMemberships.length) return {};
       groupUUIDs = groupMemberships.map(m => m.group_uuid);
     } else if (group_uuid && !user_uuid) {
-      const group = await UserGroupTable.findByPk(group_uuid);
+      const group = await DbUserGroup.findByPk(group_uuid);
       if (!group) return {};
       groupUUIDs = [group_uuid];
     } else {
@@ -186,12 +186,12 @@ export class AuthUtils {
     }
     const permissionsMap: Record<string, { right: string; context: PermissionContext[] }> = {};
     const scopeUUIDs = await this.featureUtils.getGroupsScopeList(groupUUIDs);
-    const features = await FeatureTable.findAll({ where: { scope_uuid: scopeUUIDs } });
+    const features = await DbFeature.findAll({ where: { scope_uuid: scopeUUIDs } });
     for (const feature of features) {
       const featureUuid = feature.uuid;
       const featureCode = feature.code
       const [directPermissions, ancestorPermissions] = await Promise.all([
-        PermissionTable.findAll({ where: { feature_uuid: featureUuid, group_uuid: groupUUIDs } }),
+        DbPermission.findAll({ where: { feature_uuid: featureUuid, group_uuid: groupUUIDs } }),
         this.checkAncestorEffectivePermissions(featureUuid, groupUUIDs),
       ]);
       const contextSet = new Set<string>();
@@ -201,7 +201,7 @@ export class AuthUtils {
       let grantOverride = false;
       let ancestorConflict = false;
       for (const permission of directPermissions) {
-        const scopeFeature = await ScopeTable.findByPk(feature.scope_uuid);
+        const scopeFeature = await DbScope.findByPk(feature.scope_uuid);
         const permissionStatus = permission.is_deny ? "denied" : "granted";
         const contextKey = `${permission.scope_element_uuid}-${permissionStatus}`;
 
@@ -226,7 +226,7 @@ export class AuthUtils {
       const denyExists = ancestorPermissions.permissions.some(p => p.is_deny);
       const grantExists = ancestorPermissions.permissions.some(p => !p.is_deny);
       for (const ancestorPermission of ancestorPermissions.permissions) {
-        const scopeAncestor = await ScopeTable.findByPk(ancestorPermission.scope_uuid);
+        const scopeAncestor = await DbScope.findByPk(ancestorPermission.scope_uuid);
         const permissionStatus = ancestorPermission.is_deny ? "denied" : "granted";
         const contextKey = `${ancestorPermission.scope_element_uuid}-${permissionStatus}`;
         const hierarchyUUIDs = await this.utilsOptions.scopeElementAncestor(ancestorPermission.scope_element_uuid, scopeAncestor ? scopeAncestor.code : "");
@@ -267,16 +267,16 @@ export class AuthUtils {
   }
 
   async checkAccess(userEmail: string, featureCode: string, elementUuid: string): Promise<"grant" | "deny"> {
-    const user = await UserTable.findOne({ where: { email: userEmail } })
+    const user = await DbUser.findOne({ where: { email: userEmail } })
     if (!user) return "deny";
-    const feature = await FeatureTable.findOne({ where: { code: featureCode } });
+    const feature = await DbFeature.findOne({ where: { code: featureCode } });
     if (!feature) return "deny";
-    const userGroupMemberships = await UserGroupMemberTable.findAll({ where: { user_uuid: user.uuid } });
+    const userGroupMemberships = await DbUserGroupMember.findAll({ where: { user_uuid: user.uuid } });
     if (!userGroupMemberships.length) return "deny";
     const groupUUIDs = userGroupMemberships.map((group) => group.group_uuid);
-    const scope = await ScopeTable.findOne({ where: { uuid: feature.scope_uuid } });
+    const scope = await DbScope.findOne({ where: { uuid: feature.scope_uuid } });
     if (!scope) return "deny";
-    const directPermissions = await PermissionTable.findAll({
+    const directPermissions = await DbPermission.findAll({
       where: {
         feature_uuid: feature.uuid,
         group_uuid: groupUUIDs,
@@ -294,7 +294,7 @@ export class AuthUtils {
       !permission.scope_element_uuid ||
       permission.scope_element_uuid === elementUuid ||
       hierarchyUUIDs.includes(permission.scope_element_uuid)));
-    const userGroups = await UserGroupTable.findAll({
+    const userGroups = await DbUserGroup.findAll({
       where: {
         uuid: groupUUIDs,
       },
@@ -315,23 +315,23 @@ export class AuthUtils {
     if (visited.has(featureUuid)) return null;
     visited.add(featureUuid);
 
-    const compositions = await FeatureCompositionTable.findAll({ where: { child_uuid: featureUuid } });
+    const compositions = await DbFeatureComposition.findAll({ where: { child_uuid: featureUuid } });
     let foundGrant = false;
 
     for (const composition of compositions) {
       const parentUuid = composition.parent_uuid;
 
-      const parentPermissions = await PermissionTable.findAll({
+      const parentPermissions = await DbPermission.findAll({
         where: {
           feature_uuid: parentUuid,
           group_uuid: groupUUIDs,
         },
       });
 
-      const feature = await FeatureTable.findOne({ where: { uuid: featureUuid } });
+      const feature = await DbFeature.findOne({ where: { uuid: featureUuid } });
       if (!feature) return null;
 
-      const scope = await ScopeTable.findOne({ where: { uuid: feature.scope_uuid } });
+      const scope = await DbScope.findOne({ where: { uuid: feature.scope_uuid } });
       if (!scope) return null;
 
       for (const permission of parentPermissions) {
@@ -351,15 +351,15 @@ export class AuthUtils {
     return foundGrant ? "grant" : null;
   }
 
-  async verifyGroupCollision(groupUUIDs: string[]): Promise<{ conflictType: string; permissions: PermissionTable[] }[]> {
+  async verifyGroupCollision(groupUUIDs: string[]): Promise<{ conflictType: string; permissions: DbPermission[] }[]> {
     const conflicts: { conflictType: string; permissions: any[] }[] = [];
-    const permissions = await PermissionTable.findAll({ where: { group_uuid: groupUUIDs } });
+    const permissions = await DbPermission.findAll({ where: { group_uuid: groupUUIDs } });
 
     for (const permission of permissions) {
-      const feature = await FeatureTable.findOne({ where: { uuid: permission.feature_uuid } });
+      const feature = await DbFeature.findOne({ where: { uuid: permission.feature_uuid } });
       if (!feature) continue;
 
-      const scope = await ScopeTable.findOne({ where: { uuid: feature.scope_uuid } });
+      const scope = await DbScope.findOne({ where: { uuid: feature.scope_uuid } });
       if (!scope) throw new Error("No scope found");
 
       const hierarchyUUIDs = await this.utilsOptions.scopeElementAncestor(permission.scope_element_uuid, scope.code);
@@ -384,15 +384,15 @@ export class AuthUtils {
   }
 
   async getSpecificElementDeny(userEmail: string, featureCode: string): Promise<string[]> {
-    const user = await UserTable.findOne({ where: { email: userEmail } });
+    const user = await DbUser.findOne({ where: { email: userEmail } });
     if (!user) return [];
-    const groupMemberships = await UserGroupMemberTable.findAll({ where: { user_uuid: user.uuid } });
+    const groupMemberships = await DbUserGroupMember.findAll({ where: { user_uuid: user.uuid } });
     if (!groupMemberships.length) return [];
     const groupUUIDs = groupMemberships.map((group) => group.group_uuid);
-    const feature = await FeatureTable.findOne({ where: { code: featureCode } });
+    const feature = await DbFeature.findOne({ where: { code: featureCode } });
     if (!feature) return [];
 
-    const permissions = await PermissionTable.findAll({
+    const permissions = await DbPermission.findAll({
       where: {
         group_uuid: groupUUIDs,
         is_deny: true,
@@ -410,16 +410,16 @@ export class AuthUtils {
   }
 
   async getPermissionsScopeElement(userEmail: string, scopeCode: string, scopeElementUuid: string): Promise<any[]> {
-    const user = await UserTable.findOne({ where: { email: userEmail } });
-    const scope = await ScopeTable.findOne({ where: { code: scopeCode } });
+    const user = await DbUser.findOne({ where: { email: userEmail } });
+    const scope = await DbScope.findOne({ where: { code: scopeCode } });
     if (!user || !scope) return [];
     const allScopeUuids = [scope.uuid, ...(await this.featureUtils.getAllChildScopes(scope.uuid))];
-    const features = await FeatureTable.findAll({ where: { scope_uuid: allScopeUuids } });
+    const features = await DbFeature.findAll({ where: { scope_uuid: allScopeUuids } });
     const featureMap = new Map(features.map(f => [f.uuid, f]));
-    const groupMemberships = await UserGroupMemberTable.findAll({ where: { user_uuid: user.uuid }, raw: true });
+    const groupMemberships = await DbUserGroupMember.findAll({ where: { user_uuid: user.uuid }, raw: true });
     if (!groupMemberships.length) return [];
     const groupUUIDs = groupMemberships.map(g => g.group_uuid);
-    const directPermissions = await PermissionTable.findAll({ where: { group_uuid: groupUUIDs }, raw: true });
+    const directPermissions = await DbPermission.findAll({ where: { group_uuid: groupUUIDs }, raw: true });
     const collectedPermissions = new Map<string, Map<string, Set<"grant" | "deny">>>();
     const insertPermission = (featureUuid: string, elementUuid: string, status: "grant" | "deny") => {
       if (!collectedPermissions.has(featureUuid)) collectedPermissions.set(featureUuid, new Map());
@@ -438,7 +438,7 @@ export class AuthUtils {
       const { permissions: inherited } = await this.checkAncestorEffectivePermissions(feature.uuid, groupUUIDs);
 
       for (const perm of inherited) {
-        const elementScope = await ScopeTable.findByPk(perm.scope_uuid);
+        const elementScope = await DbScope.findByPk(perm.scope_uuid);
         if (!elementScope) continue;
 
         const permElementAncestors = await this.utilsOptions.scopeElementAncestor(perm.scope_element_uuid, elementScope.code);

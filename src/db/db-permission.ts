@@ -1,10 +1,10 @@
 import { AllowNull, BelongsTo, Table } from "sequelize-typescript";
 import { Column, DataType, Default, Model, PrimaryKey } from "sequelize-typescript";
-import { UserGroupTable } from "./user-group-table";
-import { FeatureTable } from "./feature-table";
+import { DbUserGroup } from "./db-user-group";
+import { DbFeature } from "./db-feature";
 
 @Table({ tableName: "iam_permission" })
-export class PermissionTable extends Model {
+export class DbPermission extends Model {
 
   @PrimaryKey
   @Default(DataType.UUIDV4)
@@ -28,12 +28,12 @@ export class PermissionTable extends Model {
   @Column(DataType.UUID)
   declare feature_uuid: string;
 
-  @BelongsTo(() => UserGroupTable, 'group_uuid')
-  declare group: UserGroupTable;
+  @BelongsTo(() => DbUserGroup, 'group_uuid')
+  declare group: DbUserGroup;
 
-  @BelongsTo(() => FeatureTable, 'feature_uuid')
-  declare feature: FeatureTable;
+  @BelongsTo(() => DbFeature, 'feature_uuid')
+  declare feature: DbFeature;
 
-  public get pkName() { return 'uuid' as keyof PermissionTable; }
+  public get pkName() { return 'uuid' as keyof DbPermission; }
 
 }

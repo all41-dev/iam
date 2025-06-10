@@ -1,16 +1,16 @@
 import { RepositorySequelize } from "@all41-dev/server.types";
-import { ScopeTable } from "../db/scope-table";
+import { DbScope } from "../db/db-scope";
 import { FeatureUtils } from "../auth/feature-utils";
-import { UserGroupTable } from "../db/user-group-table";
-import { FeatureTable } from "../db/feature-table";
+import { DbUserGroup } from "../db/db-user-group";
+import { DbFeature } from "../db/db-feature";
 import { AuthUtils } from "../auth/auth-utils";
 
-export class RepositoryScope extends RepositorySequelize<ScopeTable> {
+export class RepositoryScope extends RepositorySequelize<DbScope> {
   private featureUtils: FeatureUtils;
   private authUtils: AuthUtils;
 
   constructor() {
-    super(ScopeTable);
+    super(DbScope);
     this.featureUtils = FeatureUtils.getInstance();
     this.authUtils = AuthUtils.getInstance();
   }
@@ -27,34 +27,34 @@ export class RepositoryScope extends RepositorySequelize<ScopeTable> {
     return await this.featureUtils.buildScopesTree(new Set());
   }
 
-  public async getScopeGroups(scopeUuid: string): Promise<UserGroupTable[]> {
+  public async getScopeGroups(scopeUuid: string): Promise<DbUserGroup[]> {
     const scope = await this.getByKey(scopeUuid);
     if (!scope) {
       throw new Error(`Scope with id ${scopeUuid} not found`);
     }
-    const groups = await UserGroupTable.findAll({
+    const groups = await DbUserGroup.findAll({
       where: { scope_uuid: scopeUuid },
     });
     return groups;
   }
 
-  public async getScopeFeatures(scopeUuid: string): Promise<FeatureTable[]> {
+  public async getScopeFeatures(scopeUuid: string): Promise<DbFeature[]> {
     const scope = await this.getByKey(scopeUuid);
     if (!scope) throw new Error(`Scope with id ${scopeUuid} not found`);
-    const features = await FeatureTable.findAll({
+    const features = await DbFeature.findAll({
       where: { scope_uuid: scopeUuid },
     });
     return features;
   }
 
-  public async getScopeChildrenFeatures(scopeUuid: string): Promise<FeatureTable[]> {
+  public async getScopeChildrenFeatures(scopeUuid: string): Promise<DbFeature[]> {
     const scope = await this.getByKey(scopeUuid);
     if (!scope) {
       throw new Error(`Scope with id ${scopeUuid} not found`);
     }
     const allChildUuids = await this.featureUtils.getAllChildScopes(scopeUuid);
     const allScopeUuids = [scopeUuid, ...allChildUuids];
-    const features = await FeatureTable.findAll({
+    const features = await DbFeature.findAll({
       where: { scope_uuid: allScopeUuids },
     });
     return features;

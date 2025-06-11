@@ -1326,6 +1326,7 @@ describe('Auth Utils', () => {
     });
   });
   describe('getSpecificElementDeny', () => {
+    const reqUser = { uuid: "user-uuid", username: "admin", email: 'test@example.com', first_name: "", last_name: "", provider: "github" };
     beforeEach(() => {
       sandbox = sinon.createSandbox();
     });
@@ -1334,13 +1335,13 @@ describe('Auth Utils', () => {
     });
     it('should return an empty array if the user is not found', async () => {
       sandbox.stub(DbUser, 'findOne').withArgs({ where: { email: 'test@example.com' } }).resolves(null);
-      const result = await authUtils.getSpecificElementDeny('test@example.com', 'featureCode');
+      const result = await authUtils.getSpecificElementDeny(reqUser, 'featureCode');
       expect(result).to.deep.equal([]);
     });
     it('should return an empty array if the user has no group memberships', async () => {
       sandbox.stub(DbUser, 'findOne').withArgs({ where: { email: 'test@example.com' } }).resolves({ uuid: 'user1' } as DbUser);
       sandbox.stub(DbUserGroupMember, 'findAll').withArgs({ where: { user_uuid: 'user1' } }).resolves([] as DbUserGroupMember[]);
-      const result = await authUtils.getSpecificElementDeny('test@example.com', 'featureCode');
+      const result = await authUtils.getSpecificElementDeny(reqUser, 'featureCode');
       expect(result).to.deep.equal([]);
     });
     it('should return an empty array if the feature is not found', async () => {
@@ -1348,7 +1349,7 @@ describe('Auth Utils', () => {
       sandbox.stub(DbUserGroupMember, 'findAll').withArgs({ where: { user_uuid: 'user1' } }).resolves([{ group_uuid: 'group1' }] as DbUserGroupMember[]);
       sandbox.stub(DbFeature, 'findOne').withArgs({ where: { code: 'featureCode' } }).resolves(null);
 
-      const result = await authUtils.getSpecificElementDeny('test@example.com', 'featureCode');
+      const result = await authUtils.getSpecificElementDeny(reqUser, 'featureCode');
       expect(result).to.deep.equal([]);
     });
     it('should return an empty array if there are no deny permissions', async () => {
@@ -1361,7 +1362,7 @@ describe('Auth Utils', () => {
         permissions: [],
       });
 
-      const result = await authUtils.getSpecificElementDeny('test@example.com', 'featureCode');
+      const result = await authUtils.getSpecificElementDeny(reqUser, 'featureCode');
       expect(result).to.deep.equal([]);
     });
 
@@ -1379,7 +1380,7 @@ describe('Auth Utils', () => {
         ],
       });
 
-      const result = await authUtils.getSpecificElementDeny('test@example.com', 'featureCode');
+      const result = await authUtils.getSpecificElementDeny(reqUser, 'featureCode');
       expect(result).to.deep.equal(['scopeElement1', 'scopeElement2']);
     });
     it('should return empty array if nothing valid is found', async () => {
@@ -1393,7 +1394,7 @@ describe('Auth Utils', () => {
         inherited: true,
         permissions: [],
       });
-      const result = await authUtils.getSpecificElementDeny('test@example.com', 'featureCode');
+      const result = await authUtils.getSpecificElementDeny(reqUser, 'featureCode');
       expect(result).to.deep.equal([]);
     });
   });

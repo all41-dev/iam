@@ -383,8 +383,8 @@ export class AuthUtils {
     return conflicts;
   }
 
-  async getSpecificElementDeny(userEmail: string, featureCode: string): Promise<string[]> {
-    const user = await DbUser.findOne({ where: { email: userEmail } });
+  async getSpecificElementDeny(reqUser: IAMUser, featureCode: string): Promise<string[]> {
+    const user = await DbUser.findOne({ where: { email: reqUser.impersonateUser || reqUser.email } });
     if (!user) return [];
     const groupMemberships = await DbUserGroupMember.findAll({ where: { user_uuid: user.uuid } });
     if (!groupMemberships.length) return [];

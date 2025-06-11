@@ -104,7 +104,7 @@ export class RepositoryUser extends RepositorySequelize<DbUser> {
     const feature = await DbFeature.findByPk(featureUuid)
     if (!user) throw new Error(`User with uuid: ${userUuid} not found`);
     if (!feature) throw new Error(`Feature with uuid: ${featureUuid} not found`);
-    return await this.authUtils.checkAccess(user.email, feature.code, elementUuid);
+    return await this.authUtils.checkAccess(user, feature.code, elementUuid);
   }
 
   public async getPermissions(userUuid: string): Promise<DbPermission[]> {

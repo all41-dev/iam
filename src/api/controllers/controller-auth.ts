@@ -67,7 +67,7 @@ export class AuthController {
     }, (req, res) => {
       res.json({
         username: (req.user as IAMUser).username,
-        email: (req.user as IAMUser).email,
+        email: (req.user as IAMUser),
         firstName: (req.user as IAMUser).first_name,
         lastName: (req.user as IAMUser).last_name,
         impersonateUser: (req.user as IAMUser).impersonateUser,
@@ -79,7 +79,7 @@ export class AuthController {
 
     r.get(`/impersonate/:email`, this._authManager.authMiddleware, async (req, res, next) => {
       if (!req.user || !this._authUtils) return res.status(401).json({ message: 'Not Authorized' });
-      if (await this._authUtils.checkAccess((req.user as IAMUser).email, "global-write-rights", process.env.GLOBAL_UUID || '') === "deny")
+      if (await this._authUtils.checkAccess(req.user as IAMUser, "global-write-rights", process.env.GLOBAL_UUID || '') === "deny")
         return res.status(403).json({ message: 'Forbidden' });
       const redirectUrl = req.query.redirectUrl || this._authManager.options.redirectAfterLogin;
       const impersonateUser = req.params.email;

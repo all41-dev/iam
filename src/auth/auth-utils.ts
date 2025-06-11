@@ -4,7 +4,7 @@ import { DbPermission } from "../db/db-permission";
 import { DbFeature } from "../db/db-feature";
 import { DbUserGroup } from "../db/db-user-group";
 import { DbFeatureComposition } from "../db/db-feature-composition";
-import { IUtilsOptions, PermissionContext } from "../interfaces";
+import { IAMUser, IUtilsOptions, PermissionContext } from "../interfaces";
 import { DbScope } from "../db/db-scope";
 import { FeatureUtils } from "./feature-utils";
 
@@ -266,8 +266,8 @@ export class AuthUtils {
     return permissionsMap;
   }
 
-  async checkAccess(userEmail: string, featureCode: string, elementUuid: string): Promise<"grant" | "deny"> {
-    const user = await DbUser.findOne({ where: { email: userEmail } })
+  async checkAccess(reqUser: IAMUser, featureCode: string, elementUuid: string): Promise<"grant" | "deny"> {
+    const user = await DbUser.findOne({ where: { email: reqUser.impersonateUser || reqUser.email } })
     if (!user) return "deny";
     const feature = await DbFeature.findOne({ where: { code: featureCode } });
     if (!feature) return "deny";

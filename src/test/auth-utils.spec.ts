@@ -407,11 +407,11 @@ describe('Auth Utils', () => {
     });
   });
   describe('checkAccess', () => {
-    const userEmail = 'user@example.com';
+    const reqUser = { uuid: "user-uuid", username: "admin", email: 'user@example.com', first_name: "", last_name: "", provider: "github" };
     const featureCode = 'someFeature';
     const elementUuid = 'someElementUuid';
 
-    const userInstance = { uuid: 'userUuid', email: userEmail } as DbUser;
+    const userInstance = { uuid: 'userUuid', email: reqUser.email } as DbUser;
     const featureInstance = { uuid: 'featureUuid', scope_uuid: 'scopeUuid' } as DbFeature;
     const groupMemberships = [{ group_uuid: 'groupUuid' }] as DbUserGroupMember[];
     const scopeInstance = { code: 'scopeCode' } as DbScope;
@@ -426,7 +426,7 @@ describe('Auth Utils', () => {
     it('should deny access if user does not exist', async () => {
       sandbox.stub(DbUser, 'findOne').resolves(null);
 
-      const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+      const result = await authUtils.checkAccess(reqUser, featureCode, elementUuid);
       expect(result).to.equal('deny');
     });
 
@@ -434,7 +434,7 @@ describe('Auth Utils', () => {
       sandbox.stub(DbUser, 'findOne').resolves(userInstance);
       sandbox.stub(DbFeature, 'findOne').resolves(null);
 
-      const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+      const result = await authUtils.checkAccess(reqUser, featureCode, elementUuid);
       expect(result).to.equal('deny');
     });
 
@@ -443,7 +443,7 @@ describe('Auth Utils', () => {
       sandbox.stub(DbFeature, 'findOne').resolves(featureInstance);
       sandbox.stub(DbUserGroupMember, 'findAll').resolves([]);
 
-      const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+      const result = await authUtils.checkAccess(reqUser, featureCode, elementUuid);
       expect(result).to.equal('deny');
     });
 
@@ -453,7 +453,7 @@ describe('Auth Utils', () => {
       sandbox.stub(DbUserGroupMember, 'findAll').resolves(groupMemberships);
       sandbox.stub(DbScope, 'findOne').resolves(null);
 
-      const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+      const result = await authUtils.checkAccess(reqUser, featureCode, elementUuid);
       expect(result).to.equal('deny');
     });
 
@@ -467,7 +467,7 @@ describe('Auth Utils', () => {
       sandbox.stub(DbPermission, 'findAll').resolves(directPermissions);
       sandbox.stub(DbUserGroup, 'findAll').resolves(userGroups);
 
-      const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+      const result = await authUtils.checkAccess(reqUser, featureCode, elementUuid);
       expect(result).to.equal('deny');
     });
 
@@ -483,7 +483,7 @@ describe('Auth Utils', () => {
 
       sandbox.stub(authUtils, 'checkParentFeaturePermissions').resolves(null);
 
-      const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+      const result = await authUtils.checkAccess(reqUser, featureCode, elementUuid);
       expect(result).to.equal('deny');
     });
 
@@ -499,7 +499,7 @@ describe('Auth Utils', () => {
 
       sandbox.stub(authUtils, 'checkParentFeaturePermissions').resolves(null);
 
-      const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+      const result = await authUtils.checkAccess(reqUser, featureCode, elementUuid);
       expect(result).to.equal('grant');
     });
 
@@ -513,7 +513,7 @@ describe('Auth Utils', () => {
 
       sandbox.stub(authUtils, 'checkParentFeaturePermissions').resolves('deny');
 
-      const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+      const result = await authUtils.checkAccess(reqUser, featureCode, elementUuid);
       expect(result).to.equal('deny');
     });
 
@@ -527,7 +527,7 @@ describe('Auth Utils', () => {
 
       sandbox.stub(authUtils, 'checkParentFeaturePermissions').resolves('grant');
 
-      const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+      const result = await authUtils.checkAccess(reqUser, featureCode, elementUuid);
       expect(result).to.equal('grant');
     });
 
@@ -541,7 +541,7 @@ describe('Auth Utils', () => {
 
       sandbox.stub(authUtils, 'checkParentFeaturePermissions').resolves(null);
 
-      const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+      const result = await authUtils.checkAccess(reqUser, featureCode, elementUuid);
       expect(result).to.equal('deny');
     });
     it("should deny if userGroups do not match hierarchyUUIDs", async () => {
@@ -556,7 +556,7 @@ describe('Auth Utils', () => {
       sandbox.stub(DbPermission, 'findAll').resolves(directPermissions);
       sandbox.stub(DbUserGroup, 'findAll').resolves(userGroups);
 
-      const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+      const result = await authUtils.checkAccess(reqUser, featureCode, elementUuid);
 
       expect(result).to.equal("deny");
     });
@@ -574,7 +574,7 @@ describe('Auth Utils', () => {
 
       sandbox.stub(authUtils, 'checkParentFeaturePermissions').resolves(null);
 
-      const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+      const result = await authUtils.checkAccess(reqUser, featureCode, elementUuid);
 
       expect(result).to.equal("grant");
     });
@@ -595,7 +595,7 @@ describe('Auth Utils', () => {
       sandbox.stub(DbUserGroup, 'findAll').resolves(userGroups);
       sandbox.stub(authUtils, 'checkParentFeaturePermissions').resolves("deny");
 
-      const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+      const result = await authUtils.checkAccess(reqUser, featureCode, elementUuid);
       expect(result).to.equal("deny");
     });
 
@@ -615,7 +615,7 @@ describe('Auth Utils', () => {
 
       sandbox.stub(authUtils, 'checkParentFeaturePermissions').resolves('grant');
 
-      const result = await authUtils.checkAccess(userEmail, featureCode, elementUuid);
+      const result = await authUtils.checkAccess(reqUser, featureCode, elementUuid);
       expect(result).to.equal("grant");
     });
   });

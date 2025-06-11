@@ -11,7 +11,7 @@ export function checkRouteMiddleware(
     if (
       (!req.user ||
         !elementUuid ||
-        await authUtils.checkAccess((req.user as IAMUser).email, featureCode, elementUuid) === "deny")
+        await authUtils.checkAccess((req.user as IAMUser), featureCode, elementUuid) === "deny")
       && !(process.env.DISABLE_AUTH === 'true')
     ) {
       res.status(403).send("Forbidden");

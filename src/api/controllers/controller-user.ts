@@ -136,7 +136,7 @@ export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser
 
   public async getUserInfo(req: Request, res: Response) {
     const userEmail = req.params.userEmail;
-    const hasGlobalAccess = await this.authUtils.checkAccess((req.user as IAMUser).email, "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant"
+    const hasGlobalAccess = await this.authUtils.checkAccess((req.user as IAMUser), "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant"
     if ((req.user as IAMUser).email !== userEmail && !hasGlobalAccess) res.status(403).send("Forbidden")
     try {
       const response = await this.repositoryUser.getUserInfo(userEmail);
@@ -147,7 +147,7 @@ export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser
   }
   public async getUserPermissionInfo(req: Request, res: Response) {
     const userEmail = req.params.userEmail;
-    const hasGlobalAccess = await this.authUtils.checkAccess((req.user as IAMUser).email, "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant"
+    const hasGlobalAccess = await this.authUtils.checkAccess((req.user as IAMUser), "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant"
     if ((req.user as IAMUser).email !== userEmail && !hasGlobalAccess) res.status(403).send("Forbidden")
     try {
       const response = await this.repositoryUser.getUserPermissionInfo(userEmail);
@@ -159,7 +159,7 @@ export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser
 
   public async getElementPermission(req: Request, res: Response) {
     const userEmail = req.params.userEmail;
-    const hasGlobalAccess = await this.authUtils.checkAccess((req.user as IAMUser).email, "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant"
+    const hasGlobalAccess = await this.authUtils.checkAccess((req.user as IAMUser), "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant"
     if ((req.user as IAMUser).email !== userEmail && !hasGlobalAccess) res.status(403).send("Forbidden")
     const elementUuid = req.params.elementUuid;
     const scopeCode = req.params.scopeCode;

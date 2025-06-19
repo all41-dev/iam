@@ -91,6 +91,7 @@ export class AuthManager {
             return res.sendStatus(401);
           }
           token = await this.refreshToken(req, res);
+          if (res.headersSent) return;
         }
         if (!token) return res.sendStatus(401);
         req.user = token.user;
@@ -113,15 +114,17 @@ export class AuthManager {
 
     const token = await this.generateAccessToken(refreshToken);
     if (!token) {
-      if (!refreshTokenCookie) res.sendStatus(401);
+      if (!refreshTokenCookie) {
+        res.sendStatus(401);
+        return;
+      }
       return;
     }
 
     if (refreshTokenCookie) {
       res.cookie("auth", token.token, { maxAge: 5 * 60 * 1000 });
     } else {
-      res.json(token);
-      return;
+      return res.json(token);
     }
     return token;
   };

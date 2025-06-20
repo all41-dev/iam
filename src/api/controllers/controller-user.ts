@@ -141,7 +141,9 @@ export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser
   public async getUserInfo(req: Request, res: Response) {
     const userEmail = req.params.userEmail;
     const hasGlobalAccess = await this.authUtils.checkAccess((req.user as IAMUser), "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant"
-    if ((req.user as IAMUser).email !== userEmail && !hasGlobalAccess) res.status(403).send("Forbidden")
+    const isUserEmail = [(req.user as IAMUser).email, (req.user as IAMUser).impersonateUser].includes(userEmail)
+    if (!isUserEmail && !hasGlobalAccess)
+      return res.status(403).send("Forbidden");
     try {
       const response = await this.repositoryUser.getUserInfo(userEmail);
       res.status(200).json(response);

@@ -67,7 +67,7 @@ export class AuthController {
     }, (req, res) => {
       res.json({
         username: (req.user as IAMUser).username,
-        email: (req.user as IAMUser),
+        email: (req.user as IAMUser).email,
         firstName: (req.user as IAMUser).first_name,
         lastName: (req.user as IAMUser).last_name,
         impersonateUser: (req.user as IAMUser).impersonateUser,

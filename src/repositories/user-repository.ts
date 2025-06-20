@@ -187,4 +187,20 @@ export class RepositoryUser extends RepositorySequelize<DbUser> {
   public async getElementPermission(userEmail: string, scopeCode: string, elementUuid: string) {
     return await this.authUtils.getPermissionsScopeElement(userEmail, scopeCode, elementUuid);
   }
+
+  public async getUsersListWithAccess(featureCode: string, elementUuid: string) {
+    const users = await DbUser.findAll();
+    if (!users || users.length === 0) {
+      return [];
+    }
+
+    const usersWithAccess = await Promise.all(
+      users.map(async (user) => {
+        const hasAccess = await this.authUtils.checkAccess(user, featureCode, elementUuid);
+        return hasAccess === "grant" ? user : null;
+      })
+    );
+
+    return usersWithAccess.filter((user) => user !== null);
+  }
 }

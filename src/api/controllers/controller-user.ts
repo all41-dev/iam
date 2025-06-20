@@ -62,6 +62,10 @@ export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser
         verb: 'get', path: '/:userEmail/element-permission/:scopeCode/:elementUuid',
         handlers: this.getElementPermission.bind(this)
       },
+      {
+        verb: 'get', path: '/access-list/:featureCode/:elementUuid',
+        handlers: this.getUsersListWithAccess.bind(this)
+      },
     );
   }
 
@@ -170,5 +174,14 @@ export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser
       res.status(500).json({ error: 'Internal server error' });
     }
   }
-
+  public async getUsersListWithAccess(req: Request, res: Response) {
+    const featureCode = req.params.featureCode;
+    const elementUuid = req.params.elementUuid;
+    try {
+      const response = await this.repositoryUser.getUsersListWithAccess(featureCode, elementUuid);
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
 }

@@ -90,43 +90,27 @@ export class AuthManager {
           if (!req.cookies["auth"] && !req.cookies["refresh"]) {
             return res.sendStatus(401);
           }
-          token = await this.refreshToken(req, res);
-          if (res.headersSent) return;
+          token = await this.refreshToken(req);
+          if (!token) return res.sendStatus(401);
+          res.cookie("auth", token.token, { maxAge: 5 * 60 * 1000 });
         }
-        if (!token) return res.sendStatus(401);
         req.user = token.user;
         next();
       }
     )(req, res, next);
   };
 
-  public refreshToken = async (req: Request, res: Response) => {
+  public refreshToken = async (req: Request): Promise<{ user: any, token: string } | undefined> => {
     let refreshToken = req.cookies.refresh;
-    let refreshTokenCookie = true;
     if (!refreshToken) {
       if (!req.body || !req.body.refreshToken) {
-        res.sendStatus(401);
         return;
       }
       refreshToken = req.body.refreshToken;
-      refreshTokenCookie = false;
     }
-
     const token = await this.generateAccessToken(refreshToken);
-    if (!token) {
-      if (!refreshTokenCookie) {
-        res.sendStatus(401);
-        return;
-      }
-      return;
-    }
-
-    if (refreshTokenCookie) {
-      res.cookie("auth", token.token, { maxAge: 5 * 60 * 1000 });
-      return token;
-    } else {
-      return res.json(token);
-    }
+    if (!token) return;
+    return token;
   };
 
   public generateJWT(redirectUrl?: string): (req: Request, res: Response) => Promise<any> {

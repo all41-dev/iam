@@ -215,9 +215,13 @@ YQIDAQAB
       req = {
         headers: {},
         cookies: {},
+        body: {},
       } as Request;
       res = {
         sendStatus: sinon.stub(),
+        cookie: sinon.stub().returnsThis(),
+        json: sinon.stub(),
+        headersSent: false
       } as unknown as Response;
       next = sinon.stub();
 
@@ -304,13 +308,29 @@ YQIDAQAB
       await instance.authMiddleware(req, res, next);
       expect((res.sendStatus as sinon.SinonStub).calledWith(401)).to.be.true;
     });
+
+    it('should refresh token, set auth cookie and set req.user if JWT fails but refresh succeeds', async () => {
+      req.cookies = { refresh: 'refresh-token' };
+      const refreshedToken = { user: { uuid: 'test-user' }, token: 'new-access-token' };
+      passportAuthenticateStub.callsFake((strategy, options, callback) => {
+        return (req: Request, res: Response, next: any) => {
+          callback(null, null);
+          next();
+        };
+      });
+      sandbox.stub(instance, 'refreshToken').resolves(refreshedToken);
+      await instance.authMiddleware(req, res, next);
+      expect((res.cookie as sinon.SinonStub).calledWith('auth', 'new-access-token', sinon.match.has('maxAge'))).to.be.true;
+      expect(req.user).to.deep.equal(refreshedToken.user);
+      expect(next.called).to.be.true;
+    });
+
   });
 
 
   describe('refreshToken', () => {
     let instance: AuthManager;
     let req: Request;
-    let res: Response;
     let generateAccessTokenStub: sinon.SinonStub;
 
     beforeEach(() => {
@@ -319,11 +339,7 @@ YQIDAQAB
         cookies: {},
         body: {},
       } as Request;
-      res = {
-        sendStatus: sandbox.stub(),
-        cookie: sandbox.stub().returnsThis(),
-        json: sandbox.stub(),
-      } as unknown as Response;
+
       generateAccessTokenStub = sandbox.stub(instance, 'generateAccessToken');
     });
 
@@ -331,39 +347,44 @@ YQIDAQAB
       sandbox.restore();
     });
 
-    it('should return 401 if no refresh token is provided', async () => {
-      await instance.refreshToken(req, res);
-      expect((res.sendStatus as sinon.SinonStub).calledWith(401)).to.be.true;
+    it('should return undefined if no refresh token is provided', async () => {
+      const result = await instance.refreshToken(req);
+      expect(result).to.be.undefined;
     });
 
-    it('should return nothing if refresh token is invalid', async () => {
+    it('should return undefined if refresh token is invalid (from cookies)', async () => {
       req.cookies.refresh = 'invalid-token';
       generateAccessTokenStub.resolves(null);
-      const result = await instance.refreshToken(req, res);
-      expect(result).to.be.equal(undefined);
+
+      const result = await instance.refreshToken(req);
+      expect(result).to.be.undefined;
+      expect(generateAccessTokenStub.calledWith('invalid-token')).to.be.true;
     });
 
-    it('should set auth cookie if refresh token is valid and from cookie', async () => {
+    it('should return token if refresh token is valid (from cookies)', async () => {
       req.cookies.refresh = 'valid-token';
       const token = { user: { uuid: 'user-uuid' }, token: 'new-access-token' };
       generateAccessTokenStub.resolves(token);
-      await instance.refreshToken(req, res);
-      expect((res.cookie as sinon.SinonStub).calledWith('auth', 'new-access-token')).to.be.true;
+
+      const result = await instance.refreshToken(req);
+      expect(result).to.deep.equal(token);
     });
 
-    it('should return JSON response if refresh token is valid and from body', async () => {
+    it('should return token if refresh token is valid (from body)', async () => {
       req.body.refreshToken = 'valid-token';
       const token = { user: { uuid: 'user-uuid' }, token: 'new-access-token' };
       generateAccessTokenStub.resolves(token);
-      await instance.refreshToken(req, res);
-      expect((res.json as sinon.SinonStub).calledWith(token)).to.be.true;
+
+      const result = await instance.refreshToken(req);
+      expect(result).to.deep.equal(token);
     });
 
-    it('should return 401 if refresh token is invalid and from body', async () => {
+    it('should return undefined if refresh token is invalid (from body)', async () => {
       req.body.refreshToken = 'invalid-token';
       generateAccessTokenStub.resolves(null);
-      await instance.refreshToken(req, res);
-      expect((res.sendStatus as sinon.SinonStub).calledWith(401)).to.be.true;
+
+      const result = await instance.refreshToken(req);
+      expect(result).to.be.undefined;
     });
   });
 

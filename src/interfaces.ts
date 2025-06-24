@@ -16,8 +16,7 @@ export interface IAuthOptions {
   additionalElementProfile?: (req: Request, res: Response, next: NextFunction) => Promise<any>;
   additionalParams?: (req: Request, res: Response) => Promise<void>;
   refreshToken?: (
-    req: Request,
-    res: Response
+    req: Request
   ) => Promise<{ user: any; token: string } | undefined>;
 }
 

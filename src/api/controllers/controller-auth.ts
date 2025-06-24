@@ -50,13 +50,28 @@ export class AuthController {
     });
 
     r.get('/logout', (req, res) => {
-      res.clearCookie('auth');
-      res.clearCookie('refresh');
-      res.clearCookie('provider');
-      res.redirect(this._authManager.options.redirectAfterLogin || '/');
+      try {
+        res.clearCookie('auth');
+        res.clearCookie('refresh');
+        res.clearCookie('provider');
+        res.redirect(this._authManager.options.redirectAfterLogin || '/');
+      } catch (err) {
+        return res.status(500).json({ message: 'Internal server error' });
+      }
     });
 
-    r.post('/refresh', this._authManager.refreshToken);
+    r.post('/refresh', async (req, res) => {
+      try {
+        const result = await this._authManager.refreshToken(req);
+        if (!result) {
+          return res.status(401).json({ message: 'Invalid or missing refresh token' });
+        }
+        res.cookie("auth", result.token, { maxAge: 5 * 60 * 1000 });
+        return res.json(result);
+      } catch (err) {
+        return res.status(500).json({ message: 'Internal server error' });
+      }
+    });
 
     r.get('/profile', this._authManager.authMiddleware, async (req, res, next) => {
       if (this._authManager.options.additionalElementProfile) {
@@ -78,34 +93,42 @@ export class AuthController {
     });
 
     r.get(`/impersonate/:email`, this._authManager.authMiddleware, async (req, res, next) => {
-      if (!req.user || !this._authUtils) return res.status(401).json({ message: 'Not Authorized' });
-      if (await this._authUtils.checkAccess(req.user as IAMUser, "global-write-rights", process.env.GLOBAL_UUID || '') === "deny")
-        return res.status(403).json({ message: 'Forbidden' });
-      const redirectUrl = req.query.redirectUrl || this._authManager.options.redirectAfterLogin;
-      const impersonateUser = req.params.email;
-      const permissions = await this._authUtils.getUserPermissions(undefined, impersonateUser);
-      const user = {
-        ...req.user,
-        impersonateUser: impersonateUser,
-        permissions: permissions && Object.keys(permissions).length > 0 ? Buffer.from(JSON.stringify(permissions)).toString('base64') : undefined,
-        permissionWarning: permissions && Object.keys(permissions).length > 0 ? undefined : 'no permissions',
+      try {
+        if (!req.user || !this._authUtils) return res.status(401).json({ message: 'Not Authorized' });
+        if (await this._authUtils.checkAccess(req.user as IAMUser, "global-write-rights", process.env.GLOBAL_UUID || '') === "deny")
+          return res.status(403).json({ message: 'Forbidden' });
+        const redirectUrl = req.query.redirectUrl || this._authManager.options.redirectAfterLogin;
+        const impersonateUser = req.params.email;
+        const permissions = await this._authUtils.getUserPermissions(undefined, impersonateUser);
+        const user = {
+          ...req.user,
+          impersonateUser: impersonateUser,
+          permissions: permissions && Object.keys(permissions).length > 0 ? Buffer.from(JSON.stringify(permissions)).toString('base64') : undefined,
+          permissionWarning: permissions && Object.keys(permissions).length > 0 ? undefined : 'no permissions',
+        }
+        req.user = user;
+        return this._authManager.generateJWT(redirectUrl as string)(req, res);
+      } catch (err) {
+        return res.status(500).json({ message: 'Internal server error' });
       }
-      req.user = user;
-      return this._authManager.generateJWT(redirectUrl as string)(req, res);
     });
 
     r.get(`/depersonate`, this._authManager.authMiddleware, async (req, res, next) => {
-      if (!req.user || !this._authUtils) return res.status(401).json({ message: 'Not Authorized' });
-      const redirectUrl = req.query.redirectUrl || this._authManager.options.redirectAfterLogin;
-      const permissions = await this._authUtils.getUserPermissions((req.user as IAMUser).uuid)
-      const user = {
-        ...req.user,
-        impersonateUser: undefined,
-        permissions: permissions && Object.keys(permissions).length > 0 ? Buffer.from(JSON.stringify(permissions)).toString('base64') : undefined,
-        permissionWarning: permissions && Object.keys(permissions).length > 0 ? undefined : 'no permissions',
+      try {
+        if (!req.user || !this._authUtils) return res.status(401).json({ message: 'Not Authorized' });
+        const redirectUrl = req.query.redirectUrl || this._authManager.options.redirectAfterLogin;
+        const permissions = await this._authUtils.getUserPermissions((req.user as IAMUser).uuid)
+        const user = {
+          ...req.user,
+          impersonateUser: undefined,
+          permissions: permissions && Object.keys(permissions).length > 0 ? Buffer.from(JSON.stringify(permissions)).toString('base64') : undefined,
+          permissionWarning: permissions && Object.keys(permissions).length > 0 ? undefined : 'no permissions',
+        }
+        req.user = user;
+        return this._authManager.generateJWT(redirectUrl as string)(req, res);
+      } catch (err) {
+        return res.status(500).json({ message: 'Internal server error' });
       }
-      req.user = user;
-      return this._authManager.generateJWT(redirectUrl as string)(req, res);
     });
 
     return r;

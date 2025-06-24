@@ -123,10 +123,10 @@ export class AuthManager {
 
     if (refreshTokenCookie) {
       res.cookie("auth", token.token, { maxAge: 5 * 60 * 1000 });
+      return token;
     } else {
       return res.json(token);
     }
-    return token;
   };
 
   public generateJWT(redirectUrl?: string): (req: Request, res: Response) => Promise<any> {

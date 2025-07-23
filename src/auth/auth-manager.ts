@@ -12,6 +12,7 @@ import bcrypt from 'bcrypt';
 import { DbUser } from '../db/db-user';
 import { DbRefreshToken } from '../db/db-refresh-token';
 import { AuthUtils } from "./auth-utils";
+import { Op } from "sequelize";
 
 export class AuthManager {
   private static instance: AuthManager;
@@ -195,7 +196,13 @@ export class AuthManager {
       throw new Error("No private key provided for JWT generation");
     }
     const decodedToken = (jwt.verify(refreshToken, this.options.publicKey, { algorithms: ['RS256'] }) as { user_uuid: string, impersonate_user_email?: string });
-    const token = await DbRefreshToken.findAll({ where: { user_uuid: decodedToken.user_uuid } })
+    const token = await DbRefreshToken.findAll({
+      where: {
+        user_uuid: decodedToken.user_uuid, expires: {
+          [Op.gt]: new Date()
+        }
+      }
+    })
       .then((tokens) => tokens.find((t) => bcrypt.compareSync(refreshToken, t.token)));
     if (!token) return null;
     const user = await DbUser.findByPk(token.user_uuid);

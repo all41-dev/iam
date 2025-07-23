@@ -1,10 +1,15 @@
 import { IDbOptions } from "@all41-dev/db-tools";
 import { IServerOptions } from "@all41-dev/server";
-import { IamDb } from "./db/IamDb";
+import { IamDb } from "./db/iam-db";
 import path from "path";
 import { TestServer } from "./test-server";
 import { IamApi } from "./api/iam-api";
 import { Response } from "express";
+import { readFileSync } from "fs";
+
+import { Strategy as GitHubStrategy } from "passport-github2";
+import { scopeElementAncestor, scopeElementHierarchy } from "./utils/scope-element-dummy";
+import { AuthUtils } from "./auth/auth-utils";
 
 const dbOptions: IDbOptions<any> = {
   engine: 'mariadb',
@@ -22,11 +27,38 @@ const dbOptions: IDbOptions<any> = {
   }
 };
 
+const privateKey = readFileSync(path.resolve(`${__dirname}/../keys/private.pem`), 'utf8');
+const publicKey = readFileSync(path.resolve(`${__dirname}/../keys/public.pem`), 'utf8');
+const authUtils = AuthUtils.getInstance({ scopeElementAncestor, scopeElementHierarchy })
+
 const options: IServerOptions = {
-  dbs: [dbOptions],
-  httpPort: process.env.PORT ? parseInt(process.env.PORT) : 7000,
+  dbs: dbOptions,
+  httpPort: process.env.PORT ? parseInt(process.env.PORT) : 7070,
+  auth: {
+    masterApiKey: process.env.MASTER_API_KEY,
+    redirectAfterLogin: process.env.REDIRECT_URL,
+    redirectAfterLogout: process.env.REDIRECT_URL,
+    privateKey: privateKey,
+    publicKey: publicKey,
+    strategies: {
+      github: new GitHubStrategy({
+        clientID: process.env.GITHUB_CLIENT_ID!,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+        callbackURL: process.env.GITHUB_CALLBACK_URL!,
+        scope: ['user:email', 'read:user'],
+      }, async (accessToken: any, refreshToken: any, profile: any, done: any) => {
+        try {
+          const { user, error } = await authUtils.checkUser(profile, 'github');
+          return done(null, user, error ? { message: error } : undefined);
+        } catch (e) {
+          return done(e);
+        }
+      }),
+    },
+  },
   apis: {
     type: IamApi,
+    requireAuth: !(process.env.DISABLE_AUTH === 'true'),
     baseRoute: '/api'
   },
   statics: [{

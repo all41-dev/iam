@@ -2,13 +2,21 @@ import { Router } from 'express';
 import passport from 'passport';
 import { AuthManager } from '../../auth/auth-manager';
 import querystring from 'querystring';
+import { AuthUtils } from '../../auth/auth-utils';
+import { IAMUser } from '../../interfaces';
 
 export class AuthController {
 
   private _authManager: AuthManager;
+  private _authUtils: AuthUtils | undefined;
 
   constructor() {
     this._authManager = AuthManager.getInstance();
+    try {
+      this._authUtils = AuthUtils.getInstance();
+    } catch {
+      this._authUtils = undefined
+    }
   }
 
   public create(strategies: string[], router?: Router): Router {
@@ -16,11 +24,10 @@ export class AuthController {
 
     strategies.forEach((strategy) => {
       r.get(`/${strategy}`, async (req, res, next) => {
-        const redirectUri = req.query.redirectUrl;
+        const redirectUrl = req.query.redirectUrl;
         const failureRedirect = req.query.failureRedirect;
-        // TODO check if it's mendatory
-        if (this._authManager.additionalParams) await this._authManager.additionalParams(req, res);
-        if (redirectUri) res.cookie('redirect', redirectUri, { maxAge: 5 * 60 * 1000 });
+        if (this._authManager.options.additionalParams) await this._authManager.options.additionalParams(req, res);
+        if (redirectUrl) res.cookie('redirect', redirectUrl, { maxAge: 5 * 60 * 1000 });
         if (failureRedirect) res.cookie('failureRedirect', failureRedirect, { maxAge: 5 * 60 * 1000 });
 
         next();
@@ -33,7 +40,6 @@ export class AuthController {
           if (!user) {
             const query = querystring.stringify({ message: info.message });
             res.clearCookie('failureRedirect');
-            res.clearCookie('redirect');
             return res.redirect(`${failureRedirect}?${query}`);
           }
           req.user = user;
@@ -44,24 +50,87 @@ export class AuthController {
     });
 
     r.get('/logout', (req, res) => {
-      res.clearCookie('auth');
-      res.clearCookie('refresh');
-      res.redirect(this._authManager.options.redirectAfterLogin || '/');
+      try {
+        res.clearCookie('auth');
+        res.clearCookie('refresh');
+        res.clearCookie('provider');
+        res.redirect(this._authManager.options.redirectAfterLogin || '/');
+      } catch (err) {
+        return res.status(500).json({ message: 'Internal server error' });
+      }
     });
 
-    r.post('/refresh', this._authManager.refreshToken);
+    r.post('/refresh', async (req, res) => {
+      try {
+        const result = await this._authManager.refreshToken(req);
+        if (!result) {
+          return res.status(401).json({ message: 'Invalid or missing refresh token' });
+        }
+        res.cookie("auth", result.token, { maxAge: 5 * 60 * 1000 });
+        return res.json(result);
+      } catch (err) {
+        return res.status(500).json({ message: 'Internal server error' });
+      }
+    });
 
-    r.get('/profile', this._authManager.authMiddleware, (req, res) => {
+    r.get('/profile', this._authManager.authMiddleware, async (req, res, next) => {
+      if (this._authManager.options.additionalElementProfile) {
+        await this._authManager.options.additionalElementProfile(req, res, next);
+      } else {
+        next();
+      }
+    }, (req, res) => {
       res.json({
-        username: (req.user as any).user.username,
-        email: (req.user as any).user.email,
-        firstName: (req.user as any).user.firstName,
-        lastName: (req.user as any).user.lastName,
-        permissions: (req.user as any).user.permissions,
+        username: (req.user as IAMUser).username,
+        email: (req.user as IAMUser).email,
+        firstName: (req.user as IAMUser).first_name,
+        lastName: (req.user as IAMUser).last_name,
+        impersonateUser: (req.user as IAMUser).impersonateUser,
+        permissions: (req.user as IAMUser).permissions
+          ? JSON.parse(Buffer.from((req.user as IAMUser).permissions, 'base64').toString('utf8'))
+          : (req.user as IAMUser).permissionWarning,
       });
+    });
+
+    r.get(`/impersonate/:email`, this._authManager.authMiddleware, async (req, res, next) => {
+      try {
+        if (!req.user || !this._authUtils) return res.status(401).json({ message: 'Not Authorized' });
+        if (await this._authUtils.checkAccess(req.user as IAMUser, "global-write-rights", process.env.GLOBAL_UUID || '') === "deny")
+          return res.status(403).json({ message: 'Forbidden' });
+        const redirectUrl = req.query.redirectUrl || this._authManager.options.redirectAfterLogin;
+        const impersonateUser = req.params.email;
+        const permissions = await this._authUtils.getUserPermissions(undefined, impersonateUser);
+        const user = {
+          ...req.user,
+          impersonateUser: impersonateUser,
+          permissions: permissions && Object.keys(permissions).length > 0 ? Buffer.from(JSON.stringify(permissions)).toString('base64') : undefined,
+          permissionWarning: permissions && Object.keys(permissions).length > 0 ? undefined : 'no permissions',
+        }
+        req.user = user;
+        return this._authManager.generateJWT(redirectUrl as string)(req, res);
+      } catch (err) {
+        return res.status(500).json({ message: 'Internal server error' });
+      }
+    });
+
+    r.get(`/depersonate`, this._authManager.authMiddleware, async (req, res, next) => {
+      try {
+        if (!req.user || !this._authUtils) return res.status(401).json({ message: 'Not Authorized' });
+        const redirectUrl = req.query.redirectUrl || this._authManager.options.redirectAfterLogin;
+        const permissions = await this._authUtils.getUserPermissions((req.user as IAMUser).uuid)
+        const user = {
+          ...req.user,
+          impersonateUser: undefined,
+          permissions: permissions && Object.keys(permissions).length > 0 ? Buffer.from(JSON.stringify(permissions)).toString('base64') : undefined,
+          permissionWarning: permissions && Object.keys(permissions).length > 0 ? undefined : 'no permissions',
+        }
+        req.user = user;
+        return this._authManager.generateJWT(redirectUrl as string)(req, res);
+      } catch (err) {
+        return res.status(500).json({ message: 'Internal server error' });
+      }
     });
 
     return r;
   }
-
 }

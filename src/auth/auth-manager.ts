@@ -1,5 +1,5 @@
 import passport from "passport";
-import { Request, Response, Router } from "express";
+import { NextFunction, Request, Response, Router } from "express";
 import jwt from "jsonwebtoken";
 import querystring from "querystring";
 import express from "express";
@@ -7,11 +7,12 @@ import { Strategy as JWTStrategy } from "passport-jwt";
 import Cors from "cors";
 import { AuthController } from "../api/controllers/controller-auth";
 import cookieParser from "cookie-parser";
-import { IAuthOptions } from "../interfaces";
+import { IAMUser, IAuthOptions } from "../interfaces";
 import bcrypt from 'bcrypt';
-import { AuthUserTable } from '../db/auth-user-table';
-import { RefreshTokenTable } from '../db/refresh-token-table';
-import { RefreshExpiryTable } from '../db/refresh-expiry-table';
+import { DbUser } from '../db/db-user';
+import { DbRefreshToken } from '../db/db-refresh-token';
+import { AuthUtils } from "./auth-utils";
+import { Op } from "sequelize";
 
 export class AuthManager {
   private static instance: AuthManager;
@@ -48,14 +49,13 @@ export class AuthManager {
     );
 
     passport.use(
-      "jwtAuth",
       new JWTStrategy(
         {
           jwtFromRequest: this.cookieExtractor,
-          secretOrKey: this.authOptions.publicKey,
+          secretOrKey: this.authOptions.privateKey ? this.authOptions.privateKey : this.authOptions.publicKey,
           algorithms: ["RS256"],
-          issuer: process.env.AUTH_ISSUER || "all41",
-          audience: process.env.AUTH_AUDIENCE || "all41",
+          issuer: this.options.authIssuer || "all41",
+          audience: this.options.authAudience || "all41",
         },
         async (payload, done) => {
           done(null, payload);
@@ -68,15 +68,12 @@ export class AuthManager {
     }
 
     const strategyNames = Object.keys(this.authOptions.strategies);
-
-    //TODO: look at the usage
     this.refreshToken = this.authOptions.refreshToken || this.refreshToken;
-
     return new AuthController().create(strategyNames, router);
   }
 
-  public authMiddleware = (req: Request, res: Response, next: any) => {
-    if (req.headers.authorization) {
+  public authMiddleware = (req: Request, res: Response, next: NextFunction) => {
+    if (req.headers.authorization && this.authOptions.masterApiKey) {
       const bearer = req.headers.authorization.split(" ");
       if (bearer.length === 2 && bearer[0] === "Bearer") {
         const apiKey = bearer[1];
@@ -86,53 +83,38 @@ export class AuthManager {
       }
     }
     passport.authenticate(
-      "jwtAuth",
+      "jwt",
       { session: false },
       async (error: any, token: any) => {
-        if (error || !token) {
-          // try to refresh token
+        if (error) return res.sendStatus(401);
+        if (!token) {
           if (!req.cookies["auth"] && !req.cookies["refresh"]) {
             return res.sendStatus(401);
           }
-          token = await this.refreshToken(req, res);
+          token = await this.refreshToken(req);
+          if (!token) return res.sendStatus(401);
+          res.cookie("auth", token.token, { maxAge: 5 * 60 * 1000 });
         }
-        if (!token) return res.sendStatus(401);
-        req.user = { user: token.user };
+        req.user = token.user;
         next();
       }
     )(req, res, next);
   };
 
-  public refreshToken = async (req: Request, res: Response) => {
+  public refreshToken = async (req: Request): Promise<{ user: any, token: string } | undefined> => {
     let refreshToken = req.cookies.refresh;
-    let refreshTokenCookie = true;
     if (!refreshToken) {
       if (!req.body || !req.body.refreshToken) {
-        res.sendStatus(401);
         return;
       }
       refreshToken = req.body.refreshToken;
-      refreshTokenCookie = false;
     }
-
     const token = await this.generateAccessToken(refreshToken);
-    if (!token) {
-      if (!refreshTokenCookie) res.sendStatus(401);
-      return;
-    }
-
-    if (refreshTokenCookie) {
-      res.cookie("auth", token.token, { maxAge: 5 * 60 * 1000 });
-    } else {
-      res.json(token);
-      return;
-    }
+    if (!token) return;
     return token;
   };
 
-  public generateJWT(
-    redirectUri?: string
-  ): (req: Request, res: Response) => Promise<any> {
+  public generateJWT(redirectUrl?: string): (req: Request, res: Response) => Promise<any> {
     return async (req: Request, res: Response) => {
       if (!this.options.privateKey) {
         throw new Error("No private key provided for JWT generation");
@@ -140,115 +122,136 @@ export class AuthManager {
       if (!req.user) {
         throw new Error("No user found in request");
       }
-      const refreshExpiry = this.getRefreshExpiry
-        ? await this.getRefreshExpiry(req)
-        : 24 * 60 * 60 * 1000;
-      const accessToken = jwt.sign(
-        { user: req.user },
-        this.options.privateKey,
-        {
-          algorithm: "RS256",
-          expiresIn: "5m",
-          issuer: process.env.AUTH_ISSUER || "all41",
-          audience: process.env.AUTH_AUDIENCE || "all41",
-          subject: (req.user as any).uuid,
-        }
-      );
+      const safePayload = this.createSafeJwtPayload(req.user as IAMUser);
+      const token = jwt.sign(safePayload, this.options.privateKey, {
+        algorithm: "RS256",
+        expiresIn: "5m",
+        issuer: process.env.AUTH_ISSUER || "all41",
+        audience: process.env.AUTH_AUDIENCE || "all41",
+        subject: (req.user as IAMUser).uuid,
+      });
+
+      const refreshExpiry = 24 * 60 * 60 * 1000;
       const refreshToken = await this.saveRefreshToken(
-        (req.user as { uuid: string }).uuid,
-        refreshExpiry
+        (req.user as IAMUser).uuid,
+        refreshExpiry,
+        (req.user as IAMUser).impersonateUser
       );
-      let redirectAfter = redirectUri || "/";
-      if (req.cookies["redirect"]) {
-        redirectAfter = req.cookies["redirect"];
-        res.clearCookie("redirect");
-        res.clearCookie("failureRedirect");
+      let redirectAfter = req.cookies["redirect"] || redirectUrl || "/";
+      const redirect = req.cookies["redirect"] || redirectUrl || "/";
+      const base = `${req.protocol}://${req.get("host")}`;
+      const isExternalHost = new URL(redirect, base).hostname !== req.hostname;
+      if (isExternalHost && req.cookies["redirect"]) {
         redirectAfter +=
-          "?" + querystring.stringify({ accessToken, refreshToken });
-      } else {
-        res.cookie("auth", accessToken, { maxAge: 5 * 60 * 1000 });
-        res.cookie("refresh", refreshToken, { maxAge: refreshExpiry });
+          "?" + querystring.stringify({ accessToken: token, refreshToken, provider: (req.user as IAMUser).provider });
       }
-      res.redirect(redirectAfter || "/");
+      res.clearCookie("redirect");
+      res.cookie("auth", token, { maxAge: 5 * 60 * 1000 });
+      res.cookie("refresh", refreshToken, { maxAge: refreshExpiry });
+      res.cookie("provider", (req.user as IAMUser).provider, { maxAge: refreshExpiry + 15 * 60 * 1000 });
+      res.redirect(redirectAfter);
     };
   }
 
   public cookieExtractor(req: Request) {
-    let token = null;
-    if (req && req.cookies) token = req.cookies["auth"];
+    const token = (req && req.cookies) ? req.cookies["auth"] : null;
     return token;
   }
 
-  public saveRefreshToken = async (auth_user_uuid: string, refreshExpiry?: number) => {
-    const authUser = await AuthUserTable.findByPk(auth_user_uuid)
-    if (!authUser) throw new Error("User not found");
+  public saveRefreshToken = async (user_uuid: string, refreshExpiry?: number, impersonate_user_email?: string) => {
+    if (!this.options.privateKey) {
+      throw new Error("No private key provided for JWT generation");
+    }
+    const user = await DbUser.findByPk(user_uuid)
+    if (!user) throw new Error("User not found");
     const token = jwt.sign(
-      { id: authUser.uuid },
+      {
+        user_uuid: user.uuid,
+        impersonate_user_email: impersonate_user_email ? impersonate_user_email : undefined
+      },
       this.options.privateKey,
       {
         algorithm: 'RS256',
         expiresIn: refreshExpiry ? refreshExpiry / 1000 : '1d',
-        issuer: process.env.AUTH_ISSUER,
-        audience: process.env.AUTH_AUDIENCE, subject: authUser.uuid
+        issuer: process.env.AUTH_ISSUER || "all41",
+        audience: process.env.AUTH_AUDIENCE || "all41",
+        subject: user.uuid
       });
-    bcrypt.hash(token, 10, async (err, hash) => {
-      if (err) throw err;
-      await RefreshTokenTable.create({
-        auth_user_uuid: authUser.uuid,
-        token: hash,
-        expires: new Date(Date.now() + (refreshExpiry || 24 * 60 * 60 * 1000))
+
+    const hash = await new Promise<string>((resolve, reject) => {
+      bcrypt.hash(token, 10, (err, hashed) => {
+        if (err) return reject(err);
+        resolve(hashed);
       });
+    });
+    await DbRefreshToken.create({
+      user_uuid: user.uuid,
+      token: hash,
+      expires: new Date(Date.now() + (refreshExpiry || 24 * 60 * 60 * 1000))
     });
     return token;
   };
-
   public generateAccessToken = async (refreshToken: string) => {
-    const auth_user_uuid = (jwt.verify(refreshToken, this.options.publicKey, { algorithms: ['RS256'] }) as { id: string }).id;
-    const token = await RefreshTokenTable.findAll({ where: { auth_user_uuid } })
-      .then((tokens) => tokens.find((t) => bcrypt.compareSync(refreshToken, t.token)));
-
-    if (!token) return null;
-    const user = await AuthUserTable.findByPk(token.auth_user_uuid);
-    if (!user) return null;
-
-    const newToken = jwt.sign(
-      { user: user.dataValues },
-      this.options.privateKey,
-      {
-        algorithm: 'RS256',
-        expiresIn: '1m',
-        issuer: this.options.authIssuer,
-        audience: this.options.authAudience,
-        subject: user.uuid,
+    if (!this.options.privateKey) {
+      throw new Error("No private key provided for JWT generation");
+    }
+    const decodedToken = (jwt.verify(refreshToken, this.options.publicKey, { algorithms: ['RS256'] }) as { user_uuid: string, impersonate_user_email?: string });
+    const token = await DbRefreshToken.findAll({
+      where: {
+        user_uuid: decodedToken.user_uuid, expires: {
+          [Op.gt]: new Date()
+        }
       }
+    })
+      .then((tokens) => tokens.find((t) => bcrypt.compareSync(refreshToken, t.token)));
+    if (!token) return null;
+    const user = await DbUser.findByPk(token.user_uuid);
+    if (!user) return null;
+    const permissions = decodedToken.impersonate_user_email
+      ? await AuthUtils.getInstance().getUserPermissions(undefined, decodedToken.impersonate_user_email)
+      : await AuthUtils.getInstance().getUserPermissions(user.uuid);
+    const safePayload = this.createSafeJwtPayload({
+      ...user.dataValues,
+      impersonateUser: decodedToken.impersonate_user_email,
+      permissions: permissions && Object.keys(permissions).length > 0 ? Buffer.from(JSON.stringify(permissions)).toString('base64') : undefined,
+      permissionWarning: permissions && Object.keys(permissions).length > 0 ? undefined : 'no permissions',
+    });
+    const newToken = jwt.sign(safePayload, this.options.privateKey, {
+      algorithm: "RS256",
+      expiresIn: "5m",
+      issuer: this.options.authIssuer || "all41",
+      audience: this.options.authAudience || "all41",
+      subject: user.uuid,
+    }
     );
-    return { user: user.dataValues, token: newToken };
+    return { user: safePayload.user, token: newToken };
   };
 
   public revokeRefreshToken = async (refreshToken: string) => {
     const decodedToken = jwt.verify(refreshToken, this.options.publicKey, { algorithms: ['RS256'] }) as { id: string };
-    const auth_user_uuid = decodedToken.id;
+    const user_uuid = decodedToken.id;
 
-    const token = await RefreshTokenTable.findAll({ where: { auth_user_uuid } })
+    const token = await DbRefreshToken.findAll({ where: { user_uuid } })
       .then((tokens) => tokens.find((t) => bcrypt.compareSync(refreshToken, t.token)));
-    await RefreshTokenTable.destroy({ where: { uuid: token?.uuid } });
+    await DbRefreshToken.destroy({ where: { uuid: token?.uuid } });
   };
 
-  /**TODO: check if there is no issue with the RefreshExpiryTable in IAM API with customer uuid
-   * @deprecated 
-  */
-  public getRefreshExpiry = async (req: Request) => {
-    const customer_uuid = req.cookies.customer_uuid;
-    if (!customer_uuid) return 24 * 60 * 60 * 1000;
-    const expiry = await RefreshExpiryTable.findOne({ where: { customer_uuid } });
-    if (!expiry) return 24 * 60 * 60 * 1000;
-    return expiry.expiry_time;
-  };
-  /**
-     * @deprecated 
-    */
-  public additionalParams = async (req: Request, res: Response) => {
-    const customer_uuid = req.query.customer_uuid;
-    if (customer_uuid) res.cookie('customer_uuid', customer_uuid, { maxAge: 5 * 60 * 1000 });
-  };
+  private createSafeJwtPayload(user: IAMUser) {
+    const MAX_JWT_PAYLOAD_SIZE = 2 * 1024;
+    const estimatePayloadSize = (payload: object) =>
+      Buffer.byteLength(JSON.stringify(payload), "utf8");
+    const originalUser = { ...user };
+    let payload = { user: originalUser };
+    if (estimatePayloadSize(payload) > MAX_JWT_PAYLOAD_SIZE) {
+      payload = {
+        user: {
+          ...originalUser,
+          permissions: undefined,
+          permissionWarning:
+            "Permissions omitted due to token size limit. See /api/users/:id/permission for full list.",
+        },
+      };
+    }
+    return payload;
+  }
 }

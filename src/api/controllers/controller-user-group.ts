@@ -1,29 +1,34 @@
 import { ControllerRepositoryReadWrite } from "@all41-dev/server.types";
 import { RepositoryUserGroup } from "../../repositories/user-group-repository";
 import { Router, Request, Response } from "express";
-import { UserGroupTable } from "../../db/user-group-table";
+import { checkRouteMiddleware } from "../../utils/check-route-middleware";
 
 export class ControllerUserGroup extends ControllerRepositoryReadWrite<RepositoryUserGroup> {
   private repositoryUserGroup: RepositoryUserGroup;
 
   constructor() {
-    const repositoryUserGroup = new RepositoryUserGroup(UserGroupTable);
+    const repositoryUserGroup = new RepositoryUserGroup();
 
-    super();
+    super({
+      checkRouteMiddleware,
+      baseRouteCheckAuth: [
+        { verb: "get", path: '/', featureCode: "global-read-show-rights" },
+        { verb: "get", path: '/:id', featureCode: "global-read-show-rights" },
+        { verb: "post", path: '/', featureCode: "global-write-rights" },
+        { verb: "delete", path: '/:id', featureCode: "global-write-rights" },
+        { verb: "patch", path: '/:id', featureCode: "global-write-rights" },
+      ],
+    });
 
     this.repositoryUserGroup = repositoryUserGroup;
 
-    this.addUsers = this.addUsers.bind(this);
-    this.removeUsers = this.removeUsers.bind(this);
-    this.getUsers = this.getUsers.bind(this);
-    this.getPermissions = this.getPermissions.bind(this);
-
-
     this.defineRoutes(
-      { verb: 'post', path: '/:groupUuid/add-users', handlers: this.addUsers },
-      { verb: 'post', path: '/:groupUuid/remove-users', handlers: this.removeUsers },
-      { verb: 'get', path: '/:groupUuid/users', handlers: this.getUsers },
-      { verb: 'get', path: '/:groupUuid/permissions', handlers: this.getPermissions },
+      { verb: 'post', path: '/:groupUuid/add-users', featureCode: "global-write-rights", handlers: this.addUsers.bind(this) },
+      { verb: 'post', path: '/:groupUuid/remove-users', featureCode: "global-write-rights", handlers: this.removeUsers.bind(this) },
+      { verb: 'post', path: '/:groupUuid/copy', featureCode: "global-write-rights", handlers: this.copyGroup.bind(this) },
+      { verb: 'get', path: '/:groupUuid/users', featureCode: "global-read-show-rights", handlers: this.getUsers.bind(this) },
+      { verb: 'get', path: '/:groupUuid/permissions', featureCode: "global-read-show-rights", handlers: this.getPermissions.bind(this) },
+      { verb: 'get', path: '/:groupUuid/effective-permissions', featureCode: "global-read-show-rights", handlers: this.getEffectivePermissions.bind(this) },
     );
   }
 
@@ -74,4 +79,24 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
     }
   }
 
+  public async getEffectivePermissions(req: Request, res: Response) {
+    const groupUuid = req.params.groupUuid
+    try {
+      const response = await this.repositoryUserGroup.getEffectivePermissions(groupUuid);
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  public async copyGroup(req: Request, res: Response) {
+    const groupUuid = req.params.groupUuid
+    const newGroupName = req.body.newGroupName;
+    try {
+      const response = await this.repositoryUserGroup.copyGroup(groupUuid, newGroupName);
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
 }

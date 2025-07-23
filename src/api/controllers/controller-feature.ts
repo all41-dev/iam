@@ -1,35 +1,38 @@
 import { ControllerRepositoryReadWrite } from "@all41-dev/server.types";
 import { RepositoryFeature } from "../../repositories/feature-repository";
 import { Router, Request, Response } from "express";
-import { FeatureTable } from "../../db/feature-table";
+import { checkRouteMiddleware } from "../../utils/check-route-middleware";
 
 export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryFeature> {
   private repositoryFeature: RepositoryFeature;
 
   constructor() {
-    const repositoryFeature = new RepositoryFeature(FeatureTable);
+    const repositoryFeature = new RepositoryFeature();
 
-    super();
+    super({
+      checkRouteMiddleware,
+      baseRouteCheckAuth: [
+        { verb: "get", path: '/', featureCode: "global-read-show-rights" },
+        { verb: "get", path: '/:id', featureCode: "global-read-show-rights" },
+        { verb: "post", path: '/', featureCode: "global-write-rights" },
+        { verb: "delete", path: '/:id', featureCode: "global-write-rights" },
+        { verb: "patch", path: '/:id', featureCode: "global-write-rights" },
+      ],
+    });
 
     this.repositoryFeature = repositoryFeature;
 
-    this.setParentChild = this.setParentChild.bind(this);
-    this.removeParentChild = this.removeParentChild.bind(this);
-    this.getChildrens = this.getChildrens.bind(this);
-    this.getFeatureMatrix = this.getFeatureMatrix.bind(this);
-    this.getRootFeatureMatrix = this.getRootFeatureMatrix.bind(this);
-    this.getScopeFeatureMatrix = this.getScopeFeatureMatrix.bind(this);
-
     this.defineRoutes(
-      { verb: 'post', path: '/set-parent-child', handlers: this.setParentChild },
-      { verb: 'post', path: '/remove-parent-child', handlers: this.removeParentChild },
-      { verb: 'get', path: '/childrens/:featureUuid', handlers: this.getChildrens },
-      { verb: 'get', path: '/matrix/:featureUuid', handlers: this.getFeatureMatrix },
-      { verb: 'get', path: '/:scopeUuid/feature-matrix', handlers: this.getScopeFeatureMatrix },
+      { verb: 'post', path: '/set-parent-child', featureCode: "global-write-rights", handlers: this.setParentChild.bind(this) },
+      { verb: 'post', path: '/remove-parent-child', featureCode: "global-write-rights", handlers: this.removeParentChild.bind(this) },
+      { verb: 'get', path: '/:featureUuid/childrens', featureCode: "global-read-show-rights", handlers: this.getChildrens.bind(this) },
+      { verb: 'get', path: '/:featureUuid/matrix', handlers: this.getFeatureMatrix.bind(this) },
+      { verb: 'get', path: '/scope/:scopeUuid/feature-matrix', featureCode: "global-read-show-rights", handlers: this.getScopeFeatureMatrix.bind(this) },
+      { verb: 'get', path: '/feature-composition/all', featureCode: "global-read-show-rights", handlers: this.getAllFeatureComposition.bind(this) },
     );
     this.defineRouteBeforeSignature(
       { verb: 'get', path: '/:id' },
-      { verb: 'get', path: '/root-feature-matrix', handlers: this.getRootFeatureMatrix },
+      { verb: 'get', path: '/root-matrix', featureCode: "global-read-show-rights", handlers: this.getRootFeatureMatrix.bind(this) },
     );
 
   }
@@ -43,8 +46,8 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
     const parentId = req.body.parentUuid;
     const childId = req.body.childUuid;
     try {
-      await this.repositoryFeature.setParentChild(parentId, childId);
-      res.status(200).json({});
+      const response = await this.repositoryFeature.setParentChild(parentId, childId);
+      res.status(200).json(response ? response : {});
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -54,8 +57,8 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
     const parentId = req.body.parentUuid;
     const childId = req.body.childUuid;
     try {
-      await this.repositoryFeature.removeParentChild(parentId, childId);
-      res.status(200).json({});
+      const response = await this.repositoryFeature.removeParentChild(parentId, childId);
+      res.status(200).json(response ? response : {});
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -99,5 +102,12 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
       res.status(500).json({ error: 'Internal server error' });
     }
   }
-
+  public async getAllFeatureComposition(req: Request, res: Response) {
+    try {
+      const tree = await this.repositoryFeature.getAllFeatureComposition();
+      res.status(200).json(tree);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
 }

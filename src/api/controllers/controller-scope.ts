@@ -1,28 +1,37 @@
 import { ControllerRepositoryReadWrite } from "@all41-dev/server.types";
 import { RepositoryScope } from "../../repositories/scope-repository";
 import { Router, Request, Response } from "express";
-import { ScopeTable } from "../../db/scope-table";
-
+import { checkRouteMiddleware } from "../../utils/check-route-middleware";
 export class ControllerScope extends ControllerRepositoryReadWrite<RepositoryScope> {
   private repositoryScope: RepositoryScope;
 
   constructor() {
-    const repositoryScope = new RepositoryScope(ScopeTable);
+    const repositoryScope = new RepositoryScope();
 
-    super();
+    super({
+      checkRouteMiddleware,
+      baseRouteCheckAuth: [
+        { verb: "get", path: '/', featureCode: "global-read-show-rights" },
+        { verb: "get", path: '/:id', featureCode: "global-read-show-rights" },
+        { verb: "post", path: '/', featureCode: "global-write-rights" },
+        { verb: "delete", path: '/:id', featureCode: "global-write-rights" },
+        { verb: "patch", path: '/:id', featureCode: "global-write-rights" },
+      ],
+    });
 
     this.repositoryScope = repositoryScope;
 
-    this.getTree = this.getTree.bind(this);
-    this.getChildren = this.getChildren.bind(this);
-    this.getGroups = this.getGroups.bind(this);
-    this.getFeatures = this.getFeatures.bind(this);
-
     this.defineRoutes(
-      { verb: 'get', path: '/:scopeUuid/tree', handlers: this.getTree },
-      { verb: 'get', path: '/:scopeUuid/children', handlers: this.getChildren },
-      { verb: 'get', path: '/:scopeUuid/groups', handlers: this.getGroups },
-      { verb: 'get', path: '/:scopeUuid/features', handlers: this.getFeatures }
+      { verb: 'get', path: '/:scopeUuid/children', featureCode: "global-read-show-rights", handlers: this.getChildren.bind(this) },
+      { verb: 'get', path: '/:scopeUuid/groups', featureCode: "global-read-show-rights", handlers: this.getGroups.bind(this) },
+      { verb: 'get', path: '/:scopeUuid/features', featureCode: "global-read-show-rights", handlers: this.getFeatures.bind(this) },
+      { verb: 'get', path: '/:scopeUuid/children/features', featureCode: "global-read-show-rights", handlers: this.getChildrenFeatures.bind(this) },
+      { verb: 'get', path: '/:scopeCode/element_hierarchy/:elementUuid?', handlers: this.getElementHierarchy.bind(this) },
+      { verb: 'get', path: '/element_hierarchy/all', featureCode: "global-read-show-rights", handlers: this.getAllElementHierarchy.bind(this) },
+    );
+    this.defineRouteBeforeSignature(
+      { verb: 'get', path: '/:id' },
+      { verb: 'get', path: '/tree', handlers: this.getTree.bind(this) },
     );
   }
 
@@ -32,9 +41,8 @@ export class ControllerScope extends ControllerRepositoryReadWrite<RepositorySco
   }
 
   public async getTree(req: Request, res: Response) {
-    const scopeUuid = req.params.scopeUuid;
     try {
-      const response = await this.repositoryScope.getTreeScopes(scopeUuid);
+      const response = await this.repositoryScope.getTreeScopes();
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });
@@ -65,6 +73,45 @@ export class ControllerScope extends ControllerRepositoryReadWrite<RepositorySco
     const scopeUuid = req.params.scopeUuid;
     try {
       const response = await this.repositoryScope.getScopeFeatures(scopeUuid);
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  public async getChildrenFeatures(req: Request, res: Response) {
+    const scopeUuid = req.params.scopeUuid;
+    try {
+      const response = await this.repositoryScope.getScopeChildrenFeatures(scopeUuid);
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+  public async getElementHierarchy(req: Request, res: Response) {
+    const scopeCode = req.params.scopeCode;
+    const elementUuid = req.params.elementUuid
+    try {
+      const response = await this.repositoryScope.getElementHierarchy(scopeCode, elementUuid);
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  public async getAllElementHierarchy(req: Request, res: Response) {
+    try {
+      const response = await this.repositoryScope.getAllElementHierarchy();
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+  public async getElementAncestor(req: Request, res: Response) {
+    const scopeCode = req.params.scopeCode;
+    const elementUuid = req.params.elementUuid
+    try {
+      const response = await this.repositoryScope.getElementAncestor(scopeCode, elementUuid);
       res.status(200).json(response);
     } catch (error) {
       res.status(500).json({ error: 'Internal server error' });

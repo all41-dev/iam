@@ -1,16 +1,24 @@
-import { ControllerRepositoryReadWrite } from "@all41-dev/server.types";
-import { RepositoryPermission } from "../../repositories/permission-repository";
 import { Router } from "express";
-import { PermissionTable } from "../../db/permission-table";
-
+import { RepositoryPermission } from "../../repositories/permission-repository";
+import { checkRouteMiddleware } from "../../utils/check-route-middleware";
+import { ControllerRepositoryReadWrite } from "@all41-dev/server.types";
 
 export class ControllerPermission extends ControllerRepositoryReadWrite<RepositoryPermission> {
   private repositoryPermission: RepositoryPermission;
 
   constructor() {
-    const repositoryPermission = new RepositoryPermission(PermissionTable);
+    const repositoryPermission = new RepositoryPermission();
 
-    super();
+    super({
+      checkRouteMiddleware,
+      baseRouteCheckAuth: [
+        { verb: "get", path: '/', featureCode: "global-read-show-rights" },
+        { verb: "get", path: '/:id', featureCode: "global-read-show-rights" },
+        { verb: "post", path: '/', featureCode: "global-write-rights" },
+        { verb: "delete", path: '/:id', featureCode: "global-write-rights" },
+        { verb: "patch", path: '/:id', featureCode: "global-write-rights" },
+      ],
+    });
 
     this.repositoryPermission = repositoryPermission;
   }

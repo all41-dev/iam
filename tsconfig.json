@@ -10,11 +10,16 @@
     "esModuleInterop": true,
     "sourceMap": true,
     "skipLibCheck": true,
+    "typeRoots": [
+      "types",
+      "./node_modules/@types"
+    ],
+    "lib": [
+      "ES2021",
+      "dom"
+    ],
   },
   "include": [
     "./src/**/*.ts"
-  ],
-  "exclude": [
-    "./src/ui",
-  ],
+  ]
 }

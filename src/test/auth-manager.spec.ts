@@ -775,6 +775,12 @@ YQIDAQAB
       expect(decodedToken.user.permissionWarning).to.equal('no permissions');
     });
 
+    it('should return null if decoded token is not defined', async () => {
+      verifyStub.returns(undefined);
+
+      const result = await instance.generateAccessToken('valid-token');
+      expect(result).to.equal(null);
+    });
 
     it('should generate a new access token if refresh token is valid', async () => {
       const mockUser = { uuid: "user-uuid", "dataValues": { uuid: 'user-uuid' } };

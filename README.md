@@ -1,8 +1,8 @@
-# @all41-dev/iam.api
+# @all41-dev/iam
 
 **API for Identity and Access Management (IAM)**
 
-`@all41-dev/iam.api` provides a modular and extensible backend library to manage users, roles, permissions, scopes, and feature access across applications in the All41 ecosystem.
+`@all41-dev/iam` provides a modular and extensible backend library to manage users, roles, permissions, scopes, and feature access across applications in the All41 ecosystem.
 
 It offers both **standalone** and **integrated** usage modes, making it suitable for testing, configuration, or embedding into your backend architecture.
 
@@ -23,7 +23,7 @@ It offers both **standalone** and **integrated** usage modes, making it suitable
 Install the package via npm:
 
 ```bash
-npm install @all41-dev/iam.api
+npm install @all41-dev/iam
 ```
 
 ---
@@ -47,7 +47,7 @@ You can also test the main singleton classes in isolation for unit or integratio
 
 To embed IAM into your existing backend:
 
-* Import the necessary services and singleton instances from `@all41-dev/iam.api`
+* Import the necessary services and singleton instances from `@all41-dev/iam`
 * Follow the setup instructions in the [IAM Frontend Repository](https://github.com/all41-dev/iam.front.git) to connect the frontend UI
 * Use the IAM API to define, evaluate, and enforce access control in your application logic
 

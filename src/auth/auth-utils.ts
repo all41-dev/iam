@@ -409,6 +409,69 @@ export class AuthUtils {
     return Array.from(allDeniedElements);
   }
 
+  async getSpecificElementGrant(
+    reqUser: IAMUser,
+    featureCode: string
+  ): Promise<{ scope_element_uuid: string; scope_code: string; }[]> {
+    const user = await DbUser.findOne({
+      where: { email: reqUser.impersonateUser || reqUser.email },
+    });
+    if (!user) return [];
+
+    const groupMemberships = await DbUserGroupMember.findAll({
+      where: { user_uuid: user.uuid },
+    });
+    if (!groupMemberships.length) return [];
+    const groupUUIDs = groupMemberships.map((group) => group.group_uuid);
+
+    const feature = await DbFeature.findOne({
+      where: { code: featureCode },
+      include: [{ model: DbScope, as: 'scope' }]
+    });
+    if (!feature) return [];
+
+    const permissions = await DbPermission.findAll({
+      where: {
+        group_uuid: groupUUIDs,
+        is_deny: false,
+      },
+    });
+    const directGrants = permissions
+      .filter((permission) => feature.uuid === permission.feature_uuid)
+      .map((permission) => ({
+        scope_element_uuid: permission.scope_element_uuid,
+        scope_code: feature.scope!.code,
+      }));
+
+    const inheritedPermissions = await this.checkAncestorEffectivePermissions(feature.uuid, groupUUIDs);
+
+    const inheritedGrants = await Promise.all(
+      inheritedPermissions.permissions
+        .filter((permission) => !permission.is_deny)
+        .map(async (permission) => ({
+          scope_element_uuid: permission.scope_element_uuid,
+          scope_code: await DbScope.findByPk(permission.scope_uuid).then(scope => scope ? scope.code : ''),
+        }))
+    );
+
+    const allGrantedElements = new Map<string, string>();
+
+    for (const grant of inheritedGrants) {
+      allGrantedElements.set(grant.scope_element_uuid, grant.scope_code);
+    }
+
+    for (const grant of directGrants) {
+      allGrantedElements.set(grant.scope_element_uuid, grant.scope_code);
+    }
+    return Array.from(allGrantedElements.entries()).map(
+      ([elementUuid, scopeCode]) => ({
+        scope_element_uuid: elementUuid,
+        scope_code: scopeCode,
+      })
+    );
+  }
+
+
   async getPermissionsScopeElement(userEmail: string, scopeCode: string, scopeElementUuid: string): Promise<any[]> {
     const user = await DbUser.findOne({ where: { email: userEmail } });
     const scope = await DbScope.findOne({ where: { code: scopeCode } });

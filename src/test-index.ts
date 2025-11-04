@@ -33,7 +33,7 @@ const authUtils = AuthUtils.getInstance({ scopeElementAncestor, scopeElementHier
 
 const options: IServerOptions = {
   dbs: dbOptions,
-  httpPort: process.env.PORT ? parseInt(process.env.PORT) : 7070,
+  httpPort: process.env.HTTP_PORT ? parseInt(process.env.HTTP_PORT) : 7070,
   auth: {
     masterApiKey: process.env.MASTER_API_KEY,
     redirectAfterLogin: process.env.REDIRECT_URL,

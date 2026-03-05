@@ -188,7 +188,7 @@ export class AuthManager {
       res.clearCookie("redirect");
       res.cookie("auth", token, this.getCookieOptions(5 * 60 * 1000));
       res.cookie("refresh", refreshToken, this.getCookieOptions(refreshExpiry));
-      res.cookie("provider", (req.user as IAMUser).provider, { ...this.getCookieOptions(refreshExpiry + 15 * 60 * 1000), httpOnly: false });
+      res.cookie("provider", (req.user as IAMUser).provider, { ...this.getCookieOptions(refreshExpiry + 15 * 60 * 1000), httpOnly: false }); // httpOnly: false - provider name is non-sensitive and needed by front-end UI
       res.redirect(redirectAfter);
     };
   }

@@ -992,6 +992,11 @@ YQIDAQAB
       expect(instance.isAllowedRedirect('https://malicious.com/path', req)).to.be.false;
     });
 
+    it('should reject domains that partially match allowed domains', () => {
+      expect(instance.isAllowedRedirect('https://eviltrusted.com/path', req)).to.be.false;
+      expect(instance.isAllowedRedirect('https://notexample.org/path', req)).to.be.false;
+    });
+
     it('should reject redirects with non-http(s) protocols', () => {
       expect(instance.isAllowedRedirect('javascript:alert(1)', req)).to.be.false;
     });

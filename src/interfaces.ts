@@ -13,6 +13,9 @@ export interface IAuthOptions {
   masterApiKey?: string;
   authIssuer?: string;
   authAudience?: string;
+  allowedOrigins?: string[];
+  allowedRedirectDomains?: string[];
+  secureCookies?: boolean;
   additionalElementProfile?: (req: Request, res: Response, next: NextFunction) => Promise<any>;
   additionalParams?: (req: Request, res: Response) => Promise<void>;
   refreshToken?: (

@@ -24,11 +24,15 @@ export class AuthController {
 
     strategies.forEach((strategy) => {
       r.get(`/${strategy}`, async (req, res, next) => {
-        const redirectUrl = req.query.redirectUrl;
-        const failureRedirect = req.query.failureRedirect;
+        const redirectUrl = req.query.redirectUrl as string | undefined;
+        const failureRedirect = req.query.failureRedirect as string | undefined;
         if (this._authManager.options.additionalParams) await this._authManager.options.additionalParams(req, res);
-        if (redirectUrl) res.cookie('redirect', redirectUrl, { maxAge: 5 * 60 * 1000 });
-        if (failureRedirect) res.cookie('failureRedirect', failureRedirect, { maxAge: 5 * 60 * 1000 });
+        if (redirectUrl && this._authManager.isAllowedRedirect(redirectUrl, req)) {
+          res.cookie('redirect', redirectUrl, this._authManager.getCookieOptions(5 * 60 * 1000));
+        }
+        if (failureRedirect && this._authManager.isAllowedRedirect(failureRedirect, req)) {
+          res.cookie('failureRedirect', failureRedirect, this._authManager.getCookieOptions(5 * 60 * 1000));
+        }
 
         next();
       }, passport.authenticate(strategy, { session: false }));
@@ -66,7 +70,7 @@ export class AuthController {
         if (!result) {
           return res.status(401).json({ message: 'Invalid or missing refresh token' });
         }
-        res.cookie("auth", result.token, { maxAge: 5 * 60 * 1000 });
+        res.cookie("auth", result.token, this._authManager.getCookieOptions(5 * 60 * 1000));
         return res.json(result);
       } catch (err) {
         return res.status(500).json({ message: 'Internal server error' });

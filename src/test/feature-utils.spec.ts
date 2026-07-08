@@ -5,6 +5,7 @@ import { DbScope } from "../db/db-scope";
 import { DbFeature } from "../db/db-feature";
 import { DbFeatureComposition } from "../db/db-feature-composition";
 import { DbUserGroup } from "../db/db-user-group";
+import 'mocha';
 
 describe("FeatureUtils", () => {
   let featureUtils: FeatureUtils;

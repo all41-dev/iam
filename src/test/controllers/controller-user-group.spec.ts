@@ -3,6 +3,7 @@ import sinon from 'sinon';
 import { Request, Response } from 'express';
 import { ControllerUserGroup } from '../../api/controllers/controller-user-group';
 import { RepositoryUserGroup } from '../../repositories/user-group-repository';
+import 'mocha';
 
 describe('UserGroup Controller', () => {
   let userGroupController: ControllerUserGroup;

@@ -1,6 +1,7 @@
 import sinon from 'sinon';
 import { ControllerUser } from '../../api/controllers/controller-user';
 import { RepositoryUser } from '../../repositories/user-repository';
+import 'mocha';
 
 describe('ControllerUser', () => {
   let controllerUser: ControllerUser;

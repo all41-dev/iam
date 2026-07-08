@@ -195,7 +195,14 @@ export class AuthManager {
     if (!this.options.privateKey) {
       throw new Error("No private key provided for JWT generation");
     }
-    const decodedToken = (jwt.verify(refreshToken, this.options.publicKey, { algorithms: ['RS256'] }) as { user_uuid: string, impersonate_user_email?: string });
+    let decodedToken: { user_uuid: string; impersonate_user_email?: string } | null = null;
+    try {
+      decodedToken = (jwt.verify(refreshToken, this.options.publicKey, { algorithms: ['RS256'] }) as { user_uuid: string, impersonate_user_email?: string });
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (err) {
+      return null;
+    }
+    if (!decodedToken) return null
     const token = await DbRefreshToken.findAll({
       where: {
         user_uuid: decodedToken.user_uuid, expires: {

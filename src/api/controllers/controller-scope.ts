@@ -2,6 +2,7 @@ import { ControllerRepositoryReadWrite } from "@all41-dev/server.types";
 import { RepositoryScope } from "../../repositories/scope-repository";
 import { Router, Request, Response } from "express";
 import { checkRouteMiddleware } from "../../utils/check-route-middleware";
+import { Utils } from "@all41-dev/server.types";
 export class ControllerScope extends ControllerRepositoryReadWrite<RepositoryScope> {
   private repositoryScope: RepositoryScope;
 
@@ -45,56 +46,62 @@ export class ControllerScope extends ControllerRepositoryReadWrite<RepositorySco
       const response = await this.repositoryScope.getTreeScopes();
       res.status(200).json(response);
     } catch (error) {
+      Utils.logger.error(`getTree error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   public async getChildren(req: Request, res: Response) {
-    const scopeUuid = req.params.scopeUuid;
+    const scopeUuid = Array.isArray(req.params.scopeUuid) ? req.params.scopeUuid[0] : req.params.scopeUuid;;
     try {
       const response = await this.repositoryScope.getChildScopes(scopeUuid);
       res.status(200).json(response);
     } catch (error) {
+      Utils.logger.error(`getChildren error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   public async getGroups(req: Request, res: Response) {
-    const scopeUuid = req.params.scopeUuid;
+    const scopeUuid = Array.isArray(req.params.scopeUuid) ? req.params.scopeUuid[0] : req.params.scopeUuid;;
     try {
       const response = await this.repositoryScope.getScopeGroups(scopeUuid);
       res.status(200).json(response);
     } catch (error) {
+      Utils.logger.error(`getGroups error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   public async getFeatures(req: Request, res: Response) {
-    const scopeUuid = req.params.scopeUuid;
+    const scopeUuid = Array.isArray(req.params.scopeUuid) ? req.params.scopeUuid[0] : req.params.scopeUuid;;
     try {
       const response = await this.repositoryScope.getScopeFeatures(scopeUuid);
       res.status(200).json(response);
     } catch (error) {
+      Utils.logger.error(`getFeatures error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   public async getChildrenFeatures(req: Request, res: Response) {
-    const scopeUuid = req.params.scopeUuid;
+    const scopeUuid = Array.isArray(req.params.scopeUuid) ? req.params.scopeUuid[0] : req.params.scopeUuid;;
     try {
       const response = await this.repositoryScope.getScopeChildrenFeatures(scopeUuid);
       res.status(200).json(response);
     } catch (error) {
+      Utils.logger.error(`getChildrenFeatures error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
   public async getElementHierarchy(req: Request, res: Response) {
-    const scopeCode = req.params.scopeCode;
-    const elementUuid = req.params.elementUuid
+    const scopeCode = Array.isArray(req.params.scopeCode) ? req.params.scopeCode[0] : req.params.scopeCode;
+    const elementUuid = Array.isArray(req.params.elementUuid) ? req.params.elementUuid[0] : req.params.elementUuid;
     try {
       const response = await this.repositoryScope.getElementHierarchy(scopeCode, elementUuid);
       res.status(200).json(response);
     } catch (error) {
+      Utils.logger.error(`getElementHierarchy error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -104,16 +111,18 @@ export class ControllerScope extends ControllerRepositoryReadWrite<RepositorySco
       const response = await this.repositoryScope.getAllElementHierarchy();
       res.status(200).json(response);
     } catch (error) {
+      Utils.logger.error(`getAllElementHierarchy error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
   public async getElementAncestor(req: Request, res: Response) {
-    const scopeCode = req.params.scopeCode;
-    const elementUuid = req.params.elementUuid
+    const scopeCode = Array.isArray(req.params.scopeCode) ? req.params.scopeCode[0] : req.params.scopeCode;
+    const elementUuid =  Array.isArray(req.params.elementUuid) ? req.params.elementUuid[0] : req.params.elementUuid;
     try {
       const response = await this.repositoryScope.getElementAncestor(scopeCode, elementUuid);
       res.status(200).json(response);
     } catch (error) {
+      Utils.logger.error(`getElementAncestor error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }

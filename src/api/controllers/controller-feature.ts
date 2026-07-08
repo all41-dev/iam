@@ -2,6 +2,7 @@ import { ControllerRepositoryReadWrite } from "@all41-dev/server.types";
 import { RepositoryFeature } from "../../repositories/feature-repository";
 import { Router, Request, Response } from "express";
 import { checkRouteMiddleware } from "../../utils/check-route-middleware";
+import { Utils } from "@all41-dev/server.types";
 
 export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryFeature> {
   private repositoryFeature: RepositoryFeature;
@@ -49,6 +50,7 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
       const response = await this.repositoryFeature.setParentChild(parentId, childId);
       res.status(200).json(response ? response : {});
     } catch (error) {
+      Utils.logger.error(`setParentChild error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -60,26 +62,29 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
       const response = await this.repositoryFeature.removeParentChild(parentId, childId);
       res.status(200).json(response ? response : {});
     } catch (error) {
+      Utils.logger.error(`removeParentChild error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   public async getChildrens(req: Request, res: Response) {
-    const featureUuid = req.params.featureUuid;
+    const featureUuid = Array.isArray(req.params.featureUuid) ? req.params.featureUuid[0] : req.params.featureUuid;
     try {
       const response = await this.repositoryFeature.getChildrens(featureUuid);
       res.status(200).json(response);
     } catch (error) {
+      Utils.logger.error(`getChildrens error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   public async getFeatureMatrix(req: Request, res: Response) {
-    const featureUuid = req.params.featureUuid;
+    const featureUuid =  Array.isArray(req.params.featureUuid) ? req.params.featureUuid[0] : req.params.featureUuid;
     try {
       const tree = await this.repositoryFeature.getFeatureMatrix(featureUuid);
       res.status(200).json(tree);
     } catch (error) {
+      Utils.logger.error(`getFeatureMatrix error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -89,16 +94,18 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
       const tree = await this.repositoryFeature.getRootFeatureMatrix();
       res.status(200).json(tree);
     } catch (error) {
+      Utils.logger.error(`getRootFeatureMatrix error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   public async getScopeFeatureMatrix(req: Request, res: Response) {
-    const scopeUuid = req.params.scopeUuid;
+    const scopeUuid = Array.isArray(req.params.scopeUuid) ? req.params.scopeUuid[0] : req.params.scopeUuid;
     try {
       const tree = await this.repositoryFeature.getScopeFeatureMatrix(scopeUuid);
       res.status(200).json(tree);
     } catch (error) {
+      Utils.logger.error(`getScopeFeatureMatrix error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -107,6 +114,7 @@ export class ControllerFeature extends ControllerRepositoryReadWrite<RepositoryF
       const tree = await this.repositoryFeature.getAllFeatureComposition();
       res.status(200).json(tree);
     } catch (error) {
+      Utils.logger.error(`getAllFeatureComposition error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }

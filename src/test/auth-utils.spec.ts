@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import sinon, { SinonSandbox } from 'sinon';
+import sinon from 'sinon';
 import { DbUser } from '../db/db-user';
 import { DbUserGroupMember } from "../db/db-user-group-member";
 import { DbFeature } from "../db/db-feature";
@@ -10,6 +10,8 @@ import { DbUserGroup } from '../db/db-user-group';
 import { DbFeatureComposition } from '../db/db-feature-composition';
 import { FeatureUtils } from '../auth/feature-utils';
 import { IUtilsOptions } from '../interfaces';
+import 'mocha';
+
 describe('Auth Utils', () => {
   let sandbox: sinon.SinonSandbox;
   let mockOptions: IUtilsOptions;

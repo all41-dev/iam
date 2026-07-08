@@ -198,7 +198,7 @@ export class AuthManager {
     let decodedToken: { user_uuid: string; impersonate_user_email?: string } | null = null;
     try {
       decodedToken = (jwt.verify(refreshToken, this.options.publicKey, { algorithms: ['RS256'] }) as { user_uuid: string, impersonate_user_email?: string });
-    } catch (err) {
+    } catch {
       return null;
     }
     if (!decodedToken) return null

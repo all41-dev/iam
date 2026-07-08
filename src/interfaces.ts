@@ -1,8 +1,6 @@
 import { Strategy } from "passport";
 import { NextFunction, Request, Response } from "express";
 
-
-
 export interface IAuthOptions {
   trustProxy?: boolean;
   redirectAfterLogin?: string;

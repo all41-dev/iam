@@ -1,4 +1,4 @@
-import { Api } from "@all41-dev/server";
+import { Api } from "@all41-dev/server.types";
 import { ControllerUserGroup } from "./controllers/controller-user-group";
 import { ControllerScope } from "./controllers/controller-scope";
 import { ControllerFeature } from "./controllers/controller-feature";

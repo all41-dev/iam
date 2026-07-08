@@ -4,6 +4,7 @@ import { AuthManager } from '../../auth/auth-manager';
 import querystring from 'querystring';
 import { AuthUtils } from '../../auth/auth-utils';
 import { IAMUser } from '../../interfaces';
+import { Utils } from '@all41-dev/server.types';
 
 export class AuthController {
 
@@ -56,6 +57,7 @@ export class AuthController {
         res.clearCookie('provider');
         res.redirect(this._authManager.options.redirectAfterLogin || '/');
       } catch (err) {
+        Utils.logger.error(`/logout error: ${err}`)
         return res.status(500).json({ message: 'Internal server error' });
       }
     });
@@ -69,6 +71,7 @@ export class AuthController {
         res.cookie("auth", result.token, { maxAge: 5 * 60 * 1000 });
         return res.json(result);
       } catch (err) {
+        Utils.logger.error(`/referesh error: ${err}`)
         return res.status(500).json({ message: 'Internal server error' });
       }
     });
@@ -99,7 +102,7 @@ export class AuthController {
           return res.status(403).json({ message: 'Forbidden' });
         const redirectUrl = req.query.redirectUrl || this._authManager.options.redirectAfterLogin;
         const impersonateUser = req.params.email;
-        const permissions = await this._authUtils.getUserPermissions(undefined, impersonateUser);
+        const permissions = await this._authUtils.getUserPermissions(undefined, Array.isArray(impersonateUser) ? impersonateUser.join('') : impersonateUser);
         const user = {
           ...req.user,
           impersonateUser: impersonateUser,
@@ -109,6 +112,7 @@ export class AuthController {
         req.user = user;
         return this._authManager.generateJWT(redirectUrl as string)(req, res);
       } catch (err) {
+        Utils.logger.error(`/impersonate/:email error: ${err}`)
         return res.status(500).json({ message: 'Internal server error' });
       }
     });
@@ -127,6 +131,7 @@ export class AuthController {
         req.user = user;
         return this._authManager.generateJWT(redirectUrl as string)(req, res);
       } catch (err) {
+        Utils.logger.error(`/depersonate error: ${err}`)
         return res.status(500).json({ message: 'Internal server error' });
       }
     });

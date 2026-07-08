@@ -11,6 +11,7 @@ import express, { Request, Response, Router } from "express";
 import { AuthUtils } from '../auth/auth-utils';
 import { AuthController } from '../api/controllers/controller-auth';
 import { Strategy as JWTStrategy } from "passport-jwt";
+import 'mocha';
 
 describe('AuthManager Tests', () => {
   const privateKey = `-----BEGIN RSA PRIVATE KEY-----
@@ -545,7 +546,7 @@ YQIDAQAB
         return `${header}.${body}.signature`;
       });
       sandbox.stub(jwt, 'decode').callsFake((token) => {
-        const [header, body] = token.split('.');
+        const body = token.split('.')[1];
         return JSON.parse(Buffer.from(body, 'base64').toString('utf8'));
       });
     });

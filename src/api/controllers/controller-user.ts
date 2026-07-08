@@ -4,6 +4,7 @@ import { RepositoryUser } from "../../repositories/user-repository";
 import { checkRouteMiddleware } from "../../utils/check-route-middleware";
 import { AuthUtils } from "../../auth/auth-utils";
 import { IAMUser } from "../../interfaces";
+import { Utils } from "@all41-dev/server.types";
 
 export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser> {
   private repositoryUser: RepositoryUser;
@@ -79,71 +80,77 @@ export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser
   }
 
   public async updateUserGroups(req: Request, res: Response) {
-    const userUuid = req.params.userUuid;
-    const groupUuids = req.body.groupUuids;
+    const userUuid = Array.isArray(req.params.userUuid) ? req.params.userUuid[0] : req.params.userUuid;
+    const groupUuids = Array.isArray(req.params.groupUuids) ? req.params.groupUuids : [req.params.groupUuids];
     try {
       const response = await this.repositoryUser.updateGroups(userUuid, groupUuids);
       res.status(200).json(response ? response : {});
     } catch (error) {
+      Utils.logger.error(`addUsers error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   public async copyUserGroups(req: Request, res: Response) {
-    const userUuid = req.params.userUuid
-    const userToCopyUuid = req.body.userToCopyUuid;
+    const userUuid = Array.isArray(req.params.userUuid) ? req.params.userUuid[0] : req.params.userUuid;
+    const userToCopyUuid = Array.isArray(req.params.userToCopyUuid) ? req.params.userToCopyUuid[0] : req.params.userToCopyUuid;
     try {
       const response = await this.repositoryUser.copyUserGroups(userUuid, userToCopyUuid);
       res.status(200).json(response);
     } catch (error) {
+      Utils.logger.error(`addUsers error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   public async getUserEffectivePermissions(req: Request, res: Response) {
-    const userUuid = req.params.userUuid;
+    const userUuid = Array.isArray(req.params.userUuid) ? req.params.userUuid[0] : req.params.userUuid;
     try {
       const response = await this.repositoryUser.getUserEffectivePermissions(userUuid);
       res.status(200).json(response);
     } catch (error) {
+      Utils.logger.error(`getUserEffectivePermissions error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   public async checkFeaturePermissions(req: Request, res: Response) {
-    const userUuid = req.params.userUuid;
-    const featureUuid = req.params.featureUuid;
-    const elementUuid = req.params.elementUuid;
+    const userUuid = Array.isArray(req.params.userUuid) ? req.params.userUuid[0] : req.params.userUuid;
+    const featureUuid = Array.isArray(req.params.featureUuid) ? req.params.featureUuid[0] : req.params.featureUuid;
+    const elementUuid = Array.isArray(req.params.elementUuid) ? req.params.elementUuid[0] : req.params.elementUuid;
     try {
       const response = await this.repositoryUser.checkFeaturePermissions(userUuid, featureUuid, elementUuid);
       res.status(200).json(response);
     } catch (error) {
+      Utils.logger.error(`checkFeaturePermissions error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   public async getPermissions(req: Request, res: Response) {
-    const userUuid = req.params.userUuid;
+    const userUuid = Array.isArray(req.params.userUuid) ? req.params.userUuid[0] : req.params.userUuid;
     try {
       const response = await this.repositoryUser.getPermissions(userUuid);
       res.status(200).json(response);
     } catch (error) {
+      Utils.logger.error(`getPermissions error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   public async getUserGroups(req: Request, res: Response) {
-    const userUuid = req.params.userUuid;
+    const userUuid = Array.isArray(req.params.userUuid) ? req.params.userUuid[0] : req.params.userUuid;
     try {
       const response = await this.repositoryUser.getUserGroups(userUuid);
       res.status(200).json(response);
     } catch (error) {
+      Utils.logger.error(`getUserGroups error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   public async getUserInfo(req: Request, res: Response) {
-    const userEmail = req.params.userEmail;
+    const userEmail = Array.isArray(req.params.userEmail) ? req.params.userEmail[0] : req.params.userEmail;
     const hasGlobalAccess = await this.authUtils.checkAccess((req.user as IAMUser), "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant"
     const isUserEmail = [(req.user as IAMUser).email, (req.user as IAMUser).impersonateUser].includes(userEmail);
     if (!isUserEmail && !hasGlobalAccess)
@@ -152,11 +159,13 @@ export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser
       const response = await this.repositoryUser.getUserInfo(userEmail);
       res.status(200).json(response);
     } catch (error) {
+      Utils.logger.error(`getUserInfo error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
+
   public async getUserPermissionInfo(req: Request, res: Response) {
-    const userEmail = req.params.userEmail;
+    const userEmail = Array.isArray(req.params.userEmail) ? req.params.userEmail[0] : req.params.userEmail;
     const hasGlobalAccess = await this.authUtils.checkAccess((req.user as IAMUser), "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant";
     const isUserEmail = [(req.user as IAMUser).email, (req.user as IAMUser).impersonateUser].includes(userEmail);
     if (!isUserEmail && !hasGlobalAccess) return res.status(403).send("Forbidden");
@@ -164,40 +173,44 @@ export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser
       const response = await this.repositoryUser.getUserPermissionInfo(userEmail);
       res.status(200).json(response);
     } catch (error) {
+      Utils.logger.error(`getUserPermissionInfo error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   public async getElementPermission(req: Request, res: Response) {
-    const userEmail = req.params.userEmail;
+    const userEmail = Array.isArray(req.params.userEmail) ? req.params.userEmail[0] : req.params.userEmail;
     const hasGlobalAccess = await this.authUtils.checkAccess((req.user as IAMUser), "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant";
     const isUserEmail = [(req.user as IAMUser).email, (req.user as IAMUser).impersonateUser].includes(userEmail);
     if (!isUserEmail && !hasGlobalAccess) return res.status(403).send("Forbidden");
-    const elementUuid = req.params.elementUuid;
-    const scopeCode = req.params.scopeCode;
+    const elementUuid = Array.isArray(req.params.elementUuid) ? req.params.elementUuid[0] : req.params.elementUuid;
+    const scopeCode = Array.isArray(req.params.scopeCode) ? req.params.scopeCode[0] : req.params.scopeCode;
     try {
       const response = await this.repositoryUser.getElementPermission(userEmail, scopeCode, elementUuid);
       res.status(200).json(response);
     } catch (error) {
+      Utils.logger.error(`getElementPermission error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
+
   public async getUsersListWithAccess(req: Request, res: Response) {
-    const featureCode = req.params.featureCode;
-    const elementUuid = req.params.elementUuid;
+    const featureCode = Array.isArray(req.params.featureCode) ? req.params.featureCode[0] : req.params.featureCode;
+    const elementUuid = Array.isArray(req.params.elementUuid) ? req.params.elementUuid[0] : req.params.elementUuid;
     try {
       const response = await this.repositoryUser.getUsersListWithAccess(featureCode, elementUuid);
       res.status(200).json(response);
     } catch (error) {
+      Utils.logger.error(`getUsersListWithAccess error: ${error}`)
       res.status(500).json({ error: 'Internal server error' });
     }
   }
   public async getSpecificGrant(req: Request, res: Response) {
-    const featureCode = req.params.featureCode;
+    const featureCode = Array.isArray(req.params.featureCode) ? req.params.featureCode[0] : req.params.featureCode;
     try {
       const response = await this.authUtils.getSpecificElementGrant(req.user as IAMUser, featureCode);
       res.status(200).json(response);
-    } catch (error) {
+    } catch {
       res.status(500).json({ error: 'Internal server error' });
     }
   }

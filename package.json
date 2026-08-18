@@ -1,6 +1,6 @@
 {
   "name": "@all41-dev/iam",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Library serving user identity and access management",
   "main": "dist/index.js",
   "scripts": {

@@ -1,4 +1,4 @@
-import { ControllerRepositoryReadWrite } from '@all41-dev/server.types';
+import { ControllerRepositoryReadWrite, extractParamByKey } from '@all41-dev/server.types';
 import { RepositoryUserGroup } from '../../repositories/user-group-repository';
 import { Router, Request, Response } from 'express';
 import { checkRouteMiddleware } from '../../utils/check-route-middleware';
@@ -39,8 +39,8 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
   }
 
   public async addUsers(req: Request, res: Response) {
-    const groupUuid = Array.isArray(req.params.groupUuid) ? req.params.groupUuid[0] : req.params.groupUuid;
-    const userUuids = Array.isArray(req.body.userUuids) ? req.body.userUuids : [req.body.userUuids];
+    const groupUuid = extractParamByKey(req, 'groupUuid');
+    const userUuids = req.body.userUuids;
     try {
       await this.repositoryUserGroup.addUsers(userUuids, groupUuid);
       res.status(200).json(`Users: ${userUuids} added to group ${groupUuid}`);
@@ -51,8 +51,8 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
   }
 
   public async removeUsers(req: Request, res: Response) {
-    const groupUuid = Array.isArray(req.params.groupUuid) ? req.params.groupUuid[0] : req.params.groupUuid;
-    const userUuids = Array.isArray(req.body.userUuids) ? req.body.userUuids : [req.body.userUuids];
+    const groupUuid = extractParamByKey(req, 'groupUuid');
+    const userUuids = req.body.userUuids;
     try {
       await this.repositoryUserGroup.removeUsers(userUuids, groupUuid);
       res.status(200).json(`Users: ${userUuids} removed from group ${groupUuid}`);
@@ -63,7 +63,7 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
   }
 
   public async getUsers(req: Request, res: Response) {
-    const groupUuid = Array.isArray(req.params.groupUuid) ? req.params.groupUuid[0] : req.params.groupUuid;
+    const groupUuid = extractParamByKey(req, 'groupUuid');
     try {
       const response = await this.repositoryUserGroup.getUsers(groupUuid);
       res.status(200).json(response);
@@ -74,7 +74,7 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
   }
 
   public async getPermissions(req: Request, res: Response) {
-    const groupUuid = Array.isArray(req.params.groupUuid) ? req.params.groupUuid[0] : req.params.groupUuid;
+    const groupUuid = extractParamByKey(req, 'groupUuid');
     try {
       const response = await this.repositoryUserGroup.getPermissions(groupUuid);
       res.status(200).json(response);
@@ -85,7 +85,7 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
   }
 
   public async getEffectivePermissions(req: Request, res: Response) {
-    const groupUuid = Array.isArray(req.params.groupUuid) ? req.params.groupUuid[0] : req.params.groupUuid;
+    const groupUuid = extractParamByKey(req, 'groupUuid');
     try {
       const response = await this.repositoryUserGroup.getEffectivePermissions(groupUuid);
       res.status(200).json(response);
@@ -96,8 +96,8 @@ export class ControllerUserGroup extends ControllerRepositoryReadWrite<Repositor
   }
 
   public async copyGroup(req: Request, res: Response) {
-    const groupUuid = Array.isArray(req.params.groupUuid) ? req.params.groupUuid[0] : req.params.groupUuid;
-    const newGroupName = Array.isArray(req.params.newGroupName) ? req.params.newGroupName[0] : req.params.newGroupName;
+    const groupUuid = extractParamByKey(req, 'groupUuid');
+    const newGroupName = extractParamByKey(req, 'newGroupName');
     try {
       const response = await this.repositoryUserGroup.copyGroup(groupUuid, newGroupName);
       res.status(200).json(response);

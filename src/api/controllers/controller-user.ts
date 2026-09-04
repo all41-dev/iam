@@ -1,10 +1,10 @@
-import { Router, Request, Response } from "express";
-import { ControllerRepositoryReadWrite } from "@all41-dev/server.types";
-import { RepositoryUser } from "../../repositories/user-repository";
-import { checkRouteMiddleware } from "../../utils/check-route-middleware";
-import { AuthUtils } from "../../auth/auth-utils";
-import { IAMUser } from "../../interfaces";
-import { Utils } from "@all41-dev/server.types";
+import { Router, Request, Response } from 'express';
+import { ControllerRepositoryReadWrite, extractParamByKey } from '@all41-dev/server.types';
+import { RepositoryUser } from '../../repositories/user-repository';
+import { checkRouteMiddleware } from '../../utils/check-route-middleware';
+import { AuthUtils } from '../../auth/auth-utils';
+import { IAMUser } from '../../interfaces';
+import { Utils } from '@all41-dev/server.types';
 
 export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser> {
   private repositoryUser: RepositoryUser;
@@ -16,11 +16,11 @@ export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser
     super({
       checkRouteMiddleware,
       baseRouteCheckAuth: [
-        { verb: "get", path: '/', featureCode: "global-read-show-rights" },
-        { verb: "get", path: '/:id', featureCode: "global-read-show-rights" },
-        { verb: "post", path: '/', featureCode: "global-write-rights" },
-        { verb: "delete", path: '/:id', featureCode: "global-write-rights" },
-        { verb: "patch", path: '/:id', featureCode: "global-write-rights" },
+        { verb: 'get', path: '/', featureCode: 'global-read-show-rights' },
+        { verb: 'get', path: '/:id', featureCode: 'global-read-show-rights' },
+        { verb: 'post', path: '/', featureCode: 'global-write-rights' },
+        { verb: 'delete', path: '/:id', featureCode: 'global-write-rights' },
+        { verb: 'patch', path: '/:id', featureCode: 'global-write-rights' },
       ],
     });
 
@@ -28,48 +28,65 @@ export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser
 
     this.defineRoutes(
       {
-        verb: 'post', path: '/:userUuid/group-copy', featureCode: "global-write-rights",
-        handlers: this.copyUserGroups.bind(this)
+        verb: 'post',
+        path: '/:userUuid/group-copy',
+        featureCode: 'global-write-rights',
+        handlers: this.copyUserGroups.bind(this),
       },
       {
-        verb: 'patch', path: '/:userUuid/update-group', featureCode: "global-write-rights",
-        handlers: this.updateUserGroups.bind(this)
+        verb: 'patch',
+        path: '/:userUuid/update-group',
+        featureCode: 'global-write-rights',
+        handlers: this.updateUserGroups.bind(this),
       },
       {
-        verb: 'get', path: '/:userUuid/effective-permissions', featureCode: "global-read-show-rights",
-        handlers: this.getUserEffectivePermissions.bind(this)
+        verb: 'get',
+        path: '/:userUuid/effective-permissions',
+        featureCode: 'global-read-show-rights',
+        handlers: this.getUserEffectivePermissions.bind(this),
       },
       {
-        verb: 'get', path: '/:userUuid/check-feature-permissions/:featureUuid/:elementUuid', featureCode: "global-read-show-rights",
-        handlers: this.checkFeaturePermissions.bind(this)
+        verb: 'get',
+        path: '/:userUuid/check-feature-permissions/:featureUuid/:elementUuid',
+        featureCode: 'global-read-show-rights',
+        handlers: this.checkFeaturePermissions.bind(this),
       },
       {
-        verb: 'get', path: '/:userUuid/permissions', featureCode: "global-read-show-rights",
-        handlers: this.getPermissions.bind(this)
+        verb: 'get',
+        path: '/:userUuid/permissions',
+        featureCode: 'global-read-show-rights',
+        handlers: this.getPermissions.bind(this),
       },
       {
-        verb: 'get', path: '/:userUuid/groups', featureCode: "global-read-show-rights",
-        handlers: this.getUserGroups.bind(this)
+        verb: 'get',
+        path: '/:userUuid/groups',
+        featureCode: 'global-read-show-rights',
+        handlers: this.getUserGroups.bind(this),
       },
       {
-        verb: 'get', path: '/:userEmail/info',
-        handlers: this.getUserInfo.bind(this)
+        verb: 'get',
+        path: '/:userEmail/info',
+        handlers: this.getUserInfo.bind(this),
       },
       {
-        verb: 'get', path: '/:userEmail/permission-info',
-        handlers: this.getUserPermissionInfo.bind(this)
+        verb: 'get',
+        path: '/:userEmail/permission-info',
+        handlers: this.getUserPermissionInfo.bind(this),
       },
       {
-        verb: 'get', path: '/:userEmail/element-permission/:scopeCode/:elementUuid',
-        handlers: this.getElementPermission.bind(this)
+        verb: 'get',
+        path: '/:userEmail/element-permission/:scopeCode/:elementUuid',
+        handlers: this.getElementPermission.bind(this),
       },
       {
-        verb: 'get', path: '/access-list/:featureCode/:elementUuid',
-        handlers: this.getUsersListWithAccess.bind(this)
+        verb: 'get',
+        path: '/access-list/:featureCode/:elementUuid',
+        handlers: this.getUsersListWithAccess.bind(this),
       },
       {
-        verb: 'get', path: '/specific-grant/:featureCode',
-        handlers: this.getSpecificGrant.bind(this)
+        verb: 'get',
+        path: '/specific-grant/:featureCode',
+        handlers: this.getSpecificGrant.bind(this),
       },
     );
   }
@@ -80,49 +97,49 @@ export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser
   }
 
   public async updateUserGroups(req: Request, res: Response) {
-    const userUuid = Array.isArray(req.params.userUuid) ? req.params.userUuid[0] : req.params.userUuid;
-    const groupUuids = Array.isArray(req.params.groupUuids) ? req.params.groupUuids : [req.params.groupUuids];
+    const userUuid = extractParamByKey(req, 'userUuid');
+    const groupUuids = req.body.groupUuids;
     try {
       const response = await this.repositoryUser.updateGroups(userUuid, groupUuids);
       res.status(200).json(response ? response : {});
     } catch (error) {
-      Utils.logger.error(`addUsers error: ${error}`)
+      Utils.logger.error(`addUsers error: ${error}`);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   public async copyUserGroups(req: Request, res: Response) {
-    const userUuid = Array.isArray(req.params.userUuid) ? req.params.userUuid[0] : req.params.userUuid;
-    const userToCopyUuid = Array.isArray(req.params.userToCopyUuid) ? req.params.userToCopyUuid[0] : req.params.userToCopyUuid;
+    const userUuid = extractParamByKey(req, 'userUuid');
+    const userToCopyUuid = extractParamByKey(req, 'userToCopyUuid');
     try {
       const response = await this.repositoryUser.copyUserGroups(userUuid, userToCopyUuid);
       res.status(200).json(response);
     } catch (error) {
-      Utils.logger.error(`addUsers error: ${error}`)
+      Utils.logger.error(`addUsers error: ${error}`);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   public async getUserEffectivePermissions(req: Request, res: Response) {
-    const userUuid = Array.isArray(req.params.userUuid) ? req.params.userUuid[0] : req.params.userUuid;
+    const userUuid = extractParamByKey(req, 'userUuid');
     try {
       const response = await this.repositoryUser.getUserEffectivePermissions(userUuid);
       res.status(200).json(response);
     } catch (error) {
-      Utils.logger.error(`getUserEffectivePermissions error: ${error}`)
+      Utils.logger.error(`getUserEffectivePermissions error: ${error}`);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   public async checkFeaturePermissions(req: Request, res: Response) {
-    const userUuid = Array.isArray(req.params.userUuid) ? req.params.userUuid[0] : req.params.userUuid;
-    const featureUuid = Array.isArray(req.params.featureUuid) ? req.params.featureUuid[0] : req.params.featureUuid;
-    const elementUuid = Array.isArray(req.params.elementUuid) ? req.params.elementUuid[0] : req.params.elementUuid;
+    const userUuid = extractParamByKey(req, 'userUuid');
+    const featureUuid = extractParamByKey(req, 'featureUuid');
+    const elementUuid = extractParamByKey(req, 'elementUuid');
     try {
       const response = await this.repositoryUser.checkFeaturePermissions(userUuid, featureUuid, elementUuid);
       res.status(200).json(response);
     } catch (error) {
-      Utils.logger.error(`checkFeaturePermissions error: ${error}`)
+      Utils.logger.error(`checkFeaturePermissions error: ${error}`);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -133,7 +150,7 @@ export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser
       const response = await this.repositoryUser.getPermissions(userUuid);
       res.status(200).json(response);
     } catch (error) {
-      Utils.logger.error(`getPermissions error: ${error}`)
+      Utils.logger.error(`getPermissions error: ${error}`);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -144,69 +161,68 @@ export class ControllerUser extends ControllerRepositoryReadWrite<RepositoryUser
       const response = await this.repositoryUser.getUserGroups(userUuid);
       res.status(200).json(response);
     } catch (error) {
-      Utils.logger.error(`getUserGroups error: ${error}`)
+      Utils.logger.error(`getUserGroups error: ${error}`);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   public async getUserInfo(req: Request, res: Response) {
-    const userEmail = Array.isArray(req.params.userEmail) ? req.params.userEmail[0] : req.params.userEmail;
-    const hasGlobalAccess = await this.authUtils.checkAccess((req.user as IAMUser), "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant"
+    const userEmail = extractParamByKey(req, 'userEmail');
+    const hasGlobalAccess = (await this.authUtils.checkAccess(req.user as IAMUser, 'global-read-show-rights', process.env.GLOBAL_UUID || '')) === 'grant';
     const isUserEmail = [(req.user as IAMUser).email, (req.user as IAMUser).impersonateUser].includes(userEmail);
-    if (!isUserEmail && !hasGlobalAccess)
-      return res.status(403).send("Forbidden");
+    if (!isUserEmail && !hasGlobalAccess) return res.status(403).send('Forbidden');
     try {
       const response = await this.repositoryUser.getUserInfo(userEmail);
       res.status(200).json(response);
     } catch (error) {
-      Utils.logger.error(`getUserInfo error: ${error}`)
+      Utils.logger.error(`getUserInfo error: ${error}`);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   public async getUserPermissionInfo(req: Request, res: Response) {
-    const userEmail = Array.isArray(req.params.userEmail) ? req.params.userEmail[0] : req.params.userEmail;
-    const hasGlobalAccess = await this.authUtils.checkAccess((req.user as IAMUser), "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant";
+    const userEmail = extractParamByKey(req, 'userEmail');
+    const hasGlobalAccess = (await this.authUtils.checkAccess(req.user as IAMUser, 'global-read-show-rights', process.env.GLOBAL_UUID || '')) === 'grant';
     const isUserEmail = [(req.user as IAMUser).email, (req.user as IAMUser).impersonateUser].includes(userEmail);
-    if (!isUserEmail && !hasGlobalAccess) return res.status(403).send("Forbidden");
+    if (!isUserEmail && !hasGlobalAccess) return res.status(403).send('Forbidden');
     try {
       const response = await this.repositoryUser.getUserPermissionInfo(userEmail);
       res.status(200).json(response);
     } catch (error) {
-      Utils.logger.error(`getUserPermissionInfo error: ${error}`)
+      Utils.logger.error(`getUserPermissionInfo error: ${error}`);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   public async getElementPermission(req: Request, res: Response) {
-    const userEmail = Array.isArray(req.params.userEmail) ? req.params.userEmail[0] : req.params.userEmail;
-    const hasGlobalAccess = await this.authUtils.checkAccess((req.user as IAMUser), "global-read-show-rights", process.env.GLOBAL_UUID || '') === "grant";
+    const userEmail = extractParamByKey(req, 'userEmail');
+    const hasGlobalAccess = (await this.authUtils.checkAccess(req.user as IAMUser, 'global-read-show-rights', process.env.GLOBAL_UUID || '')) === 'grant';
     const isUserEmail = [(req.user as IAMUser).email, (req.user as IAMUser).impersonateUser].includes(userEmail);
-    if (!isUserEmail && !hasGlobalAccess) return res.status(403).send("Forbidden");
-    const elementUuid = Array.isArray(req.params.elementUuid) ? req.params.elementUuid[0] : req.params.elementUuid;
-    const scopeCode = Array.isArray(req.params.scopeCode) ? req.params.scopeCode[0] : req.params.scopeCode;
+    if (!isUserEmail && !hasGlobalAccess) return res.status(403).send('Forbidden');
+    const elementUuid = extractParamByKey(req, 'elementUuid');
+    const scopeCode = extractParamByKey(req, 'scopeCode');
     try {
       const response = await this.repositoryUser.getElementPermission(userEmail, scopeCode, elementUuid);
       res.status(200).json(response);
     } catch (error) {
-      Utils.logger.error(`getElementPermission error: ${error}`)
+      Utils.logger.error(`getElementPermission error: ${error}`);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
   public async getUsersListWithAccess(req: Request, res: Response) {
-    const featureCode = Array.isArray(req.params.featureCode) ? req.params.featureCode[0] : req.params.featureCode;
-    const elementUuid = Array.isArray(req.params.elementUuid) ? req.params.elementUuid[0] : req.params.elementUuid;
+    const featureCode = extractParamByKey(req, 'featureCode');
+    const elementUuid = extractParamByKey(req, 'elementUuid');
     try {
       const response = await this.repositoryUser.getUsersListWithAccess(featureCode, elementUuid);
       res.status(200).json(response);
     } catch (error) {
-      Utils.logger.error(`getUsersListWithAccess error: ${error}`)
+      Utils.logger.error(`getUsersListWithAccess error: ${error}`);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
   public async getSpecificGrant(req: Request, res: Response) {
-    const featureCode = Array.isArray(req.params.featureCode) ? req.params.featureCode[0] : req.params.featureCode;
+    const featureCode = extractParamByKey(req, 'featureCode');
     try {
       const response = await this.authUtils.getSpecificElementGrant(req.user as IAMUser, featureCode);
       res.status(200).json(response);

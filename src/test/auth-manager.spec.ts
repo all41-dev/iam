@@ -321,7 +321,7 @@ YQIDAQAB
       });
       sandbox.stub(instance, 'refreshToken').resolves(refreshedToken);
       await instance.authMiddleware(req, res, next);
-      expect((res.cookie as sinon.SinonStub).calledWith('auth', 'new-access-token', sinon.match.has('maxAge'))).to.be.true;
+      expect((res.cookie as sinon.SinonStub).calledWith('auth', 'new-access-token', sinon.match.has('maxAge').and(sinon.match.has('httpOnly', true)).and(sinon.match.has('sameSite', 'lax')))).to.be.true;
       expect(req.user).to.deep.equal(refreshedToken.user);
       expect(next.called).to.be.true;
     });
@@ -439,7 +439,14 @@ YQIDAQAB
     });
 
     it('should append accessToken, refreshToken, and provider to the redirect URL if isExternalHost and redirect cookie is set', async () => {
-      const generateJWT = instance.generateJWT();
+      (AuthManager as any).instance = undefined;
+      const authOptionsWithDomains: IAuthOptions = {
+        ...authOptions,
+        allowedRedirectDomains: ['externalhost.com'],
+      };
+      const instanceWithDomains = AuthManager.getInstance(authOptionsWithDomains);
+      sandbox.stub(instanceWithDomains, 'saveRefreshToken').resolves('mocked-refresh-token');
+      const generateJWT = instanceWithDomains.generateJWT();
 
       req.cookies['redirect'] = 'http://externalhost.com/path';
 
@@ -460,6 +467,18 @@ YQIDAQAB
       expect((res.cookie as sinon.SinonStub).getCall(0).args[0]).to.equal('auth');
       expect((res.cookie as sinon.SinonStub).getCall(1).args[0]).to.equal('refresh');
       expect((res.cookie as sinon.SinonStub).getCall(2).args[0]).to.equal('provider');
+      (AuthManager as any).instance = undefined;
+    });
+
+    it('should redirect to / if external redirect URL is not in allowedRedirectDomains', async () => {
+      const generateJWT = instance.generateJWT();
+
+      req.cookies['redirect'] = 'http://malicious-site.com/phish';
+
+      await generateJWT(req, res);
+
+      const redirectUrl = (res.redirect as sinon.SinonStub).firstCall.args[0];
+      expect(redirectUrl).to.equal('/');
     });
 
 
@@ -891,6 +910,107 @@ YQIDAQAB
       expect(payload.user.permissionWarning).to.equal(
         'Permissions omitted due to token size limit. See /api/users/:id/permission for full list.'
       );
+    });
+  });
+
+  describe('getCookieOptions', () => {
+    let instance: AuthManager;
+
+    beforeEach(() => {
+      instance = AuthManager.getInstance(authOptions);
+    });
+
+    afterEach(() => {
+      sandbox.restore();
+    });
+
+    it('should return cookie options with httpOnly, secure, and sameSite flags', () => {
+      const options = instance.getCookieOptions(5 * 60 * 1000);
+      expect(options).to.deep.equal({
+        maxAge: 300000,
+        httpOnly: true,
+        secure: true,
+        sameSite: 'lax',
+      });
+    });
+
+    it('should return secure: false when secureCookies is set to false', () => {
+      (AuthManager as any).instance = undefined;
+      const mockAuthOptions: IAuthOptions = {
+        ...authOptions,
+        secureCookies: false,
+      };
+      const mockInstance = AuthManager.getInstance(mockAuthOptions);
+      const options = mockInstance.getCookieOptions(5 * 60 * 1000);
+      expect(options.secure).to.be.false;
+      expect(options.httpOnly).to.be.true;
+      expect(options.sameSite).to.equal('lax');
+      (AuthManager as any).instance = undefined;
+    });
+  });
+
+  describe('isAllowedRedirect', () => {
+    let instance: AuthManager;
+    let req: Request;
+
+    beforeEach(() => {
+      (AuthManager as any).instance = undefined;
+      const mockAuthOptions: IAuthOptions = {
+        ...authOptions,
+        allowedRedirectDomains: ['trusted.com', 'example.org'],
+      };
+      instance = AuthManager.getInstance(mockAuthOptions);
+      req = {
+        protocol: 'http',
+        hostname: 'localhost',
+        get: (header: string) => {
+          if (header === 'host') return 'localhost:3000';
+          return '';
+        },
+      } as unknown as Request;
+    });
+
+    afterEach(() => {
+      sandbox.restore();
+      (AuthManager as any).instance = undefined;
+    });
+
+    it('should allow redirects to same host', () => {
+      expect(instance.isAllowedRedirect('/some-path', req)).to.be.true;
+      expect(instance.isAllowedRedirect('http://localhost/path', req)).to.be.true;
+    });
+
+    it('should allow redirects to allowed domains', () => {
+      expect(instance.isAllowedRedirect('https://trusted.com/path', req)).to.be.true;
+      expect(instance.isAllowedRedirect('https://example.org/path', req)).to.be.true;
+    });
+
+    it('should allow redirects to subdomains of allowed domains', () => {
+      expect(instance.isAllowedRedirect('https://sub.trusted.com/path', req)).to.be.true;
+    });
+
+    it('should reject redirects to non-allowed external domains', () => {
+      expect(instance.isAllowedRedirect('https://malicious.com/path', req)).to.be.false;
+    });
+
+    it('should reject domains that partially match allowed domains', () => {
+      expect(instance.isAllowedRedirect('https://eviltrusted.com/path', req)).to.be.false;
+      expect(instance.isAllowedRedirect('https://notexample.org/path', req)).to.be.false;
+    });
+
+    it('should reject redirects with non-http(s) protocols', () => {
+      expect(instance.isAllowedRedirect('javascript:alert(1)', req)).to.be.false;
+    });
+
+    it('should reject redirects when no allowedRedirectDomains configured', () => {
+      (AuthManager as any).instance = undefined;
+      const noDomainsInstance = AuthManager.getInstance(authOptions);
+      expect(noDomainsInstance.isAllowedRedirect('https://external.com', req)).to.be.false;
+      (AuthManager as any).instance = undefined;
+    });
+
+    it('should return false for invalid URLs', () => {
+      expect(instance.isAllowedRedirect('://invalid', req)).to.be.false;
     });
   });
 });

@@ -14,6 +14,8 @@ import { DbRefreshToken } from '../db/db-refresh-token';
 import { AuthUtils } from "./auth-utils";
 import { Op } from "sequelize";
 
+const BCRYPT_ROUNDS = 12;
+
 export class AuthManager {
   private static instance: AuthManager;
   private authOptions: IAuthOptions;
@@ -36,17 +38,50 @@ export class AuthManager {
     return AuthManager.instance;
   }
 
+  public getCookieOptions(maxAge: number): { maxAge: number; httpOnly: boolean; secure: boolean; sameSite: 'strict' | 'lax' | 'none' } {
+    return {
+      maxAge,
+      httpOnly: true,
+      secure: this.authOptions.secureCookies !== false,
+      sameSite: 'lax',
+    };
+  }
+
+  public isAllowedRedirect(url: string, req: Request): boolean {
+    try {
+      const base = `${req.protocol}://${req.get("host")}`;
+      const parsed = new URL(url, base);
+
+      if (parsed.hostname === req.hostname) {
+        return true;
+      }
+
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        return false;
+      }
+
+      const allowedDomains = this.authOptions.allowedRedirectDomains;
+      if (!allowedDomains || allowedDomains.length === 0) {
+        return false;
+      }
+
+      return allowedDomains.some(domain => parsed.hostname === domain || parsed.hostname.endsWith('.' + domain));
+    } catch {
+      return false;
+    }
+  }
+
   public init() {
     const router = Router();
     router.use(cookieParser());
 
     router.use(express.json());
 
-    router.use(
-      Cors({
-        credentials: true,
-      })
-    );
+    const corsOptions: Cors.CorsOptions = {
+      credentials: true,
+      origin: this.authOptions.allowedOrigins || false,
+    };
+    router.use(Cors(corsOptions));
 
     passport.use(
       new JWTStrategy(
@@ -93,7 +128,7 @@ export class AuthManager {
           }
           token = await this.refreshToken(req);
           if (!token) return res.sendStatus(401);
-          res.cookie("auth", token.token, { maxAge: 5 * 60 * 1000 });
+          res.cookie("auth", token.token, this.getCookieOptions(5 * 60 * 1000));
         }
         req.user = token.user;
         next();
@@ -139,16 +174,21 @@ export class AuthManager {
       );
       let redirectAfter = req.cookies["redirect"] || redirectUrl || "/";
       const redirect = req.cookies["redirect"] || redirectUrl || "/";
+
+      if (!this.isAllowedRedirect(redirect, req)) {
+        redirectAfter = "/";
+      }
+
       const base = `${req.protocol}://${req.get("host")}`;
-      const isExternalHost = new URL(redirect, base).hostname !== req.hostname;
+      const isExternalHost = new URL(redirectAfter, base).hostname !== req.hostname;
       if (isExternalHost && req.cookies["redirect"]) {
         redirectAfter +=
           "?" + querystring.stringify({ accessToken: token, refreshToken, provider: (req.user as IAMUser).provider });
       }
       res.clearCookie("redirect");
-      res.cookie("auth", token, { maxAge: 5 * 60 * 1000 });
-      res.cookie("refresh", refreshToken, { maxAge: refreshExpiry });
-      res.cookie("provider", (req.user as IAMUser).provider, { maxAge: refreshExpiry + 15 * 60 * 1000 });
+      res.cookie("auth", token, this.getCookieOptions(5 * 60 * 1000));
+      res.cookie("refresh", refreshToken, this.getCookieOptions(refreshExpiry));
+      res.cookie("provider", (req.user as IAMUser).provider, { ...this.getCookieOptions(refreshExpiry + 15 * 60 * 1000), httpOnly: false }); // httpOnly: false - provider name is non-sensitive and needed by front-end UI
       res.redirect(redirectAfter);
     };
   }
@@ -179,7 +219,7 @@ export class AuthManager {
       });
 
     const hash = await new Promise<string>((resolve, reject) => {
-      bcrypt.hash(token, 10, (err, hashed) => {
+      bcrypt.hash(token, BCRYPT_ROUNDS, (err, hashed) => {
         if (err) return reject(err);
         resolve(hashed);
       });

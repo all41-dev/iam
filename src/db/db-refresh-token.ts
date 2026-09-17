@@ -1,17 +1,8 @@
-import {
-  Table,
-  Column,
-  Model,
-  DataType,
-  PrimaryKey,
-  Default,
-  AllowNull,
-  ForeignKey,
-  BelongsTo,
-} from "sequelize-typescript";
-import { DbUser } from "./db-user";
+import { Column, Model, DataType, PrimaryKey, Default, AllowNull, ForeignKey, BelongsTo } from 'sequelize-typescript';
+import { DbUser } from './db-user';
+import { Table } from '@all41-dev/server.types';
 
-@Table({ tableName: "iam_refresh_token", timestamps: true, })
+@Table({ tableName: 'iam_refresh_token', timestamps: true })
 export class DbRefreshToken extends Model {
   @PrimaryKey
   @Default(DataType.UUIDV4)
@@ -33,6 +24,6 @@ export class DbRefreshToken extends Model {
   declare expires: Date;
 
   public get pkName() {
-    return "uuid" as keyof DbRefreshToken;
+    return 'uuid' as keyof DbRefreshToken;
   }
 }

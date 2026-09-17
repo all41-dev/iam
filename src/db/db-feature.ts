@@ -1,12 +1,12 @@
-import { BelongsTo, BelongsToMany, HasMany, Table } from "sequelize-typescript";
-import { Column, DataType, Default, Model, PrimaryKey, AllowNull } from "sequelize-typescript";
-import { DbScope } from "./db-scope";
-import { DbFeatureComposition } from "./db-feature-composition";
-import { DbPermission } from "./db-permission";
+import { BelongsTo, BelongsToMany, HasMany } from 'sequelize-typescript';
+import { Column, DataType, Default, Model, PrimaryKey, AllowNull } from 'sequelize-typescript';
+import { DbScope } from './db-scope';
+import { DbFeatureComposition } from './db-feature-composition';
+import { DbPermission } from './db-permission';
+import { Table } from '@all41-dev/server.types';
 
-@Table({ tableName: "iam_feature" })
+@Table({ tableName: 'iam_feature' })
 export class DbFeature extends Model {
-
   @PrimaryKey
   @Default(DataType.UUIDV4)
   @Column(DataType.UUID)
@@ -36,6 +36,7 @@ export class DbFeature extends Model {
   @BelongsToMany(() => DbFeature, () => DbFeatureComposition, 'child_uuid', 'parent_uuid')
   declare parents?: DbFeature[];
 
-  public get pkName() { return 'uuid' as keyof DbFeature; }
-
+  public get pkName() {
+    return 'uuid' as keyof DbFeature;
+  }
 }

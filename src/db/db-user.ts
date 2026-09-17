@@ -1,14 +1,7 @@
-import {
-  Column,
-  DataType,
-  Model,
-  PrimaryKey,
-  Table,
-  Default,
-  AllowNull
-} from 'sequelize-typescript';
+import { Column, DataType, Model, PrimaryKey, Default, AllowNull } from 'sequelize-typescript';
+import { Table } from '@all41-dev/server.types';
 
-@Table({ tableName: 'iam_user', timestamps: false })
+@Table({ tableName: 'iam_user', timestamps: true })
 export class DbUser extends Model {
   @PrimaryKey
   @Default(DataType.UUIDV4)
@@ -38,6 +31,7 @@ export class DbUser extends Model {
   @Column(DataType.BOOLEAN)
   declare validated: boolean;
 
-  public get pkName() { return 'uuid' as keyof DbUser; }
-
+  public get pkName() {
+    return 'uuid' as keyof DbUser;
+  }
 }

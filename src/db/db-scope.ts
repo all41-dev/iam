@@ -1,8 +1,9 @@
-import { AllowNull, BelongsTo, Column, DataType, Default, HasMany, Model, PrimaryKey, Table } from "sequelize-typescript";
-import { DbUserGroup } from "./db-user-group";
-import { DbFeature } from "./db-feature";
+import { AllowNull, BelongsTo, Column, DataType, Default, HasMany, Model, PrimaryKey } from 'sequelize-typescript';
+import { DbUserGroup } from './db-user-group';
+import { DbFeature } from './db-feature';
+import { Table } from '@all41-dev/server.types';
 
-@Table({ tableName: "iam_scope", timestamps: false })
+@Table({ tableName: 'iam_scope', timestamps: true })
 export class DbScope extends Model {
   @PrimaryKey
   @Default(DataType.UUIDV4)
@@ -33,6 +34,7 @@ export class DbScope extends Model {
   @HasMany(() => DbFeature, 'scope_uuid')
   declare features: DbFeature[];
 
-  public get pkName() { return 'uuid' as keyof DbScope; }
-
+  public get pkName() {
+    return 'uuid' as keyof DbScope;
+  }
 }

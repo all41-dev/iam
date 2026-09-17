@@ -1,10 +1,11 @@
-import { AllowNull, BelongsTo, BelongsToMany, Column, DataType, Default, HasMany, Model, PrimaryKey, Table } from "sequelize-typescript";
-import { DbScope } from "./db-scope";
-import { DbPermission } from "./db-permission";
-import { DbUser } from "./db-user";
-import { DbUserGroupMember } from "./db-user-group-member";
+import { AllowNull, BelongsTo, BelongsToMany, Column, DataType, Default, HasMany, Model, PrimaryKey } from 'sequelize-typescript';
+import { DbScope } from './db-scope';
+import { DbPermission } from './db-permission';
+import { DbUser } from './db-user';
+import { DbUserGroupMember } from './db-user-group-member';
+import { Table } from '@all41-dev/server.types';
 
-@Table({ tableName: "iam_user_group" })
+@Table({ tableName: 'iam_user_group' })
 export class DbUserGroup extends Model {
   @PrimaryKey
   @Default(DataType.UUIDV4)
@@ -32,5 +33,7 @@ export class DbUserGroup extends Model {
   @BelongsToMany(() => DbUser, () => DbUserGroupMember, 'group_uuid', 'user_uuid')
   declare users: DbUser[];
 
-  public get pkName() { return 'uuid' as keyof DbUserGroup; }
+  public get pkName() {
+    return 'uuid' as keyof DbUserGroup;
+  }
 }

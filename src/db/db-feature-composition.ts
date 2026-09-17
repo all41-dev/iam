@@ -1,9 +1,9 @@
-import { AllowNull, BelongsTo, Column, DataType, Default, Model, PrimaryKey, Table } from "sequelize-typescript";
-import { DbFeature } from "./db-feature";
+import { AllowNull, BelongsTo, Column, DataType, Default, Model, PrimaryKey } from 'sequelize-typescript';
+import { DbFeature } from './db-feature';
+import { Table } from '@all41-dev/server.types';
 
-@Table({ tableName: "iam_feature_composition", timestamps: false })
+@Table({ tableName: 'iam_feature_composition', timestamps: false })
 export class DbFeatureComposition extends Model {
-
   @PrimaryKey
   @Default(DataType.UUIDV4)
   @Column(DataType.UUID)
@@ -23,6 +23,7 @@ export class DbFeatureComposition extends Model {
   @BelongsTo(() => DbFeature, 'parent_uuid')
   declare parent?: DbFeature;
 
-  public get pkName() { return 'uuid' as keyof DbFeatureComposition; }
-
+  public get pkName() {
+    return 'uuid' as keyof DbFeatureComposition;
+  }
 }

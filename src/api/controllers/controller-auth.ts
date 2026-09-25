@@ -27,7 +27,7 @@ export class AuthController {
       r.get(`/${strategy}`, async (req, res, next) => {
         let redirectUrl = req.query.redirectUrl ? req.query.redirectUrl.toString() : '/';
         const redirectDomain = req.query.redirectDomain;
-        const redirectSheme = req.query.redirectDomain ?  req.query.redirectDomain.toString() + '' : 'https';
+        const redirectSheme = req.query.redirectScheme ? req.query.redirectScheme.toString() + '' : 'https';
         if (redirectUrl && redirectDomain) {
           redirectUrl = new URL(redirectUrl.toString(), `${redirectSheme}://${redirectDomain.toString()}`).href
         }

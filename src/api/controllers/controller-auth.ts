@@ -25,10 +25,16 @@ export class AuthController {
 
     strategies.forEach((strategy) => {
       r.get(`/${strategy}`, async (req, res, next) => {
-        const redirectUrl = req.query.redirectUrl;
+        let redirectUrl = req.query.redirectUrl ? req.query.redirectUrl.toString() : '/';
+        const redirectDomain = req.query.redirectDomain;
+        const redirectSheme = req.query.redirectDomain ?  req.query.redirectDomain.toString() + '' : 'https';
+        if (redirectUrl && redirectDomain) {
+          redirectUrl = new URL(redirectUrl.toString(), `${redirectSheme}://${redirectDomain.toString()}`).href
+        }
         const failureRedirect = req.query.failureRedirect;
         if (this._authManager.options.additionalParams) await this._authManager.options.additionalParams(req, res);
         if (redirectUrl) res.cookie('redirect', redirectUrl, { maxAge: 5 * 60 * 1000 });
+        if (redirectDomain) res.cookie('redirectDomain', redirectDomain, { maxAge: 5 * 60 * 1000 });
         if (failureRedirect) res.cookie('failureRedirect', failureRedirect, { maxAge: 5 * 60 * 1000 });
 
         next();

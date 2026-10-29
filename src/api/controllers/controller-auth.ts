@@ -1,9 +1,9 @@
-import { Router } from 'express';
+import { Request, Response, Router } from 'express';
 import passport from 'passport';
-import { AuthManager } from '../../auth/auth-manager';
+import { ACCESS_TOKEN_LIFETIME, AuthManager } from '../../auth/auth-manager';
 import querystring from 'querystring';
 import { AuthUtils } from '../../auth/auth-utils';
-import { IAMUser } from '../../interfaces';
+import { IAMUser, RefreshResult } from '../../interfaces';
 import { Utils } from '@all41-dev/server.types';
 
 export class AuthController {
@@ -50,12 +50,23 @@ export class AuthController {
       }, this._authManager.generateJWT(this._authManager.options.redirectAfterLogin));
     });
 
-    r.get('/logout', (req, res) => {
+    // The same-host client signs out through a navigation; a front behind a proxy posts.
+    r.get('/logout', async (req, res) => {
       try {
-        res.clearCookie('auth');
-        res.clearCookie('refresh');
-        res.clearCookie('provider');
+        await this.revokePresented(req);
+        this.clearSessionCookies(res);
         res.redirect(this._authManager.options.redirectAfterLogin || '/');
+      } catch (err) {
+        Utils.logger.error(`/logout error: ${err}`)
+        return res.status(500).json({ message: 'Internal server error' });
+      }
+    });
+
+    r.post('/logout', async (req, res) => {
+      try {
+        await this.revokePresented(req);
+        this.clearSessionCookies(res);
+        return res.sendStatus(204);
       } catch (err) {
         Utils.logger.error(`/logout error: ${err}`)
         return res.status(500).json({ message: 'Internal server error' });
@@ -64,14 +75,42 @@ export class AuthController {
 
     r.post('/refresh', async (req, res) => {
       try {
-        const result = await this._authManager.refreshToken(req);
-        if (!result) {
-          return res.status(401).json({ message: 'Invalid or missing refresh token' });
+        const presented = req.body?.refreshToken || req.cookies?.refresh;
+        if (!presented) {
+          return res.status(401).json({ code: 'REFRESH_INVALID' });
         }
-        res.cookie("auth", result.token, { maxAge: 5 * 60 * 1000 });
+        const outcome = await this._authManager.rotateRefreshToken(presented);
+        if (!outcome.ok) {
+          return res.status(401).json({ code: outcome.code });
+        }
+        const result: RefreshResult = {
+          user: outcome.user,
+          token: outcome.token,
+          accessToken: outcome.accessToken,
+          accessExpiresAt: outcome.accessExpiresAt,
+          refreshToken: outcome.refreshToken,
+          refreshExpiresAt: outcome.refreshExpiresAt,
+        };
+        res.cookie('auth', result.accessToken, { maxAge: ACCESS_TOKEN_LIFETIME });
+        res.cookie('refresh', result.refreshToken, { maxAge: new Date(result.refreshExpiresAt).getTime() - Date.now() });
         return res.json(result);
       } catch (err) {
-        Utils.logger.error(`/referesh error: ${err}`)
+        Utils.logger.error(`/refresh error: ${err}`)
+        return res.status(500).json({ message: 'Internal server error' });
+      }
+    });
+
+    // Server-to-server: the front host redeems the code it was redirected with. No cookie is set.
+    r.post('/exchange', async (req, res) => {
+      try {
+        const code = req.body?.code;
+        const result = typeof code === 'string' ? await this._authManager.exchangeAuthCode(code) : null;
+        if (!result) {
+          return res.status(400).json({ code: 'INVALID_CODE' });
+        }
+        return res.json(result);
+      } catch (err) {
+        Utils.logger.error(`/exchange error: ${err}`)
         return res.status(500).json({ message: 'Internal server error' });
       }
     });
@@ -137,5 +176,16 @@ export class AuthController {
     });
 
     return r;
+  }
+
+  private async revokePresented(req: Request): Promise<void> {
+    const presented = req.cookies?.refresh || req.body?.refreshToken;
+    if (presented) await this._authManager.revokeRefreshToken(presented);
+  }
+
+  private clearSessionCookies(res: Response): void {
+    res.clearCookie('auth');
+    res.clearCookie('refresh');
+    res.clearCookie('provider');
   }
 }

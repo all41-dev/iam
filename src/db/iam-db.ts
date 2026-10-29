@@ -7,6 +7,7 @@ import { DbUserGroupMember } from "./db-user-group-member";
 import { DbUserGroup } from "./db-user-group";
 import { DbUser } from "./db-user";
 import { DbRefreshToken } from "./db-refresh-token";
+import { DbAuthCode } from "./db-auth-code";
 
 export class IamDb extends Db<IamDb> {
   public async init(): Promise<void> {
@@ -20,7 +21,8 @@ export class IamDb extends Db<IamDb> {
       DbUserGroupMember,
       DbUserGroup,
       DbUser,
-      DbRefreshToken
+      DbRefreshToken,
+      DbAuthCode
     ]);
   }
 }

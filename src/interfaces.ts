@@ -16,6 +16,11 @@ export interface IAuthOptions {
   refreshToken?: (
     req: Request
   ) => Promise<{ user: any; token: string } | undefined>;
+  /**
+   * How a sign-in lands on a front of another host. "tokens" (default) appends them to the
+   * redirect URL; "code" sends a one-time code its host redeems through POST /exchange.
+   */
+  externalLogin?: "tokens" | "code";
 }
 
 export interface IUtilsOptions {
@@ -41,4 +46,39 @@ export interface IAMUser {
   permissions?: any;
   permissionWarning?: string;
   impersonateUser?: string;
+}
+export type AuthFailureCode = "NO_SESSION" | "TOKEN_INVALID" | "TOKEN_EXPIRED";
+
+export type RefreshFailureCode = "REFRESH_INVALID" | "REFRESH_EXPIRED" | "REFRESH_REUSED";
+
+export interface AccessTokenResult {
+  user: any;
+  /** Alias of accessToken, kept for one release. */
+  token: string;
+  accessToken: string;
+  /** ISO 8601, UTC. */
+  accessExpiresAt: string;
+}
+
+export interface IssuedRefreshToken {
+  token: string;
+  expires: Date;
+}
+
+export interface RefreshResult extends AccessTokenResult {
+  refreshToken: string;
+  /** ISO 8601, UTC. */
+  refreshExpiresAt: string;
+}
+
+export type RefreshOutcome = ({ ok: true } & RefreshResult) | { ok: false; code: RefreshFailureCode };
+
+export interface ExchangeResult {
+  accessToken: string;
+  accessExpiresAt: string;
+  refreshToken: string;
+  refreshExpiresAt: string;
+  provider: string;
+  /** Path on the front's own origin, never a scheme or a host. */
+  redirectPath: string;
 }

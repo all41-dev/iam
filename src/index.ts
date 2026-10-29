@@ -3,6 +3,7 @@ export * from './auth/auth-manager';
 export * from './auth/auth-utils';
 export * from './db/db-user';
 export * from './db/db-refresh-token';
+export * from './db/db-auth-code';
 export * from './db/db-user-group';
 export * from './db/db-user-group-member';
 export * from './db/db-scope';

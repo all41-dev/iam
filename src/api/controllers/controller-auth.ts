@@ -25,7 +25,7 @@ export class AuthController {
 
     strategies.forEach((strategy) => {
       r.get(`/${strategy}`, async (req, res, next) => {
-        const redirectUrl = req.query.redirectUrl;
+        const redirectUrl = this.landingUrl(req);
         const failureRedirect = req.query.failureRedirect;
         if (this._authManager.options.additionalParams) await this._authManager.options.additionalParams(req, res);
         if (redirectUrl) res.cookie('redirect', redirectUrl, { maxAge: 5 * 60 * 1000 });
@@ -176,6 +176,20 @@ export class AuthController {
     });
 
     return r;
+  }
+
+  /**
+   * Where the sign-in lands. A front on another host sends its path, host and
+   * scheme apart (`redirectUrl`, `redirectDomain`, `redirectScheme`); joined
+   * here, the absolute URL is what makes the landing external in generateJWT.
+   * Without a domain the path is kept as given, relative to the auth host.
+   */
+  private landingUrl(req: Request): string | undefined {
+    const path = req.query.redirectUrl?.toString();
+    const domain = req.query.redirectDomain?.toString();
+    if (!path || !domain) return path;
+    const scheme = req.query.redirectScheme?.toString() || 'https';
+    return new URL(path, `${scheme}://${domain}`).href;
   }
 
   private async revokePresented(req: Request): Promise<void> {

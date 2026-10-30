@@ -72,6 +72,41 @@ describe('AuthController session routes', () => {
     ]);
   });
 
+  describe('GET /<strategy>', () => {
+    /** The first handler stores the landing before passport takes over. */
+    const start = () => routes['GET /github'][0](req, res, sandbox.stub());
+
+    it('joins path, domain and scheme into one absolute landing for an external front', async () => {
+      req.query = { redirectUrl: '/home', redirectDomain: 'app.example.com', redirectScheme: 'https' };
+
+      await start();
+
+      expect(res.cookie.calledWith('redirect', 'https://app.example.com/home')).to.equal(true);
+    });
+
+    it('assumes https when the scheme is not given', async () => {
+      req.query = { redirectUrl: '/home', redirectDomain: 'app.example.com' };
+
+      await start();
+
+      expect(res.cookie.calledWith('redirect', 'https://app.example.com/home')).to.equal(true);
+    });
+
+    it('keeps a bare path for a same-host front', async () => {
+      req.query = { redirectUrl: '/home' };
+
+      await start();
+
+      expect(res.cookie.calledWith('redirect', '/home')).to.equal(true);
+    });
+
+    it('stores no landing when none was asked for', async () => {
+      await start();
+
+      expect(res.cookie.calledWith('redirect')).to.equal(false);
+    });
+  });
+
   describe('POST /logout', () => {
     it('revokes the refresh cookie, clears the cookies and answers 204', async () => {
       req.cookies.refresh = 'refresh-token';

@@ -21,6 +21,12 @@ export interface IAuthOptions {
    * redirect URL; "code" sends a one-time code its host redeems through POST /exchange.
    */
   externalLogin?: "tokens" | "code";
+  /**
+   * Whether the auth router answers CORS itself (`*` with credentials, the historical
+   * behaviour; default true). False when the host application owns CORS, so that one
+   * allow-list writes the headers and none are doubled.
+   */
+  cors?: boolean;
 }
 
 export interface IUtilsOptions {

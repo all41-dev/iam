@@ -91,11 +91,13 @@ export class AuthManager {
 
     router.use(express.json());
 
-    router.use(
-      Cors({
-        credentials: true,
-      })
-    );
+    if (this.options.cors !== false) {
+      router.use(
+        Cors({
+          credentials: true,
+        })
+      );
+    }
 
     passport.use(
       new JWTStrategy(

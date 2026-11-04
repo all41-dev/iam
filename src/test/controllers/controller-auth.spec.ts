@@ -230,13 +230,18 @@ describe('AuthController session routes', () => {
       expect(res.json.calledOnceWithExactly({ code: 'INVALID_CODE' })).to.be.true;
     });
 
-    it('answers the exchange result and sets no cookie', async () => {
+    it('answers the exchange result and sets the session cookies for the calling host', async () => {
       req.body.code = 'the-code';
-      manager.exchangeAuthCode.resolves(result);
+      const refreshExpiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+      manager.exchangeAuthCode.resolves({ ...result, refreshExpiresAt });
       await handler('POST', '/exchange')(req, res);
-      expect(res.json.calledOnceWithExactly(result)).to.be.true;
-      expect(res.cookie.called).to.be.false;
+      expect(res.json.calledOnceWithExactly({ ...result, refreshExpiresAt })).to.be.true;
       expect(res.status.called).to.be.false;
+      expect(res.cookie.calledWith('auth', 'access')).to.be.true;
+      expect(res.cookie.calledWith('refresh', 'refresh')).to.be.true;
+      expect(res.cookie.calledWith('provider', 'github')).to.be.true;
+      const refreshMaxAge = res.cookie.getCalls().find((c: any) => c.args[0] === 'refresh').args[2].maxAge;
+      expect(refreshMaxAge).to.be.within(59 * 60 * 1000, 60 * 60 * 1000);
     });
 
     it('answers 500 when the exchange throws', async () => {

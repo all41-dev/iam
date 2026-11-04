@@ -75,7 +75,7 @@ Mounted under `/auth` by `@all41-dev/server`. Lifetimes: access token 5 min; ref
 |---|---|
 | `GET /<provider>?redirectUrl=&redirectDomain=&redirectScheme=` | Starts the OAuth flow. A `redirectDomain` other than the auth host makes the landing external. |
 | `GET /<provider>/callback` | Sets `auth`, `refresh` and `provider` cookies and redirects. To an external host the tokens are appended to the URL; with the option `externalLogin: "code"` a one-time code is stored instead, no cookie is set, and the redirect goes to `<scheme>://<domain>/auth/callback?code=`. |
-| `POST /exchange` `{ code }` | Server-to-server. `200 { accessToken, accessExpiresAt, refreshToken, refreshExpiresAt, provider, redirectPath }`, else `400 { code: "INVALID_CODE" }`. Single use. |
+| `POST /exchange` `{ code }` | Called by the front host, through its proxy or server to server. `200 { accessToken, accessExpiresAt, refreshToken, refreshExpiresAt, provider, redirectPath }` and the `auth`, `refresh` and `provider` cookies for the calling host, else `400 { code: "INVALID_CODE" }`. Single use. |
 | `POST /refresh` `{ refreshToken }` (or the `refresh` cookie) | Rotates: `200 { user, token, accessToken, accessExpiresAt, refreshToken, refreshExpiresAt }` with both cookies set; `401 { code }` with `REFRESH_INVALID`, `REFRESH_EXPIRED` or `REFRESH_REUSED`. A reused token revokes every token of its user. |
 | `POST /logout` | Revokes the presented refresh token, clears the cookies, `204`. |
 | `GET /logout` | Same, then redirects to `redirectAfterLogin`. |

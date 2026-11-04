@@ -108,6 +108,11 @@ export class AuthController {
         if (!result) {
           return res.status(400).json({ code: 'INVALID_CODE' });
         }
+        // Reached through the front host's proxy, so the cookies are stored for that host.
+        const refreshMaxAge = new Date(result.refreshExpiresAt).getTime() - Date.now();
+        res.cookie('auth', result.accessToken, { maxAge: ACCESS_TOKEN_LIFETIME });
+        res.cookie('refresh', result.refreshToken, { maxAge: refreshMaxAge });
+        res.cookie('provider', result.provider, { maxAge: refreshMaxAge + 15 * 60 * 1000 });
         return res.json(result);
       } catch (err) {
         Utils.logger.error(`/exchange error: ${err}`)

@@ -1,9 +1,18 @@
-import { Request, Response, Router } from 'express';
+import { Request, Router } from 'express';
 import passport from 'passport';
 import { ACCESS_TOKEN_LIFETIME, AuthManager } from '../../auth/auth-manager';
 import querystring from 'querystring';
 import { AuthUtils } from '../../auth/auth-utils';
-import { IAMUser, RefreshResult } from '../../interfaces';
+import { ExchangeAnswer, IAMUser, RefreshResult } from '../../interfaces';
+import { allowedLanding } from '../../auth/landing';
+import {
+  clearLandingCookie,
+  clearSessionCookies,
+  setAccessCookie,
+  setLandingCookie,
+  setProviderCookie,
+  setRefreshCookie,
+} from '../../auth/session-cookies';
 import { Utils } from '@all41-dev/server.types';
 
 export class AuthController {
@@ -26,21 +35,25 @@ export class AuthController {
     strategies.forEach((strategy) => {
       r.get(`/${strategy}`, async (req, res, next) => {
         const redirectUrl = this.landingUrl(req);
-        const failureRedirect = req.query.failureRedirect;
+        const failureRedirect = req.query.failureRedirect?.toString();
+        if (redirectUrl === null || (failureRedirect && !this.allowed(failureRedirect, req))) {
+          return res.status(400).json({ code: 'REDIRECT_REFUSED' });
+        }
         if (this._authManager.options.additionalParams) await this._authManager.options.additionalParams(req, res);
-        if (redirectUrl) res.cookie('redirect', redirectUrl, { maxAge: 5 * 60 * 1000 });
-        if (failureRedirect) res.cookie('failureRedirect', failureRedirect, { maxAge: 5 * 60 * 1000 });
+        if (redirectUrl) setLandingCookie(req, res, 'redirect', redirectUrl);
+        if (failureRedirect) setLandingCookie(req, res, 'failureRedirect', failureRedirect);
 
         next();
       }, passport.authenticate(strategy, { session: false }));
 
       r.get(`/${strategy}/callback`, (req, res, next) => {
-        const failureRedirect = req.cookies.failureRedirect || this._authManager.options.redirectAfterLogout;
+        const asked = this.allowed(req.cookies.failureRedirect, req) ? req.cookies.failureRedirect : undefined;
+        const failureRedirect = asked || this._authManager.options.redirectAfterLogout;
         passport.authenticate(strategy, { session: false }, (err: any, user: any, info: any) => {
           if (err) return res.status(401).json({ message: err.message });
           if (!user) {
             const query = querystring.stringify({ message: info.message });
-            res.clearCookie('failureRedirect');
+            clearLandingCookie(req, res, 'failureRedirect');
             return res.redirect(`${failureRedirect}?${query}`);
           }
           req.user = user;
@@ -54,7 +67,7 @@ export class AuthController {
     r.get('/logout', async (req, res) => {
       try {
         await this.revokePresented(req);
-        this.clearSessionCookies(res);
+        clearSessionCookies(req, res, this._authManager.options);
         res.redirect(this._authManager.options.redirectAfterLogin || '/');
       } catch (err) {
         Utils.logger.error(`/logout error: ${err}`)
@@ -65,7 +78,7 @@ export class AuthController {
     r.post('/logout', async (req, res) => {
       try {
         await this.revokePresented(req);
-        this.clearSessionCookies(res);
+        clearSessionCookies(req, res, this._authManager.options);
         return res.sendStatus(204);
       } catch (err) {
         Utils.logger.error(`/logout error: ${err}`)
@@ -91,8 +104,9 @@ export class AuthController {
           refreshToken: outcome.refreshToken,
           refreshExpiresAt: outcome.refreshExpiresAt,
         };
-        res.cookie('auth', result.accessToken, { maxAge: ACCESS_TOKEN_LIFETIME });
-        res.cookie('refresh', result.refreshToken, { maxAge: new Date(result.refreshExpiresAt).getTime() - Date.now() });
+        const options = this._authManager.options;
+        setAccessCookie(req, res, options, result.accessToken, ACCESS_TOKEN_LIFETIME);
+        setRefreshCookie(req, res, options, result.refreshToken, new Date(result.refreshExpiresAt).getTime() - Date.now());
         return res.json(result);
       } catch (err) {
         Utils.logger.error(`/refresh error: ${err}`)
@@ -100,7 +114,8 @@ export class AuthController {
       }
     });
 
-    // Server-to-server: the front host redeems the code it was redirected with. No cookie is set.
+    // The front host redeems the code it was redirected with. The session is the cookies of
+    // the answer, stored for whichever host the call came through; the body carries no token.
     r.post('/exchange', async (req, res) => {
       try {
         const code = req.body?.code;
@@ -108,12 +123,18 @@ export class AuthController {
         if (!result) {
           return res.status(400).json({ code: 'INVALID_CODE' });
         }
-        // Reached through the front host's proxy, so the cookies are stored for that host.
+        const options = this._authManager.options;
         const refreshMaxAge = new Date(result.refreshExpiresAt).getTime() - Date.now();
-        res.cookie('auth', result.accessToken, { maxAge: ACCESS_TOKEN_LIFETIME });
-        res.cookie('refresh', result.refreshToken, { maxAge: refreshMaxAge });
-        res.cookie('provider', result.provider, { maxAge: refreshMaxAge + 15 * 60 * 1000 });
-        return res.json(result);
+        setAccessCookie(req, res, options, result.accessToken, ACCESS_TOKEN_LIFETIME);
+        setRefreshCookie(req, res, options, result.refreshToken, refreshMaxAge);
+        setProviderCookie(req, res, result.provider, refreshMaxAge);
+        const answer: ExchangeAnswer = {
+          provider: result.provider,
+          redirectPath: result.redirectPath,
+          accessExpiresAt: result.accessExpiresAt,
+          refreshExpiresAt: result.refreshExpiresAt,
+        };
+        return res.json(answer);
       } catch (err) {
         Utils.logger.error(`/exchange error: ${err}`)
         return res.status(500).json({ message: 'Internal server error' });
@@ -144,7 +165,9 @@ export class AuthController {
         if (!req.user || !this._authUtils) return res.status(401).json({ message: 'Not Authorized' });
         if (await this._authUtils.checkAccess(req.user as IAMUser, "global-write-rights", process.env.GLOBAL_UUID || '') === "deny")
           return res.status(403).json({ message: 'Forbidden' });
-        const redirectUrl = req.query.redirectUrl || this._authManager.options.redirectAfterLogin;
+        const asked = req.query.redirectUrl?.toString();
+        if (asked && !this.allowed(asked, req)) return res.status(400).json({ code: 'REDIRECT_REFUSED' });
+        const redirectUrl = asked || this._authManager.options.redirectAfterLogin;
         const impersonateUser = req.params.email;
         const permissions = await this._authUtils.getUserPermissions(undefined, Array.isArray(impersonateUser) ? impersonateUser.join('') : impersonateUser);
         const user = {
@@ -154,7 +177,7 @@ export class AuthController {
           permissionWarning: permissions && Object.keys(permissions).length > 0 ? undefined : 'no permissions',
         }
         req.user = user;
-        return this._authManager.generateJWT(redirectUrl as string)(req, res);
+        return this._authManager.generateJWT(redirectUrl)(req, res);
       } catch (err) {
         Utils.logger.error(`/impersonate/:email error: ${err}`)
         return res.status(500).json({ message: 'Internal server error' });
@@ -164,7 +187,9 @@ export class AuthController {
     r.get(`/depersonate`, this._authManager.authMiddleware, async (req, res, next) => {
       try {
         if (!req.user || !this._authUtils) return res.status(401).json({ message: 'Not Authorized' });
-        const redirectUrl = req.query.redirectUrl || this._authManager.options.redirectAfterLogin;
+        const asked = req.query.redirectUrl?.toString();
+        if (asked && !this.allowed(asked, req)) return res.status(400).json({ code: 'REDIRECT_REFUSED' });
+        const redirectUrl = asked || this._authManager.options.redirectAfterLogin;
         const permissions = await this._authUtils.getUserPermissions((req.user as IAMUser).uuid)
         const user = {
           ...req.user,
@@ -173,7 +198,7 @@ export class AuthController {
           permissionWarning: permissions && Object.keys(permissions).length > 0 ? undefined : 'no permissions',
         }
         req.user = user;
-        return this._authManager.generateJWT(redirectUrl as string)(req, res);
+        return this._authManager.generateJWT(redirectUrl)(req, res);
       } catch (err) {
         Utils.logger.error(`/depersonate error: ${err}`)
         return res.status(500).json({ message: 'Internal server error' });
@@ -188,23 +213,30 @@ export class AuthController {
    * scheme apart (`redirectUrl`, `redirectDomain`, `redirectScheme`); joined
    * here, the absolute URL is what makes the landing external in generateJWT.
    * Without a domain the path is kept as given, relative to the auth host.
+   * Undefined when none is asked for, null for one that is not allowed.
    */
-  private landingUrl(req: Request): string | undefined {
+  private landingUrl(req: Request): string | null | undefined {
     const path = req.query.redirectUrl?.toString();
+    if (!path) return undefined;
     const domain = req.query.redirectDomain?.toString();
-    if (!path || !domain) return path;
     const scheme = req.query.redirectScheme?.toString() || 'https';
-    return new URL(path, `${scheme}://${domain}`).href;
+    let landing = path;
+    if (domain) {
+      try {
+        landing = new URL(path, `${scheme}://${domain}`).href;
+      } catch {
+        return null;
+      }
+    }
+    return this.allowed(landing, req) ? landing : null;
+  }
+
+  private allowed(landing: unknown, req: Request): boolean {
+    return allowedLanding(landing, req, this._authManager.options) !== null;
   }
 
   private async revokePresented(req: Request): Promise<void> {
     const presented = req.cookies?.refresh || req.body?.refreshToken;
     if (presented) await this._authManager.revokeRefreshToken(presented);
-  }
-
-  private clearSessionCookies(res: Response): void {
-    res.clearCookie('auth');
-    res.clearCookie('refresh');
-    res.clearCookie('provider');
   }
 }

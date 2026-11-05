@@ -27,6 +27,17 @@ export interface IAuthOptions {
    * allow-list writes the headers and none are doubled.
    */
   cors?: boolean;
+  /**
+   * Fronts on other hosts a sign-in may land on: a host (`app.example.com`, reached over https
+   * only) or an origin (`http://dev.example.com`). The auth host itself and the hosts of
+   * redirectAfterLogin and redirectAfterLogout need no entry. Any other landing is refused.
+   */
+  allowedRedirectHosts?: string[];
+  /**
+   * Whether the `auth` and `refresh` cookies are hidden from scripts (default false). True once
+   * no client reads them from document.cookie.
+   */
+  httpOnlyTokens?: boolean;
 }
 
 export interface IUtilsOptions {
@@ -88,3 +99,6 @@ export interface ExchangeResult {
   /** Path on the front's own origin, never a scheme or a host. */
   redirectPath: string;
 }
+
+/** What POST /exchange answers. The tokens travel as cookies only. */
+export type ExchangeAnswer = Pick<ExchangeResult, "provider" | "redirectPath" | "accessExpiresAt" | "refreshExpiresAt">;

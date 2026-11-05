@@ -20,6 +20,8 @@ import { DbUser } from "../db/db-user";
 import { DbRefreshToken } from "../db/db-refresh-token";
 import { DbAuthCode } from "../db/db-auth-code";
 import { AuthUtils } from "./auth-utils";
+import { allowedLanding } from "./landing";
+import { clearLandingCookie, setAccessCookie, setProviderCookie, setRefreshCookie } from "./session-cookies";
 import { Op } from "sequelize";
 import crypto from "crypto";
 
@@ -149,7 +151,7 @@ export class AuthManager {
             const expired = !hasAccess || info?.name === "TokenExpiredError";
             return res.status(401).json({ code: expired ? "TOKEN_EXPIRED" : "TOKEN_INVALID" });
           }
-          res.cookie("auth", refreshed.token, { maxAge: ACCESS_TOKEN_LIFETIME });
+          setAccessCookie(req, res, this.options, refreshed.token, ACCESS_TOKEN_LIFETIME);
           token = refreshed;
         }
         req.user = token.user;
@@ -178,12 +180,16 @@ export class AuthManager {
         throw new Error("No user found in request");
       }
       const user = req.user as IAMUser;
-      const redirect: string = req.cookies["redirect"] || redirectUrl || "/";
+      // The cookie comes from the browser: the landing it names is checked again before use.
+      const asked: string | undefined = allowedLanding(req.cookies["redirect"], req, this.options)
+        ? req.cookies["redirect"]
+        : undefined;
+      const redirect: string = asked || redirectUrl || "/";
       const base = `${req.protocol}://${req.get("host")}`;
       const target = new URL(redirect, base);
       const isExternalHost = target.hostname !== req.hostname;
-      res.clearCookie("redirect");
-      const toExternalFront = isExternalHost && Boolean(req.cookies["redirect"]);
+      clearLandingCookie(req, res, "redirect");
+      const toExternalFront = isExternalHost && Boolean(asked);
       if (toExternalFront && this.options.externalLogin === "code") {
         // No cookie and no token: the front's own host redeems the code through POST /exchange.
         const code = await this.issueAuthCode(user, target);
@@ -202,9 +208,9 @@ export class AuthManager {
         url.searchParams.set("provider", user.provider);
         landing = url.href;
       }
-      res.cookie("auth", access.token, { maxAge: ACCESS_TOKEN_LIFETIME });
-      res.cookie("refresh", refresh.token, { maxAge: refreshMaxAge });
-      res.cookie("provider", user.provider, { maxAge: refreshMaxAge + 15 * MINUTE });
+      setAccessCookie(req, res, this.options, access.token, ACCESS_TOKEN_LIFETIME);
+      setRefreshCookie(req, res, this.options, refresh.token, refreshMaxAge);
+      setProviderCookie(req, res, user.provider, refreshMaxAge);
       res.redirect(landing);
     };
   }

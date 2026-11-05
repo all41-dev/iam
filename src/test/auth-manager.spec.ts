@@ -400,6 +400,7 @@ YQIDAQAB
         user: { uuid: 'user-uuid', provider: 'local' },
         cookies: {},
         protocol: 'http',
+        secure: false,
         hostname: 'localhost',
         get: (header: string) => (header === 'host' ? 'localhost:3000' : ''),
       } as unknown as Request;
@@ -411,9 +412,12 @@ YQIDAQAB
       issueRefreshTokenStub = sandbox.stub(instance, 'issueRefreshToken')
         .resolves({ token: 'mocked-refresh-token', expires: new Date(Date.now() + 1000) });
       issueAuthCodeStub = sandbox.stub(instance, 'issueAuthCode').resolves('the-code');
+      (instance.options as IAuthOptions).allowedRedirectHosts = ['http://externalhost.com'];
     });
 
     afterEach(() => {
+      delete (instance.options as IAuthOptions).allowedRedirectHosts;
+      delete (instance.options as IAuthOptions).httpOnlyTokens;
       sandbox.restore();
     });
 
@@ -431,7 +435,7 @@ YQIDAQAB
       expect(access.sub).to.equal('user-uuid');
 
       expect((res.redirect as sinon.SinonStub).calledOnceWithExactly('/')).to.be.true;
-      expect((res.clearCookie as sinon.SinonStub).calledOnceWithExactly('redirect')).to.be.true;
+      expect((res.clearCookie as sinon.SinonStub).calledOnceWith('redirect')).to.be.true;
       expect(issueRefreshTokenStub.calledOnceWithExactly('user-uuid', undefined)).to.be.true;
       expect(issueAuthCodeStub.called).to.be.false;
     });
@@ -467,7 +471,46 @@ YQIDAQAB
       expect(issueAuthCodeStub.calledOnce).to.be.true;
       expect(issueAuthCodeStub.firstCall.args[0]).to.deep.equal(req.user);
       expect(issueAuthCodeStub.firstCall.args[1].href).to.equal('http://externalhost.com/path?x=1');
-      expect((res.clearCookie as sinon.SinonStub).calledOnceWithExactly('redirect')).to.be.true;
+      expect((res.clearCookie as sinon.SinonStub).calledOnceWith('redirect')).to.be.true;
+    });
+
+    it('ignores a redirect cookie naming a host that is not allowed, and hands it no token', async () => {
+      req.cookies['redirect'] = 'http://evil.example/path';
+
+      await instance.generateJWT('/home')(req, res);
+
+      expect((res.redirect as sinon.SinonStub).calledOnceWithExactly('/home')).to.be.true;
+      expect((res.cookie as sinon.SinonStub).calledThrice).to.be.true;
+      expect(issueAuthCodeStub.called).to.be.false;
+    });
+
+    it('issues no code for a redirect cookie naming a host that is not allowed', async () => {
+      req.cookies['redirect'] = 'http://evil.example/path';
+      (instance.options as IAuthOptions).externalLogin = 'code';
+
+      try {
+        await instance.generateJWT()(req, res);
+      } finally {
+        delete (instance.options as IAuthOptions).externalLogin;
+      }
+
+      expect((res.redirect as sinon.SinonStub).calledOnceWithExactly('/')).to.be.true;
+      expect(issueAuthCodeStub.called).to.be.false;
+    });
+
+    it('sets lax cookies, the tokens hidden from scripts only with httpOnlyTokens', async () => {
+      await instance.generateJWT()(req, res);
+      const cookie = res.cookie as sinon.SinonStub;
+      for (const call of cookie.getCalls()) {
+        expect(call.args[2]).to.include({ path: '/', sameSite: 'lax', secure: false, httpOnly: false });
+      }
+
+      cookie.resetHistory();
+      (instance.options as IAuthOptions).httpOnlyTokens = true;
+      await instance.generateJWT()(req, res);
+      expect(cookie.getCall(0).args[2].httpOnly).to.be.true;
+      expect(cookie.getCall(1).args[2].httpOnly).to.be.true;
+      expect(cookie.getCall(2).args[2].httpOnly).to.be.false;
     });
 
     it('keeps the cookie path for an external redirectUrl given without the cookie', async () => {
@@ -511,7 +554,7 @@ YQIDAQAB
       req.cookies = { redirect: '/target' };
       await instance.generateJWT()(req, res);
 
-      expect((res.clearCookie as sinon.SinonStub).calledOnceWithExactly('redirect')).to.be.true;
+      expect((res.clearCookie as sinon.SinonStub).calledOnceWith('redirect')).to.be.true;
       expect((res.redirect as sinon.SinonStub).calledOnceWithExactly('/target')).to.be.true;
       expect(issueAuthCodeStub.called).to.be.false;
     });

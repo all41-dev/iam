@@ -73,13 +73,17 @@ Mounted under `/auth` by `@all41-dev/server`. Lifetimes: access token 5 min; ref
 
 | Route | Answer |
 |---|---|
-| `GET /<provider>?redirectUrl=&redirectDomain=&redirectScheme=` | Starts the OAuth flow. A `redirectDomain` other than the auth host makes the landing external. |
+| `GET /<provider>?redirectUrl=&redirectDomain=&redirectScheme=` | Starts the OAuth flow. A `redirectDomain` other than the auth host makes the landing external. A landing or a `failureRedirect` on a host that is not allowed answers `400 { code: "REDIRECT_REFUSED" }`. |
 | `GET /<provider>/callback` | Sets `auth`, `refresh` and `provider` cookies and redirects. To an external host the tokens are appended to the URL; with the option `externalLogin: "code"` a one-time code is stored instead, no cookie is set, and the redirect goes to `<scheme>://<domain>/auth/callback?code=`. |
-| `POST /exchange` `{ code }` | Called by the front host, through its proxy or server to server. `200 { accessToken, accessExpiresAt, refreshToken, refreshExpiresAt, provider, redirectPath }` and the `auth`, `refresh` and `provider` cookies for the calling host, else `400 { code: "INVALID_CODE" }`. Single use. |
+| `POST /exchange` `{ code }` | Called by the front host, through its proxy or server to server. `200 { provider, redirectPath, accessExpiresAt, refreshExpiresAt }` and the `auth`, `refresh` and `provider` cookies for the calling host, else `400 { code: "INVALID_CODE" }`. The body carries no token. Single use. |
 | `POST /refresh` `{ refreshToken }` (or the `refresh` cookie) | Rotates: `200 { user, token, accessToken, accessExpiresAt, refreshToken, refreshExpiresAt }` with both cookies set; `401 { code }` with `REFRESH_INVALID`, `REFRESH_EXPIRED` or `REFRESH_REUSED`. A reused token revokes every token of its user. |
 | `POST /logout` | Revokes the presented refresh token, clears the cookies, `204`. |
 | `GET /logout` | Same, then redirects to `redirectAfterLogin`. |
 | `GET /profile` | The signed-in user. |
+
+**Landings.** A sign-in, a failed sign-in, `/impersonate` and `/depersonate` redirect only to the auth host itself (any port), to the origin of `redirectAfterLogin` or `redirectAfterLogout`, or to an entry of the option `allowedRedirectHosts`. An entry is a host (`app.example.com`, `app.example.com:8443`), reached over https only, or an origin (`http://dev.example.com`), matched with its scheme. Nothing is listed by default: a front on another host needs its entry.
+
+**Cookies.** Every cookie is `Path=/`, `SameSite=Lax`, and `Secure` when the request is https (the forwarded scheme behind a trusted proxy). `redirect` and `failureRedirect` are `HttpOnly`. `auth` and `refresh` are `HttpOnly` with the option `httpOnlyTokens: true`, for hosts whose clients do not read them from `document.cookie`. `provider` stays readable.
 
 `authMiddleware` refreshes the access token from the `refresh` cookie without rotating it, so a WebSocket upgrade keeps a valid refresh token. A refusal is `401 { code }` with `NO_SESSION`, `TOKEN_INVALID` or `TOKEN_EXPIRED`.
 

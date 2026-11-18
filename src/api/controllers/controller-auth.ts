@@ -149,6 +149,7 @@ export class AuthController {
       }
     }, (req, res) => {
       res.json({
+        uuid: (req.user as IAMUser).uuid,
         username: (req.user as IAMUser).username,
         email: (req.user as IAMUser).email,
         firstName: (req.user as IAMUser).first_name,

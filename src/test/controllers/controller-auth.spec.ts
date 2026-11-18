@@ -442,6 +442,12 @@ describe('AuthController session routes', () => {
     });
   });
 
+  it('GET /profile answers the user uuid beside the names', () => {
+    req.user = { uuid: 'user-uuid', username: 'jdoe', email: 'j@example.com', first_name: 'J', last_name: 'Doe' };
+    handler('GET', '/profile')(req, res);
+    expect(res.json.firstCall.args[0]).to.include({ uuid: 'user-uuid', username: 'jdoe', firstName: 'J', lastName: 'Doe' });
+  });
+
   describe('impersonation landings', () => {
     let land: sinon.SinonStub;
 
